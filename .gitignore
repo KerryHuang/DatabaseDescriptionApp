@@ -44,6 +44,8 @@ Thumbs.db
 
 # Build folder
 publish/
+publish-test/
+Releases-test/
 
 # Application settings (may contain secrets)
 appsettings.*.json

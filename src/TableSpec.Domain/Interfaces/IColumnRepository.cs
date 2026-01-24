@@ -15,4 +15,14 @@ public interface IColumnRepository
         string schema,
         string tableName,
         CancellationToken ct = default);
+
+    /// <summary>
+    /// 更新欄位說明
+    /// </summary>
+    Task UpdateColumnDescriptionAsync(
+        string schema,
+        string tableName,
+        string columnName,
+        string? description,
+        CancellationToken ct = default);
 }

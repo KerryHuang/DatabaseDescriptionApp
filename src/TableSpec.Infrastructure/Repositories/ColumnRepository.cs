@@ -182,4 +182,97 @@ WHERE
     AND a.SPECIFIC_NAME = @ObjectName
 ORDER BY
     a.ORDINAL_POSITION";
+
+    public async Task UpdateColumnDescriptionAsync(
+        string schema,
+        string tableName,
+        string columnName,
+        string? description,
+        CancellationToken ct = default)
+    {
+        var connectionString = _connectionStringProvider();
+        if (string.IsNullOrEmpty(connectionString))
+            throw new InvalidOperationException("未設定資料庫連線");
+
+        await using var connection = new SqlConnection(connectionString);
+        await connection.OpenAsync(ct);
+
+        // 先檢查是否已存在說明
+        const string checkSql = @"
+            SELECT COUNT(*)
+            FROM sys.extended_properties ep
+            INNER JOIN sys.objects o ON ep.major_id = o.object_id
+            INNER JOIN sys.schemas s ON o.schema_id = s.schema_id
+            INNER JOIN sys.columns c ON ep.major_id = c.object_id AND ep.minor_id = c.column_id
+            WHERE s.name = @Schema
+                AND o.name = @TableName
+                AND c.name = @ColumnName
+                AND ep.name = 'MS_Description'";
+
+        var exists = await connection.ExecuteScalarAsync<int>(checkSql, new
+        {
+            Schema = schema,
+            TableName = tableName,
+            ColumnName = columnName
+        });
+
+        if (string.IsNullOrEmpty(description))
+        {
+            // 如果說明為空，刪除現有的說明
+            if (exists > 0)
+            {
+                const string dropSql = @"
+                    EXEC sp_dropextendedproperty
+                        @name = N'MS_Description',
+                        @level0type = N'SCHEMA', @level0name = @Schema,
+                        @level1type = N'TABLE', @level1name = @TableName,
+                        @level2type = N'COLUMN', @level2name = @ColumnName";
+
+                await connection.ExecuteAsync(dropSql, new
+                {
+                    Schema = schema,
+                    TableName = tableName,
+                    ColumnName = columnName
+                });
+            }
+        }
+        else if (exists > 0)
+        {
+            // 更新現有的說明
+            const string updateSql = @"
+                EXEC sp_updateextendedproperty
+                    @name = N'MS_Description',
+                    @value = @Description,
+                    @level0type = N'SCHEMA', @level0name = @Schema,
+                    @level1type = N'TABLE', @level1name = @TableName,
+                    @level2type = N'COLUMN', @level2name = @ColumnName";
+
+            await connection.ExecuteAsync(updateSql, new
+            {
+                Description = description,
+                Schema = schema,
+                TableName = tableName,
+                ColumnName = columnName
+            });
+        }
+        else
+        {
+            // 新增說明
+            const string addSql = @"
+                EXEC sp_addextendedproperty
+                    @name = N'MS_Description',
+                    @value = @Description,
+                    @level0type = N'SCHEMA', @level0name = @Schema,
+                    @level1type = N'TABLE', @level1name = @TableName,
+                    @level2type = N'COLUMN', @level2name = @ColumnName";
+
+            await connection.ExecuteAsync(addSql, new
+            {
+                Description = description,
+                Schema = schema,
+                TableName = tableName,
+                ColumnName = columnName
+            });
+        }
+    }
 }

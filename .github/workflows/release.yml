@@ -1,0 +1,82 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+env:
+  DOTNET_VERSION: '8.0.x'
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  build-release:
+    name: 建置發布版本
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            runtime: win-x64
+            artifact: TableSpec-win-x64
+          - os: ubuntu-latest
+            runtime: linux-x64
+            artifact: TableSpec-linux-x64
+          - os: macos-latest
+            runtime: osx-arm64
+            artifact: TableSpec-osx-arm64
+
+    steps:
+      - name: 檢出程式碼
+        uses: actions/checkout@v4
+
+      - name: 設定 .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: 還原相依套件
+        run: dotnet restore
+
+      - name: 執行測試
+        run: dotnet test --configuration Release --verbosity normal
+
+      - name: 發布應用程式
+        run: |
+          dotnet publish src/TableSpec.Desktop -c Release -r ${{ matrix.runtime }} --self-contained -p:PublishSingleFile=true -o ./publish
+
+      - name: 上傳發布產物
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ./publish
+          retention-days: 30
+
+  create-release:
+    name: 建立 GitHub Release
+    needs: build-release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: 下載所有產物
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: 壓縮產物
+        run: |
+          cd artifacts
+          for dir in */; do
+            zip -r "${dir%/}.zip" "$dir"
+          done
+
+      - name: 建立 Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*.zip
+          generate_release_notes: true
+          draft: false
+          prerelease: ${{ contains(github.ref, '-') }}

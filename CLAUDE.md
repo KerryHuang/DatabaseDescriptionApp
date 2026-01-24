@@ -16,6 +16,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 <law>所有指令碼和程式碼必須支援 Windows、macOS、Linux 三個平台。</law>
 
+<law>所有檔案使用 UTF-8 編碼（無 BOM），確保繁體中文正確顯示。</law>
+
 ## Quick Commands
 
 - `/build` - 建置解決方案
@@ -91,3 +93,5 @@ Tables, Views, Stored Procedures, Functions - each with columns, indexes, relati
 ## Language
 
 本專案使用**繁體中文**作為主要語言，包含 UI 文字、程式碼註解和 Git Commit 訊息。
+
+**編碼規範**：所有檔案使用 **UTF-8**（無 BOM），換行符號使用 **LF**（Unix 風格）。詳見 `.editorconfig`。

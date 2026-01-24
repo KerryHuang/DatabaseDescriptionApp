@@ -64,23 +64,65 @@
         <!-- 主要內容區域 -->
         <Grid Grid.Row="1" Margin="10,5">
             <!-- 搜尋結果（未分析時顯示） -->
-            <DataGrid ItemsSource="{Binding ColumnSearchResults}"
-                      AutoGenerateColumns="False"
-                      IsReadOnly="True"
-                      GridLinesVisibility="All"
-                      CanUserResizeColumns="True"
-                      CanUserReorderColumns="True"
-                      CanUserSortColumns="True"
-                      IsVisible="{Binding !ShowTypeAnalysis}">
-                <DataGrid.Columns>
-                    <DataGridTextColumn Header="欄位/參數名稱" Binding="{Binding ColumnName}" Width="150"/>
-                    <DataGridTextColumn Header="物件類型" Binding="{Binding ObjectType}" Width="120"/>
-                    <DataGridTextColumn Header="Schema" Binding="{Binding SchemaName}" Width="80"/>
-                    <DataGridTextColumn Header="物件名稱" Binding="{Binding ObjectName}" Width="200"/>
-                    <DataGridTextColumn Header="資料型別" Binding="{Binding DataType}" Width="120"/>
-                    <DataGridTextColumn Header="欄位說明" Binding="{Binding Description}" Width="*"/>
-                </DataGrid.Columns>
-            </DataGrid>
+            <Grid RowDefinitions="*,Auto" IsVisible="{Binding !ShowTypeAnalysis}">
+                <DataGrid Grid.Row="0"
+                          ItemsSource="{Binding ColumnSearchResults}"
+                          SelectedItem="{Binding SelectedSearchResult}"
+                          AutoGenerateColumns="False"
+                          IsReadOnly="True"
+                          GridLinesVisibility="All"
+                          CanUserResizeColumns="True"
+                          CanUserReorderColumns="True"
+                          CanUserSortColumns="True">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="欄位/參數名稱" Binding="{Binding ColumnName}" Width="150"/>
+                        <DataGridTextColumn Header="物件類型" Binding="{Binding ObjectType}" Width="120"/>
+                        <DataGridTextColumn Header="Schema" Binding="{Binding SchemaName}" Width="80"/>
+                        <DataGridTextColumn Header="物件名稱" Binding="{Binding ObjectName}" Width="200"/>
+                        <DataGridTextColumn Header="資料型別" Binding="{Binding DataType}" Width="120"/>
+                        <DataGridTextColumn Header="欄位說明" Binding="{Binding Description}" Width="*"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+
+                <!-- 套用說明工具列 -->
+                <Border Grid.Row="1" Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}"
+                        Padding="10,8"
+                        IsVisible="{Binding SelectedSearchResult, Converter={x:Static ObjectConverters.IsNotNull}}">
+                    <StackPanel Orientation="Horizontal" Spacing="12">
+                        <TextBlock Text="選中：" VerticalAlignment="Center"/>
+                        <TextBlock Text="{Binding SelectedSearchResult.FullObjectName}" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                        <TextBlock Text="{Binding SelectedSearchResult.ColumnName, StringFormat='.[{0}]'}" VerticalAlignment="Center"/>
+                        <TextBlock Text="{Binding SelectedSearchResult.Description, StringFormat='說明：{0}'}"
+                                   VerticalAlignment="Center" MaxWidth="300" TextTrimming="CharacterEllipsis"
+                                   Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"/>
+                        <Button Content="套用說明至空白欄位"
+                                Command="{Binding PrepareApplyDescriptionCommand}"
+                                IsEnabled="{Binding !IsUpdating}"
+                                ToolTip.Tip="將選中資料的說明套用到其他同名但說明為空的欄位"/>
+                        <ProgressBar IsIndeterminate="True" Width="80" IsVisible="{Binding IsUpdating}"/>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <!-- 確認對話框覆蓋層 -->
+            <Border IsVisible="{Binding ShowApplyDescriptionConfirm}"
+                    Background="#80000000"
+                    HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+                <Border Background="{DynamicResource SystemControlBackgroundAltHighBrush}"
+                        CornerRadius="8" Padding="20"
+                        HorizontalAlignment="Center" VerticalAlignment="Center"
+                        MinWidth="400" MaxWidth="600">
+                    <StackPanel Spacing="15">
+                        <TextBlock Text="確認套用說明" FontSize="18" FontWeight="Bold"/>
+                        <TextBlock Text="{Binding ApplyDescriptionPreview}" TextWrapping="Wrap"/>
+                        <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
+                            <Button Content="取消" Command="{Binding CancelApplyDescriptionCommand}" MinWidth="80"/>
+                            <Button Content="確認套用" Command="{Binding ConfirmApplyDescriptionCommand}" MinWidth="80"
+                                    Classes="accent"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+            </Border>
 
             <!-- 型態一致性分析結果（分析後顯示） -->
             <Grid ColumnDefinitions="*,10,1.2*" IsVisible="{Binding ShowTypeAnalysis}">
@@ -226,40 +268,61 @@
                         <!-- 更新長度面板 -->
                         <Border Grid.Row="3" Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}"
                                 Padding="10,8" CornerRadius="0,0,4,4"
-                                IsVisible="{Binding SelectedColumnType, Converter={x:Static ObjectConverters.IsNotNull}}">
-                            <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto">
-                                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
-                                    <TextBlock Text="選中：" VerticalAlignment="Center"/>
-                                    <TextBlock Text="{Binding SelectedColumnType.FullTableName}"
-                                               FontWeight="SemiBold" VerticalAlignment="Center"/>
-                                    <TextBlock Text="{Binding SelectedColumnType.DataType, StringFormat='({0})'}"
+                                IsVisible="{Binding SelectedGroup, Converter={x:Static ObjectConverters.IsNotNull}}">
+                            <Grid RowDefinitions="Auto,Auto">
+                                <!-- 批次更新列 -->
+                                <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="12">
+                                    <TextBlock Text="批次更新：" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                                    <TextBlock Text="新長度：" VerticalAlignment="Center"/>
+                                    <NumericUpDown Value="{Binding BatchNewLength}"
+                                                   Minimum="-1" Maximum="8000"
+                                                   Width="120" FormatString="0"
+                                                   ToolTip.Tip="輸入新的長度（-1 表示 MAX）"/>
+                                    <Button Content="更新所有不一致項目"
+                                            Command="{Binding BatchUpdateLengthCommand}"
+                                            IsEnabled="{Binding !IsUpdating}"
+                                            ToolTip.Tip="將所有不一致且可變更長度的欄位更新為指定長度"/>
+                                    <ProgressBar IsIndeterminate="True" Width="80"
+                                                 IsVisible="{Binding IsUpdating}"/>
+                                    <TextBlock Text="{Binding BatchUpdateProgress}"
                                                VerticalAlignment="Center"
                                                Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"/>
                                 </StackPanel>
 
-                                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" Margin="20,0,0,0"
-                                            IsVisible="{Binding SelectedColumnType.IsLengthChangeable}">
-                                    <TextBlock Text="新長度：" VerticalAlignment="Center"/>
-                                    <NumericUpDown Value="{Binding NewLength}"
-                                                   Minimum="-1" Maximum="8000"
-                                                   Width="100"
-                                                   ToolTip.Tip="輸入新的長度（-1 表示 MAX）"/>
-                                </StackPanel>
+                                <!-- 單筆更新列 -->
+                                <Grid Grid.Row="1" ColumnDefinitions="Auto,Auto,Auto,*,Auto" Margin="0,8,0,0"
+                                      IsVisible="{Binding SelectedColumnType, Converter={x:Static ObjectConverters.IsNotNull}}">
+                                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
+                                        <TextBlock Text="選中：" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{Binding SelectedColumnType.FullTableName}"
+                                                   FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{Binding SelectedColumnType.DataType, StringFormat='({0})'}"
+                                                   VerticalAlignment="Center"
+                                                   Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"/>
+                                    </StackPanel>
 
-                                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" Margin="10,0,0,0"
-                                            IsVisible="{Binding SelectedColumnType.IsLengthChangeable}">
-                                    <Button Content="更新長度"
-                                            Command="{Binding UpdateColumnLengthCommand}"
+                                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" Margin="20,0,0,0"
+                                                IsVisible="{Binding SelectedColumnType.IsLengthChangeable}">
+                                        <TextBlock Text="新長度：" VerticalAlignment="Center"/>
+                                        <NumericUpDown Value="{Binding NewLength}"
+                                                       Minimum="-1" Maximum="8000"
+                                                       Width="120" FormatString="0"
+                                                       ToolTip.Tip="輸入新的長度（-1 表示 MAX）"/>
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" Margin="10,0,0,0"
+                                                IsVisible="{Binding SelectedColumnType.IsLengthChangeable}">
+                                        <Button Content="更新此欄位"
+                                                Command="{Binding UpdateColumnLengthCommand}"
+                                                CommandParameter="{Binding SelectedColumnType}"
+                                                IsEnabled="{Binding !IsUpdating}"/>
+                                    </StackPanel>
+
+                                    <Button Grid.Column="4" Content="載入約束"
+                                            Command="{Binding RefreshConstraintsCommand}"
                                             CommandParameter="{Binding SelectedColumnType}"
-                                            IsEnabled="{Binding !IsUpdating}"/>
-                                    <ProgressBar IsIndeterminate="True" Width="60"
-                                                 IsVisible="{Binding IsUpdating}"/>
-                                </StackPanel>
-
-                                <Button Grid.Column="4" Content="載入約束"
-                                        Command="{Binding RefreshConstraintsCommand}"
-                                        CommandParameter="{Binding SelectedColumnType}"
-                                        HorizontalAlignment="Right"/>
+                                            HorizontalAlignment="Right"/>
+                                </Grid>
                             </Grid>
                         </Border>
                     </Grid>

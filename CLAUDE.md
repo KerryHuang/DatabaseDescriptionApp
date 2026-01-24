@@ -14,6 +14,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 <law>UI 文字、註解、Commit 訊息使用繁體中文。</law>
 
+<law>所有指令碼和程式碼必須支援 Windows、macOS、Linux 三個平台。</law>
+
 ## Quick Commands
 
 - `/build` - 建置解決方案
@@ -41,8 +43,13 @@ dotnet test tests/TableSpec.Infrastructure.Tests
 # Run single test by filter
 dotnet test --filter "FullyQualifiedName~TestMethodName"
 
-# Publish single executable (Windows)
+# Publish single executable (cross-platform)
+# Windows x64
 dotnet publish src/TableSpec.Desktop -c Release -r win-x64 --self-contained -p:PublishSingleFile=true
+# macOS (Apple Silicon)
+dotnet publish src/TableSpec.Desktop -c Release -r osx-arm64 --self-contained -p:PublishSingleFile=true
+# Linux x64
+dotnet publish src/TableSpec.Desktop -c Release -r linux-x64 --self-contained -p:PublishSingleFile=true
 ```
 
 ## Architecture

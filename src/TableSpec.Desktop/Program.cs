@@ -62,6 +62,10 @@ sealed class Program
         // Infrastructure - Backup Service
         services.AddSingleton<IBackupService, MssqlBackupService>();
 
+        // Infrastructure - Schema Compare Services
+        services.AddSingleton<ISchemaCollector, MssqlSchemaCollector>();
+        services.AddSingleton<ISchemaCompareService, SchemaCompareService>();
+
         // ViewModels
         services.AddTransient<MainWindowViewModel>(sp =>
             new MainWindowViewModel(
@@ -76,6 +80,11 @@ sealed class Program
         services.AddTransient<BackupRestoreDocumentViewModel>(sp =>
             new BackupRestoreDocumentViewModel(
                 sp.GetRequiredService<IBackupService>(),
+                sp.GetRequiredService<IConnectionManager>()));
+        services.AddTransient<SchemaCompareDocumentViewModel>(sp =>
+            new SchemaCompareDocumentViewModel(
+                sp.GetRequiredService<ISchemaCompareService>(),
+                sp.GetRequiredService<ISchemaCollector>(),
                 sp.GetRequiredService<IConnectionManager>()));
 
         return services.BuildServiceProvider();

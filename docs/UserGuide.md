@@ -36,11 +36,12 @@ TableSpec 是一個資料庫規格查詢工具，可以幫助您：
 
 從 [GitHub Releases](https://github.com/KerryHuang/DatabaseDescriptionApp/releases) 下載適合您作業系統的版本：
 
-| 作業系統 | 下載連結 |
-|---------|----------|
-| Windows x64 | [TableSpec-win-x64.zip](https://github.com/KerryHuang/DatabaseDescriptionApp/releases/latest/download/TableSpec-win-x64.zip) |
-| macOS (Apple Silicon) | [TableSpec-osx-arm64.zip](https://github.com/KerryHuang/DatabaseDescriptionApp/releases/latest/download/TableSpec-osx-arm64.zip) |
-| Linux x64 | [TableSpec-linux-x64.zip](https://github.com/KerryHuang/DatabaseDescriptionApp/releases/latest/download/TableSpec-linux-x64.zip) |
+| 作業系統 | 下載連結 | 說明 |
+|---------|----------|------|
+| Windows x64 | [TableSpec-win-Setup.exe](https://github.com/KerryHuang/DatabaseDescriptionApp/releases/latest/download/TableSpec-win-Setup.exe) | 安裝程式（推薦） |
+| Windows x64 | [TableSpec-win-Portable.zip](https://github.com/KerryHuang/DatabaseDescriptionApp/releases/latest/download/TableSpec-win-Portable.zip) | 可攜式版本 |
+| macOS (Apple Silicon) | [TableSpec-osx-arm64.zip](https://github.com/KerryHuang/DatabaseDescriptionApp/releases/latest) | 從 Releases 頁面下載 |
+| Linux x64 | [TableSpec.AppImage](https://github.com/KerryHuang/DatabaseDescriptionApp/releases/latest/download/TableSpec.AppImage) | AppImage 格式 |
 
 ### 系統需求
 

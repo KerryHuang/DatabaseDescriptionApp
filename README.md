@@ -133,13 +133,14 @@ DatabaseDescriptionApp/
 
 從 [GitHub Releases](https://github.com/KerryHuang/DatabaseDescriptionApp/releases) 下載最新版本：
 
-| 平台 | 下載連結 |
-|------|----------|
-| Windows x64 | [TableSpec-win-x64.zip](https://github.com/KerryHuang/DatabaseDescriptionApp/releases/latest/download/TableSpec-win-x64.zip) |
-| macOS (Apple Silicon) | [TableSpec-osx-arm64.zip](https://github.com/KerryHuang/DatabaseDescriptionApp/releases/latest/download/TableSpec-osx-arm64.zip) |
-| Linux x64 | [TableSpec-linux-x64.zip](https://github.com/KerryHuang/DatabaseDescriptionApp/releases/latest/download/TableSpec-linux-x64.zip) |
+| 平台 | 下載連結 | 說明 |
+|------|----------|------|
+| Windows x64 | [TableSpec-win-Setup.exe](https://github.com/KerryHuang/DatabaseDescriptionApp/releases/latest/download/TableSpec-win-Setup.exe) | 安裝程式 |
+| Windows x64 | [TableSpec-win-Portable.zip](https://github.com/KerryHuang/DatabaseDescriptionApp/releases/latest/download/TableSpec-win-Portable.zip) | 可攜式版本 |
+| macOS (Apple Silicon) | [TableSpec-osx-arm64.zip](https://github.com/KerryHuang/DatabaseDescriptionApp/releases/latest) | 從 Releases 頁面下載 |
+| Linux x64 | [TableSpec.AppImage](https://github.com/KerryHuang/DatabaseDescriptionApp/releases/latest/download/TableSpec.AppImage) | AppImage 格式 |
 
-> 下載後解壓縮即可執行，無需安裝 .NET Runtime。
+> Windows 安裝程式會自動建立開始選單和桌面捷徑，並支援自動更新。
 
 ## 系統需求
 

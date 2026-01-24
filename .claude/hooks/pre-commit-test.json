@@ -4,6 +4,6 @@
   "event": "PreCommit",
   "command": "dotnet test --no-build --verbosity minimal",
   "timeout": 120000,
-  "onFailure": "warn",
-  "enabled": false
+  "onFailure": "block",
+  "enabled": true
 }

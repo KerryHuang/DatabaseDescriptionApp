@@ -12,7 +12,31 @@
       "Bash(dotnet build:*)",
       "Bash(dir \"C:\\\\Users\\\\zihao\\\\source\\\\repos\\\\DatabaseDescriptionApp\")",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(timeout 5 dotnet run:*)",
+      "Bash(timeout 8 dotnet run:*)",
+      "Bash(start dotnet run --project src/TableSpec.Desktop/TableSpec.Desktop.csproj)",
+      "Bash(git push:*)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\zihao\\\\source\\\\repos\\\\DatabaseDescriptionApp\" -Filter \"*.sln\" -Recurse)",
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "Bash(dotnet nuget search:*)",
+      "Bash(dotnet package search:*)",
+      "Bash(taskkill:*)",
+      "Bash(timeout /t 2 /nobreak)",
+      "Bash(tasklist:*)",
+      "Bash(powershell -Command \"Stop-Process -Name ''TableSpec.Desktop'' -Force\")",
+      "Bash(powershell -Command:*)",
+      "Bash(powershell -ExecutionPolicy Bypass -File \"C:\\\\Users\\\\zihao\\\\source\\\\repos\\\\DatabaseDescriptionApp\\\\src\\\\TableSpec.Desktop\\\\Assets\\\\create-icon.ps1\")",
+      "Bash(del \"C:\\\\Users\\\\zihao\\\\source\\\\repos\\\\DatabaseDescriptionApp\\\\src\\\\TableSpec.Desktop\\\\Assets\\\\tablespec.ico\" \"C:\\\\Users\\\\zihao\\\\source\\\\repos\\\\DatabaseDescriptionApp\\\\src\\\\TableSpec.Desktop\\\\Assets\\\\tablespec-icon.png\" \"C:\\\\Users\\\\zihao\\\\source\\\\repos\\\\DatabaseDescriptionApp\\\\src\\\\TableSpec.Desktop\\\\Assets\\\\create-icon.ps1\")",
+      "Bash(dotnet restore:*)",
+      "Bash(dotnet list:*)",
+      "Bash(Start-Process \"dotnet\" -ArgumentList \"run --project src/TableSpec.Desktop/TableSpec.Desktop.csproj\" -NoNewWindow)",
+      "WebSearch",
+      "WebFetch(domain:docs.avaloniaui.net)",
+      "WebFetch(domain:wieslawsoltes.github.io)",
+      "WebFetch(domain:github.com)",
+      "Bash(dotnet run:*)",
+      "Bash(dotnet test:*)"
     ]
   }
 }

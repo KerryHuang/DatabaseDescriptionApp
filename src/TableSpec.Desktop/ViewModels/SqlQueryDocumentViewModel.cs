@@ -42,20 +42,10 @@ public partial class SqlQueryDocumentViewModel : DocumentViewModel
     [ObservableProperty]
     private ConnectionProfile? _selectedProfile;
 
-    [ObservableProperty]
-    private string _columnSearchText = string.Empty;
-
-    [ObservableProperty]
-    private bool _isSearching;
-
-    [ObservableProperty]
-    private int _selectedTabIndex;
-
     public ObservableCollection<ConnectionProfile> ConnectionProfiles { get; } = [];
     public ObservableCollection<Dictionary<string, object?>> QueryResults { get; } = [];
     public ObservableCollection<DataGridColumn> ResultColumns { get; } = [];
     public ObservableCollection<string> QueryHistory { get; } = [];
-    public ObservableCollection<ColumnSearchResult> ColumnSearchResults { get; } = [];
 
     public override string DocumentType => "SqlQuery";
 
@@ -68,7 +58,7 @@ public partial class SqlQueryDocumentViewModel : DocumentViewModel
         // Design-time constructor
         _instanceId = ++_instanceCount;
         Title = $"SQL 查詢 {_instanceId}";
-        Icon = "";
+        Icon = "📝";
     }
 
     public SqlQueryDocumentViewModel(ISqlQueryRepository sqlQueryRepository, IConnectionManager connectionManager)
@@ -77,7 +67,7 @@ public partial class SqlQueryDocumentViewModel : DocumentViewModel
         _connectionManager = connectionManager;
         _instanceId = ++_instanceCount;
         Title = $"SQL 查詢 {_instanceId}";
-        Icon = "";
+        Icon = "📝";
         CanClose = true;
 
         LoadConnectionProfiles();
@@ -209,45 +199,6 @@ public partial class SqlQueryDocumentViewModel : DocumentViewModel
         {
             SqlText = sql;
         }
-    }
-
-    [RelayCommand]
-    private async Task SearchColumnsAsync()
-    {
-        if (_sqlQueryRepository == null || string.IsNullOrWhiteSpace(ColumnSearchText))
-            return;
-
-        try
-        {
-            IsSearching = true;
-            StatusMessage = "搜尋中...";
-            ColumnSearchResults.Clear();
-
-            var results = await _sqlQueryRepository.SearchColumnsAsync(ColumnSearchText.Trim());
-
-            foreach (var result in results)
-            {
-                ColumnSearchResults.Add(result);
-            }
-
-            StatusMessage = $"找到 {ColumnSearchResults.Count} 個符合的欄位/參數";
-        }
-        catch (Exception ex)
-        {
-            StatusMessage = $"搜尋錯誤：{ex.Message}";
-        }
-        finally
-        {
-            IsSearching = false;
-        }
-    }
-
-    [RelayCommand]
-    private void ClearColumnSearch()
-    {
-        ColumnSearchText = string.Empty;
-        ColumnSearchResults.Clear();
-        StatusMessage = string.Empty;
     }
 
     private void AddToHistory(string sql)

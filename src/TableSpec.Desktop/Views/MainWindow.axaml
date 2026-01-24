@@ -1,20 +1,207 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:TableSpec.Desktop.ViewModels"
+        xmlns:domain="using:TableSpec.Domain.Entities"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+        mc:Ignorable="d" d:DesignWidth="1200" d:DesignHeight="700"
         x:Class="TableSpec.Desktop.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
         Icon="/Assets/avalonia-logo.ico"
-        Title="TableSpec.Desktop">
+        Title="TableSpec - 資料庫規格查詢工具"
+        Width="1200" Height="700"
+        MinWidth="800" MinHeight="500">
 
     <Design.DataContext>
-        <!-- This only sets the DataContext for the previewer in an IDE,
-             to set the actual DataContext for runtime, set the DataContext property in code (look at App.axaml.cs) -->
         <vm:MainWindowViewModel/>
     </Design.DataContext>
 
-    <TextBlock Text="{Binding Greeting}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+    <DockPanel>
+        <!-- 頂部工具列 -->
+        <Border DockPanel.Dock="Top" Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}" Padding="10,8">
+            <Grid ColumnDefinitions="Auto,*,Auto">
+                <!-- 左側：標題 -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10">
+                    <TextBlock Text="TableSpec" FontSize="18" FontWeight="Bold" VerticalAlignment="Center"/>
+                </StackPanel>
 
+                <!-- 中間：連線狀態 -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center" Spacing="10">
+                    <ComboBox MinWidth="200" VerticalAlignment="Center"
+                              ItemsSource="{Binding ConnectionProfiles}"
+                              SelectedItem="{Binding SelectedProfile}"
+                              PlaceholderText="請選擇連線...">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate x:DataType="domain:ConnectionProfile">
+                                <TextBlock Text="{Binding Name}"/>
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                    <Button Content="設定連線" Command="{Binding OpenConnectionSettingsCommand}"/>
+                </StackPanel>
+
+                <!-- 右側：匯出按鈕 -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="10">
+                    <Button Content="匯出 Excel"
+                            Command="{Binding ExportToExcelCommand}"
+                            IsEnabled="{Binding IsConnected}"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- 底部狀態列 -->
+        <Border DockPanel.Dock="Bottom" Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}" Padding="10,5">
+            <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Grid.Column="0" Text="{Binding StatusMessage}" VerticalAlignment="Center"/>
+                <ProgressBar Grid.Column="1" IsIndeterminate="True" Width="100"
+                             IsVisible="{Binding IsExporting}" VerticalAlignment="Center"/>
+            </Grid>
+        </Border>
+
+        <!-- 主內容區域 -->
+        <Grid ColumnDefinitions="280,5,*">
+            <!-- 左側：物件樹 -->
+            <Border Grid.Column="0" Background="{DynamicResource SystemControlBackgroundAltMediumLowBrush}">
+                <DockPanel>
+                    <!-- 搜尋框 -->
+                    <Border DockPanel.Dock="Top" Padding="10">
+                        <TextBox Watermark="搜尋物件..."
+                                 Text="{Binding ObjectTree.SearchText, Mode=TwoWay}"/>
+                    </Border>
+
+                    <!-- 物件清單 -->
+                    <TreeView x:Name="ObjectTreeView"
+                              ItemsSource="{Binding ObjectTree.Groups}" Margin="5"
+                              SelectionMode="Single"
+                              SelectionChanged="OnTreeViewSelectionChanged">
+                        <TreeView.DataTemplates>
+                            <!-- 群組模板 -->
+                            <TreeDataTemplate DataType="{x:Type vm:ObjectGroupViewModel}"
+                                              ItemsSource="{Binding Items}">
+                                <StackPanel Orientation="Horizontal" Spacing="5">
+                                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold"/>
+                                    <TextBlock Text="{Binding VisibleCount, StringFormat='({0})'}"
+                                               Foreground="Gray"/>
+                                </StackPanel>
+                            </TreeDataTemplate>
+                            <!-- 項目模板 -->
+                            <DataTemplate DataType="{x:Type vm:ObjectItemViewModel}">
+                                <TextBlock Text="{Binding DisplayName}"/>
+                            </DataTemplate>
+                        </TreeView.DataTemplates>
+                        <TreeView.Styles>
+                            <Style Selector="TreeViewItem">
+                                <Setter Property="IsExpanded" Value="True"/>
+                            </Style>
+                            <!-- 隱藏不可見的項目 -->
+                            <Style Selector="TreeViewItem" x:DataType="vm:ObjectItemViewModel">
+                                <Setter Property="IsVisible" Value="{Binding IsVisible}"/>
+                            </Style>
+                        </TreeView.Styles>
+                    </TreeView>
+                </DockPanel>
+            </Border>
+
+            <!-- 分隔線 -->
+            <GridSplitter Grid.Column="1" Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
+                          ResizeDirection="Columns"/>
+
+            <!-- 右側：詳細資訊 -->
+            <Border Grid.Column="2" Padding="10">
+                <DockPanel>
+                    <!-- 表格標題 -->
+                    <Border DockPanel.Dock="Top" Margin="0,0,0,10">
+                        <StackPanel>
+                            <TextBlock Text="{Binding TableDetail.CurrentTable.Name, FallbackValue='請選擇物件'}"
+                                       FontSize="18" FontWeight="Bold"/>
+                            <TextBlock Text="{Binding TableDetail.CurrentTable.Description}"
+                                       Foreground="Gray" Margin="0,5,0,0"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- 分頁 -->
+                    <TabControl SelectedIndex="{Binding TableDetail.SelectedTabIndex}">
+                        <!-- 欄位頁籤 (Table/View) -->
+                        <TabItem Header="欄位"
+                                 IsVisible="{Binding TableDetail.CurrentTable.Type,
+                                             Converter={x:Static StringConverters.IsNotNullOrEmpty},
+                                             FallbackValue=True}">
+                            <DataGrid ItemsSource="{Binding TableDetail.Columns}"
+                                      AutoGenerateColumns="False"
+                                      IsReadOnly="True"
+                                      GridLinesVisibility="All"
+                                      CanUserResizeColumns="True">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="欄位名稱" Binding="{Binding ColumnName}" Width="150"/>
+                                    <DataGridTextColumn Header="資料型別" Binding="{Binding DataType}" Width="100"/>
+                                    <DataGridTextColumn Header="長度" Binding="{Binding Length}" Width="60"/>
+                                    <DataGridCheckBoxColumn Header="PK" Binding="{Binding IsPrimaryKey}" Width="50"/>
+                                    <DataGridCheckBoxColumn Header="Null" Binding="{Binding IsNullable}" Width="50"/>
+                                    <DataGridTextColumn Header="預設值" Binding="{Binding DefaultValue}" Width="100"/>
+                                    <DataGridTextColumn Header="說明" Binding="{Binding Description}" Width="*"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </TabItem>
+                        <!-- 索引頁籤 (Table only) -->
+                        <TabItem Header="索引">
+                            <DataGrid ItemsSource="{Binding TableDetail.Indexes}"
+                                      AutoGenerateColumns="False"
+                                      IsReadOnly="True"
+                                      GridLinesVisibility="All">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="索引名稱" Binding="{Binding Name}" Width="200"/>
+                                    <DataGridTextColumn Header="類型" Binding="{Binding Type}" Width="120"/>
+                                    <DataGridCheckBoxColumn Header="唯一" Binding="{Binding IsUnique}" Width="60"/>
+                                    <DataGridCheckBoxColumn Header="主鍵" Binding="{Binding IsPrimaryKey}" Width="60"/>
+                                    <DataGridTextColumn Header="欄位" Binding="{Binding Columns}" Width="*"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </TabItem>
+                        <!-- 關聯頁籤 (Table only) -->
+                        <TabItem Header="關聯">
+                            <DataGrid ItemsSource="{Binding TableDetail.Relations}"
+                                      AutoGenerateColumns="False"
+                                      IsReadOnly="True"
+                                      GridLinesVisibility="All">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="約束名稱" Binding="{Binding ConstraintName}" Width="200"/>
+                                    <DataGridTextColumn Header="來源表.欄位" Binding="{Binding FromTable}" Width="150"/>
+                                    <DataGridTextColumn Header="來源欄位" Binding="{Binding FromColumn}" Width="100"/>
+                                    <DataGridTextColumn Header="目標表" Binding="{Binding ToTable}" Width="150"/>
+                                    <DataGridTextColumn Header="目標欄位" Binding="{Binding ToColumn}" Width="100"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </TabItem>
+                        <!-- 參數頁籤 (SP/Function) -->
+                        <TabItem Header="參數">
+                            <DataGrid ItemsSource="{Binding TableDetail.Parameters}"
+                                      AutoGenerateColumns="False"
+                                      IsReadOnly="True"
+                                      GridLinesVisibility="All">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="順序" Binding="{Binding Ordinal}" Width="60"/>
+                                    <DataGridTextColumn Header="參數名稱" Binding="{Binding Name}" Width="150"/>
+                                    <DataGridTextColumn Header="資料型別" Binding="{Binding DataType}" Width="120"/>
+                                    <DataGridTextColumn Header="長度" Binding="{Binding Length}" Width="80"/>
+                                    <DataGridCheckBoxColumn Header="輸出" Binding="{Binding IsOutput}" Width="60"/>
+                                    <DataGridTextColumn Header="預設值" Binding="{Binding DefaultValue}" Width="*"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </TabItem>
+                        <!-- 定義頁籤 (SP/Function) -->
+                        <TabItem Header="定義">
+                            <ScrollViewer>
+                                <TextBox Text="{Binding TableDetail.Definition}"
+                                         IsReadOnly="True"
+                                         AcceptsReturn="True"
+                                         FontFamily="Consolas, Menlo, monospace"
+                                         FontSize="12"
+                                         TextWrapping="Wrap"/>
+                            </ScrollViewer>
+                        </TabItem>
+                    </TabControl>
+                </DockPanel>
+            </Border>
+        </Grid>
+    </DockPanel>
 </Window>

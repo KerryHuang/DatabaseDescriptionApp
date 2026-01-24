@@ -1,0 +1,13 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/TableSpec.Application/TableSpec.Application.csproj" />
+    <Project Path="src/TableSpec.Desktop/TableSpec.Desktop.csproj" />
+    <Project Path="src/TableSpec.Domain/TableSpec.Domain.csproj" />
+    <Project Path="src/TableSpec.Infrastructure/TableSpec.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/TableSpec.Application.Tests/TableSpec.Application.Tests.csproj" />
+    <Project Path="tests/TableSpec.Domain.Tests/TableSpec.Domain.Tests.csproj" />
+    <Project Path="tests/TableSpec.Infrastructure.Tests/TableSpec.Infrastructure.Tests.csproj" />
+  </Folder>
+</Solution>

@@ -1,6 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:TableSpec.Desktop.ViewModels"
+        xmlns:views="using:TableSpec.Desktop.Views"
         xmlns:domain="using:TableSpec.Domain.Entities"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -17,6 +18,57 @@
     </Design.DataContext>
 
     <DockPanel>
+        <!-- 功能表列 -->
+        <Menu DockPanel.Dock="Top">
+            <MenuItem Header="檔案(_F)">
+                <MenuItem Header="連線設定(_C)" Command="{Binding OpenConnectionSettingsCommand}" InputGesture="Ctrl+L">
+                    <MenuItem.Icon>
+                        <TextBlock Text="" FontSize="14"/>
+                    </MenuItem.Icon>
+                </MenuItem>
+                <MenuItem Header="匯出 Excel(_E)" Command="{Binding ExportToExcelCommand}" IsEnabled="{Binding IsConnected}">
+                    <MenuItem.Icon>
+                        <TextBlock Text="" FontSize="14"/>
+                    </MenuItem.Icon>
+                </MenuItem>
+                <Separator/>
+                <MenuItem Header="結束(_X)" Command="{Binding ExitCommand}" InputGesture="Alt+F4">
+                    <MenuItem.Icon>
+                        <TextBlock Text="" FontSize="14"/>
+                    </MenuItem.Icon>
+                </MenuItem>
+            </MenuItem>
+            <MenuItem Header="檢視(_V)">
+                <MenuItem Header="深色模式(_D)" Command="{Binding ToggleThemeCommand}">
+                    <MenuItem.Icon>
+                        <CheckBox IsChecked="{Binding IsDarkMode}" BorderThickness="0" IsHitTestVisible="False"/>
+                    </MenuItem.Icon>
+                </MenuItem>
+                <Separator/>
+                <MenuItem Header="關閉目前分頁(_C)" Command="{Binding CloseCurrentDocumentCommand}" InputGesture="Ctrl+W"/>
+                <MenuItem Header="關閉所有分頁(_A)" Command="{Binding CloseAllDocumentsCommand}"/>
+            </MenuItem>
+            <MenuItem Header="工具(_T)">
+                <MenuItem Header="SQL 查詢(_S)" Command="{Binding OpenSqlQueryCommand}" InputGesture="Ctrl+Q" IsEnabled="{Binding IsConnected}">
+                    <MenuItem.Icon>
+                        <TextBlock Text="" FontSize="14"/>
+                    </MenuItem.Icon>
+                </MenuItem>
+                <MenuItem Header="欄位搜尋(_F)" Command="{Binding OpenColumnSearchCommand}" InputGesture="Ctrl+F" IsEnabled="{Binding IsConnected}">
+                    <MenuItem.Icon>
+                        <TextBlock Text="" FontSize="14"/>
+                    </MenuItem.Icon>
+                </MenuItem>
+            </MenuItem>
+            <MenuItem Header="說明(_H)">
+                <MenuItem Header="關於 TableSpec(_A)" Command="{Binding ShowAboutCommand}">
+                    <MenuItem.Icon>
+                        <TextBlock Text="" FontSize="14"/>
+                    </MenuItem.Icon>
+                </MenuItem>
+            </MenuItem>
+        </Menu>
+
         <!-- 頂部工具列 -->
         <Border DockPanel.Dock="Top" Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}" Padding="10,8">
             <Grid ColumnDefinitions="Auto,*,Auto">
@@ -40,14 +92,8 @@
                     <Button Content="設定連線" Command="{Binding OpenConnectionSettingsCommand}"/>
                 </StackPanel>
 
-                <!-- 右側：功能按鈕 -->
+                <!-- 右側：主題切換 -->
                 <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="10">
-                    <Button Content="SQL 查詢"
-                            Command="{Binding OpenSqlQueryCommand}"
-                            IsEnabled="{Binding IsConnected}"/>
-                    <Button Content="匯出 Excel"
-                            Command="{Binding ExportToExcelCommand}"
-                            IsEnabled="{Binding IsConnected}"/>
                     <Button Content="{Binding ThemeIcon}"
                             Command="{Binding ToggleThemeCommand}"
                             ToolTip.Tip="切換深色/淺色模式"
@@ -114,124 +160,59 @@
             <GridSplitter Grid.Column="1" Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
                           ResizeDirection="Columns"/>
 
-            <!-- 右側：詳細資訊 -->
-            <Border Grid.Column="2" Padding="10">
-                <DockPanel>
-                    <!-- 表格標題 -->
-                    <Border DockPanel.Dock="Top" Margin="0,0,0,10">
-                        <StackPanel>
-                            <TextBlock Text="{Binding TableDetail.CurrentTable.Name, FallbackValue='請選擇物件'}"
-                                       FontSize="18" FontWeight="Bold"/>
-                            <TextBlock Text="{Binding TableDetail.CurrentTable.Description}"
-                                       Foreground="Gray" Margin="0,5,0,0"/>
-                        </StackPanel>
-                    </Border>
+            <!-- 右側：MDI TabControl 區域 -->
+            <Border Grid.Column="2" Padding="5">
+                <Grid>
+                    <!-- 空白提示 -->
+                    <TextBlock Text="請從左側選擇物件，或使用選單開啟 SQL 查詢"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"
+                               Foreground="Gray"
+                               FontSize="14"
+                               IsVisible="{Binding !Documents.Count}"/>
 
-                    <!-- 分頁 -->
-                    <TabControl SelectedIndex="{Binding TableDetail.SelectedTabIndex}">
-                        <!-- 欄位頁籤 (Table/View) -->
-                        <TabItem Header="欄位"
-                                 IsVisible="{Binding TableDetail.CurrentTable.Type,
-                                             Converter={x:Static StringConverters.IsNotNullOrEmpty},
-                                             FallbackValue=True}">
-                            <DockPanel>
-                                <!-- 工具列 -->
-                                <Border DockPanel.Dock="Top" Padding="5" Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}">
-                                    <Grid ColumnDefinitions="*,Auto">
-                                        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10">
-                                            <TextBlock Text="{Binding TableDetail.StatusMessage}"
-                                                       VerticalAlignment="Center"
-                                                       Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"/>
-                                        </StackPanel>
-                                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="5">
-                                            <Button Content="儲存變更"
-                                                    Command="{Binding TableDetail.SaveColumnDescriptionsCommand}"
-                                                    IsVisible="{Binding TableDetail.HasUnsavedChanges}"/>
-                                            <Button Content="取消"
-                                                    Command="{Binding TableDetail.CancelChangesCommand}"
-                                                    IsVisible="{Binding TableDetail.HasUnsavedChanges}"/>
-                                        </StackPanel>
-                                    </Grid>
-                                </Border>
-                                <!-- 欄位表格 -->
-                                <DataGrid x:Name="ColumnsGrid"
-                                          ItemsSource="{Binding TableDetail.Columns}"
-                                          AutoGenerateColumns="False"
-                                          IsReadOnly="False"
-                                          GridLinesVisibility="All"
-                                          CanUserResizeColumns="True"
-                                          CellEditEnded="OnColumnCellEditEnded">
-                                    <DataGrid.Columns>
-                                        <DataGridTextColumn Header="欄位名稱" Binding="{Binding ColumnName}" Width="150" IsReadOnly="True"/>
-                                        <DataGridTextColumn Header="資料型別" Binding="{Binding DataType}" Width="100" IsReadOnly="True"/>
-                                        <DataGridTextColumn Header="長度" Binding="{Binding Length}" Width="60" IsReadOnly="True"/>
-                                        <DataGridCheckBoxColumn Header="PK" Binding="{Binding IsPrimaryKey}" Width="50" IsReadOnly="True"/>
-                                        <DataGridCheckBoxColumn Header="Null" Binding="{Binding IsNullable}" Width="50" IsReadOnly="True"/>
-                                        <DataGridTextColumn Header="預設值" Binding="{Binding DefaultValue}" Width="100" IsReadOnly="True"/>
-                                        <DataGridTextColumn Header="說明 (可編輯)" Binding="{Binding Description}" Width="*" IsReadOnly="False"/>
-                                    </DataGrid.Columns>
-                                </DataGrid>
-                            </DockPanel>
-                        </TabItem>
-                        <!-- 索引頁籤 (Table only) -->
-                        <TabItem Header="索引">
-                            <DataGrid ItemsSource="{Binding TableDetail.Indexes}"
-                                      AutoGenerateColumns="False"
-                                      IsReadOnly="True"
-                                      GridLinesVisibility="All">
-                                <DataGrid.Columns>
-                                    <DataGridTextColumn Header="索引名稱" Binding="{Binding Name}" Width="200"/>
-                                    <DataGridTextColumn Header="類型" Binding="{Binding Type}" Width="120"/>
-                                    <DataGridCheckBoxColumn Header="唯一" Binding="{Binding IsUnique}" Width="60"/>
-                                    <DataGridCheckBoxColumn Header="主鍵" Binding="{Binding IsPrimaryKey}" Width="60"/>
-                                    <DataGridTextColumn Header="欄位" Binding="{Binding Columns}" Width="*"/>
-                                </DataGrid.Columns>
-                            </DataGrid>
-                        </TabItem>
-                        <!-- 關聯頁籤 (Table only) -->
-                        <TabItem Header="關聯">
-                            <DataGrid ItemsSource="{Binding TableDetail.Relations}"
-                                      AutoGenerateColumns="False"
-                                      IsReadOnly="True"
-                                      GridLinesVisibility="All">
-                                <DataGrid.Columns>
-                                    <DataGridTextColumn Header="約束名稱" Binding="{Binding ConstraintName}" Width="200"/>
-                                    <DataGridTextColumn Header="來源表.欄位" Binding="{Binding FromTable}" Width="150"/>
-                                    <DataGridTextColumn Header="來源欄位" Binding="{Binding FromColumn}" Width="100"/>
-                                    <DataGridTextColumn Header="目標表" Binding="{Binding ToTable}" Width="150"/>
-                                    <DataGridTextColumn Header="目標欄位" Binding="{Binding ToColumn}" Width="100"/>
-                                </DataGrid.Columns>
-                            </DataGrid>
-                        </TabItem>
-                        <!-- 參數頁籤 (SP/Function) -->
-                        <TabItem Header="參數">
-                            <DataGrid ItemsSource="{Binding TableDetail.Parameters}"
-                                      AutoGenerateColumns="False"
-                                      IsReadOnly="True"
-                                      GridLinesVisibility="All">
-                                <DataGrid.Columns>
-                                    <DataGridTextColumn Header="順序" Binding="{Binding Ordinal}" Width="60"/>
-                                    <DataGridTextColumn Header="參數名稱" Binding="{Binding Name}" Width="150"/>
-                                    <DataGridTextColumn Header="資料型別" Binding="{Binding DataType}" Width="120"/>
-                                    <DataGridTextColumn Header="長度" Binding="{Binding Length}" Width="80"/>
-                                    <DataGridCheckBoxColumn Header="輸出" Binding="{Binding IsOutput}" Width="60"/>
-                                    <DataGridTextColumn Header="預設值" Binding="{Binding DefaultValue}" Width="*"/>
-                                </DataGrid.Columns>
-                            </DataGrid>
-                        </TabItem>
-                        <!-- 定義頁籤 (SP/Function) -->
-                        <TabItem Header="定義">
-                            <ScrollViewer>
-                                <TextBox Text="{Binding TableDetail.Definition}"
-                                         IsReadOnly="True"
-                                         AcceptsReturn="True"
-                                         FontFamily="Consolas, Menlo, monospace"
-                                         FontSize="12"
-                                         TextWrapping="Wrap"/>
-                            </ScrollViewer>
-                        </TabItem>
+                    <!-- MDI TabControl -->
+                    <TabControl ItemsSource="{Binding Documents}"
+                                SelectedItem="{Binding SelectedDocument}"
+                                IsVisible="{Binding Documents.Count}">
+                        <TabControl.Styles>
+                            <Style Selector="TabItem">
+                                <Setter Property="Padding" Value="10,6"/>
+                            </Style>
+                        </TabControl.Styles>
+                        <TabControl.ItemTemplate>
+                            <DataTemplate DataType="{x:Type vm:DocumentViewModel}">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <TextBlock Text="{Binding Icon}" FontSize="14" VerticalAlignment="Center"/>
+                                    <TextBlock Text="{Binding Title}" VerticalAlignment="Center"/>
+                                    <Button Content=""
+                                            Command="{Binding $parent[TabControl].((vm:MainWindowViewModel)DataContext).CloseDocumentCommand}"
+                                            CommandParameter="{Binding}"
+                                            IsVisible="{Binding CanClose}"
+                                            Padding="4,2"
+                                            FontSize="10"
+                                            Background="Transparent"
+                                            BorderThickness="0"
+                                            ToolTip.Tip="關閉分頁"/>
+                                </StackPanel>
+                            </DataTemplate>
+                        </TabControl.ItemTemplate>
+                        <TabControl.ContentTemplate>
+                            <DataTemplate>
+                                <ContentControl Content="{Binding}">
+                                    <ContentControl.DataTemplates>
+                                        <DataTemplate DataType="{x:Type vm:TableDetailDocumentViewModel}">
+                                            <views:TableDetailDocumentView/>
+                                        </DataTemplate>
+                                        <DataTemplate DataType="{x:Type vm:SqlQueryDocumentViewModel}">
+                                            <views:SqlQueryDocumentView/>
+                                        </DataTemplate>
+                                    </ContentControl.DataTemplates>
+                                </ContentControl>
+                            </DataTemplate>
+                        </TabControl.ContentTemplate>
                     </TabControl>
-                </DockPanel>
+                </Grid>
             </Border>
         </Grid>
     </DockPanel>

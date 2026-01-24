@@ -1,21 +1,15 @@
-<Window xmlns="https://github.com/avaloniaui"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:vm="using:TableSpec.Desktop.ViewModels"
-        xmlns:domain="using:TableSpec.Domain.Entities"
-        xmlns:interfaces="using:TableSpec.Domain.Interfaces"
-        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        mc:Ignorable="d" d:DesignWidth="900" d:DesignHeight="600"
-        x:Class="TableSpec.Desktop.Views.SqlQueryWindow"
-        x:DataType="vm:SqlQueryViewModel"
-        Icon="/Assets/avalonia-logo.ico"
-        Title="SQL 查詢 / 欄位搜尋"
-        Width="1000" Height="650"
-        MinWidth="700" MinHeight="450"
-        WindowStartupLocation="CenterOwner">
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:TableSpec.Desktop.ViewModels"
+             xmlns:domain="using:TableSpec.Domain.Entities"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="900" d:DesignHeight="500"
+             x:Class="TableSpec.Desktop.Views.SqlQueryDocumentView"
+             x:DataType="vm:SqlQueryDocumentViewModel">
 
     <Design.DataContext>
-        <vm:SqlQueryViewModel/>
+        <vm:SqlQueryDocumentViewModel/>
     </Design.DataContext>
 
     <Grid RowDefinitions="Auto,*,Auto">
@@ -68,7 +62,7 @@
         </Border>
 
         <!-- 主內容區 - 分頁 -->
-        <TabControl Grid.Row="1" Margin="10,5,10,0">
+        <TabControl Grid.Row="1" Margin="10,5,10,0" SelectedIndex="{Binding SelectedTabIndex}">
             <TabControl.Styles>
                 <Style Selector="TabItem">
                     <Setter Property="FontSize" Value="14"/>
@@ -177,4 +171,4 @@
             </Grid>
         </Border>
     </Grid>
-</Window>
+</UserControl>

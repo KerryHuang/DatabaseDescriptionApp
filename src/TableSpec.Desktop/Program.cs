@@ -54,11 +54,15 @@ sealed class Program
         services.AddSingleton<IExportService, ExcelExportService>();
 
         // ViewModels
-        services.AddTransient<MainWindowViewModel>();
+        services.AddTransient<MainWindowViewModel>(sp =>
+            new MainWindowViewModel(
+                sp.GetRequiredService<IConnectionManager>(),
+                sp.GetRequiredService<IExportService>(),
+                sp.GetRequiredService<ITableQueryService>(),
+                sp.GetRequiredService<ISqlQueryRepository>(),
+                sp.GetRequiredService<ObjectTreeViewModel>()));
         services.AddTransient<ConnectionSetupViewModel>();
         services.AddTransient<ObjectTreeViewModel>();
-        services.AddTransient<TableDetailViewModel>();
-        services.AddTransient<SqlQueryViewModel>();
 
         return services.BuildServiceProvider();
     }

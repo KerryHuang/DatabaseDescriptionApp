@@ -1,0 +1,9 @@
+{
+  "name": "pre-commit-test",
+  "description": "Commit 前執行單元測試",
+  "event": "PreCommit",
+  "command": "dotnet test --no-build --verbosity minimal",
+  "timeout": 120000,
+  "onFailure": "warn",
+  "enabled": false
+}

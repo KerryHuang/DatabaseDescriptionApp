@@ -1,0 +1,8 @@
+{
+  "name": "pre-commit-build",
+  "description": "Commit 前驗證建置成功",
+  "event": "PreCommit",
+  "command": "dotnet build --no-restore -warnaserror",
+  "timeout": 60000,
+  "onFailure": "block"
+}

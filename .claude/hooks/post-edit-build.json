@@ -1,0 +1,11 @@
+{
+  "name": "post-edit-build",
+  "description": "編輯 .cs 檔案後自動建置驗證",
+  "event": "PostToolUse",
+  "tool": ["Edit", "Write"],
+  "filePattern": "**/*.cs",
+  "command": "dotnet build --no-restore",
+  "timeout": 60000,
+  "onFailure": "warn",
+  "enabled": false
+}

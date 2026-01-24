@@ -1,0 +1,49 @@
+# EditorConfig - 跨編輯器統一設定
+# https://editorconfig.org
+
+root = true
+
+# 所有檔案預設設定
+[*]
+charset = utf-8
+end_of_line = lf
+indent_style = space
+indent_size = 4
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+# C# 檔案
+[*.cs]
+indent_size = 4
+
+# XAML / AXAML 檔案
+[*.{xaml,axaml}]
+indent_size = 4
+
+# JSON 檔案
+[*.json]
+indent_size = 2
+
+# Markdown 檔案
+[*.md]
+trim_trailing_whitespace = false
+
+# XML 檔案 (csproj, slnx, etc.)
+[*.{csproj,slnx,props,targets,xml}]
+indent_size = 2
+
+# YAML 檔案
+[*.{yml,yaml}]
+indent_size = 2
+
+# Shell 腳本
+[*.{sh,bash}]
+end_of_line = lf
+
+# Windows 批次檔
+[*.{cmd,bat}]
+end_of_line = crlf
+
+# SQL 檔案
+[*.sql]
+indent_size = 4

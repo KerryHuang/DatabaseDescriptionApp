@@ -28,35 +28,66 @@ SELECT *
 FROM (
     -- 查詢資料表的描述資訊
     SELECT
-        T.TABLE_TYPE AS Type,
-        T.TABLE_SCHEMA AS [Schema],
-        T.TABLE_NAME AS Name,
-        CAST(P.value AS NVARCHAR(MAX)) AS Description
+        'BASE TABLE' AS Type,
+        s.name AS [Schema],
+        t.name AS Name,
+        CAST(ep.value AS NVARCHAR(MAX)) AS Description
     FROM
-        INFORMATION_SCHEMA.TABLES T
-    LEFT JOIN
-        sys.schemas S ON T.TABLE_SCHEMA = S.name
-    LEFT JOIN
-        sys.objects O ON T.TABLE_NAME = O.name AND S.schema_id = O.schema_id
-    LEFT JOIN
-        sys.extended_properties P ON O.object_id = P.major_id AND P.minor_id = 0 AND P.name = 'MS_Description'
+        sys.tables t
+    JOIN sys.schemas s ON t.schema_id = s.schema_id
+    LEFT JOIN sys.extended_properties ep
+        ON ep.major_id = t.object_id
+        AND ep.minor_id = 0
+        AND ep.name = 'MS_Description'
 
     UNION ALL
 
-    -- 查詢 Stored Procedure 和 Function 的描述資訊
+    -- 查詢檢視表的描述資訊
     SELECT
-        T.ROUTINE_TYPE AS Type,
-        T.ROUTINE_SCHEMA AS [Schema],
-        T.ROUTINE_NAME AS Name,
-        CAST(P.value AS NVARCHAR(MAX)) AS Description
+        'VIEW' AS Type,
+        s.name AS [Schema],
+        v.name AS Name,
+        CAST(ep.value AS NVARCHAR(MAX)) AS Description
     FROM
-        INFORMATION_SCHEMA.ROUTINES T
-    LEFT JOIN
-        sys.schemas S ON T.ROUTINE_SCHEMA = S.name
-    LEFT JOIN
-        sys.objects O ON T.ROUTINE_NAME = O.name AND S.schema_id = O.schema_id
-    LEFT JOIN
-        sys.extended_properties P ON O.object_id = P.major_id AND P.minor_id = 0 AND P.name = 'MS_Description'
+        sys.views v
+    JOIN sys.schemas s ON v.schema_id = s.schema_id
+    LEFT JOIN sys.extended_properties ep
+        ON ep.major_id = v.object_id
+        AND ep.minor_id = 0
+        AND ep.name = 'MS_Description'
+
+    UNION ALL
+
+    -- 查詢 Stored Procedure 的描述資訊
+    SELECT
+        'PROCEDURE' AS Type,
+        s.name AS [Schema],
+        p.name AS Name,
+        CAST(ep.value AS NVARCHAR(MAX)) AS Description
+    FROM
+        sys.procedures p
+    JOIN sys.schemas s ON p.schema_id = s.schema_id
+    LEFT JOIN sys.extended_properties ep
+        ON ep.major_id = p.object_id
+        AND ep.minor_id = 0
+        AND ep.name = 'MS_Description'
+
+    UNION ALL
+
+    -- 查詢 Function 的描述資訊
+    SELECT
+        'FUNCTION' AS Type,
+        s.name AS [Schema],
+        o.name AS Name,
+        CAST(ep.value AS NVARCHAR(MAX)) AS Description
+    FROM
+        sys.objects o
+    JOIN sys.schemas s ON o.schema_id = s.schema_id
+    LEFT JOIN sys.extended_properties ep
+        ON ep.major_id = o.object_id
+        AND ep.minor_id = 0
+        AND ep.name = 'MS_Description'
+    WHERE o.type IN ('FN', 'IF', 'TF', 'AF')  -- Scalar, Inline Table, Table-valued, Aggregate functions
 ) T
 WHERE T.Name NOT LIKE '%diagram%'
 ORDER BY
@@ -75,56 +106,67 @@ ORDER BY
         if (string.IsNullOrEmpty(connectionString))
             return Array.Empty<TableInfo>();
 
-        string sql;
+        string sql = type switch
+        {
+            "BASE TABLE" => @"
+SELECT
+    'BASE TABLE' AS Type,
+    s.name AS [Schema],
+    t.name AS Name,
+    CAST(ep.value AS NVARCHAR(MAX)) AS Description
+FROM
+    sys.tables t
+JOIN sys.schemas s ON t.schema_id = s.schema_id
+LEFT JOIN sys.extended_properties ep
+    ON ep.major_id = t.object_id AND ep.minor_id = 0 AND ep.name = 'MS_Description'
+WHERE t.name NOT LIKE '%diagram%'
+ORDER BY s.name, t.name",
 
-        if (type is "PROCEDURE" or "FUNCTION")
-        {
-            sql = @"
+            "VIEW" => @"
 SELECT
-    T.ROUTINE_TYPE AS Type,
-    T.ROUTINE_SCHEMA AS [Schema],
-    T.ROUTINE_NAME AS Name,
-    CAST(P.value AS NVARCHAR(MAX)) AS Description
+    'VIEW' AS Type,
+    s.name AS [Schema],
+    v.name AS Name,
+    CAST(ep.value AS NVARCHAR(MAX)) AS Description
 FROM
-    INFORMATION_SCHEMA.ROUTINES T
-LEFT JOIN
-    sys.schemas S ON T.ROUTINE_SCHEMA = S.name
-LEFT JOIN
-    sys.objects O ON T.ROUTINE_NAME = O.name AND S.schema_id = O.schema_id
-LEFT JOIN
-    sys.extended_properties P ON O.object_id = P.major_id AND P.minor_id = 0 AND P.name = 'MS_Description'
-WHERE
-    T.ROUTINE_TYPE = @Type
-ORDER BY
-    T.ROUTINE_SCHEMA,
-    T.ROUTINE_NAME";
-        }
-        else
-        {
-            sql = @"
+    sys.views v
+JOIN sys.schemas s ON v.schema_id = s.schema_id
+LEFT JOIN sys.extended_properties ep
+    ON ep.major_id = v.object_id AND ep.minor_id = 0 AND ep.name = 'MS_Description'
+ORDER BY s.name, v.name",
+
+            "PROCEDURE" => @"
 SELECT
-    T.TABLE_TYPE AS Type,
-    T.TABLE_SCHEMA AS [Schema],
-    T.TABLE_NAME AS Name,
-    CAST(P.value AS NVARCHAR(MAX)) AS Description
+    'PROCEDURE' AS Type,
+    s.name AS [Schema],
+    p.name AS Name,
+    CAST(ep.value AS NVARCHAR(MAX)) AS Description
 FROM
-    INFORMATION_SCHEMA.TABLES T
-LEFT JOIN
-    sys.schemas S ON T.TABLE_SCHEMA = S.name
-LEFT JOIN
-    sys.objects O ON T.TABLE_NAME = O.name AND S.schema_id = O.schema_id
-LEFT JOIN
-    sys.extended_properties P ON O.object_id = P.major_id AND P.minor_id = 0 AND P.name = 'MS_Description'
-WHERE
-    T.TABLE_TYPE = @Type
-    AND T.TABLE_NAME NOT LIKE '%diagram%'
-ORDER BY
-    T.TABLE_SCHEMA,
-    T.TABLE_NAME";
-        }
+    sys.procedures p
+JOIN sys.schemas s ON p.schema_id = s.schema_id
+LEFT JOIN sys.extended_properties ep
+    ON ep.major_id = p.object_id AND ep.minor_id = 0 AND ep.name = 'MS_Description'
+ORDER BY s.name, p.name",
+
+            "FUNCTION" => @"
+SELECT
+    'FUNCTION' AS Type,
+    s.name AS [Schema],
+    o.name AS Name,
+    CAST(ep.value AS NVARCHAR(MAX)) AS Description
+FROM
+    sys.objects o
+JOIN sys.schemas s ON o.schema_id = s.schema_id
+LEFT JOIN sys.extended_properties ep
+    ON ep.major_id = o.object_id AND ep.minor_id = 0 AND ep.name = 'MS_Description'
+WHERE o.type IN ('FN', 'IF', 'TF', 'AF')
+ORDER BY s.name, o.name",
+
+            _ => throw new ArgumentException($"Unknown type: {type}")
+        };
 
         await using var connection = new SqlConnection(connectionString);
-        var result = await connection.QueryAsync<TableInfo>(sql, new { Type = type });
+        var result = await connection.QueryAsync<TableInfo>(sql);
         return result.ToList();
     }
 }

@@ -1,0 +1,128 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:TableSpec.Desktop.ViewModels"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="600" d:DesignHeight="500"
+        x:Class="TableSpec.Desktop.Views.ConnectionSetupWindow"
+        x:DataType="vm:ConnectionSetupViewModel"
+        Title="連線設定"
+        Width="650" Height="500"
+        MinWidth="550" MinHeight="400"
+        WindowStartupLocation="CenterOwner">
+
+    <Design.DataContext>
+        <vm:ConnectionSetupViewModel/>
+    </Design.DataContext>
+
+    <Grid RowDefinitions="*,Auto" Margin="15">
+        <!-- 主要內容區 -->
+        <Grid Grid.Row="0" ColumnDefinitions="200,*">
+            <!-- 左側：連線清單 -->
+            <Border Grid.Column="0" BorderBrush="{DynamicResource SystemControlForegroundBaseMediumBrush}"
+                    BorderThickness="1" CornerRadius="4" Margin="0,0,10,0">
+                <DockPanel>
+                    <Border DockPanel.Dock="Top" Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}"
+                            Padding="10,8">
+                        <TextBlock Text="連線設定檔" FontWeight="SemiBold"/>
+                    </Border>
+                    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Spacing="5" Margin="5">
+                        <Button Content="新增" Command="{Binding NewProfileCommand}" Width="60"/>
+                        <Button Content="刪除" Command="{Binding DeleteCommand}" Width="60"
+                                IsEnabled="{Binding SelectedProfile, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                    </StackPanel>
+                    <ListBox ItemsSource="{Binding Profiles}"
+                             SelectedItem="{Binding SelectedProfile}"
+                             Margin="5">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Orientation="Horizontal" Spacing="5">
+                                    <TextBlock Text="{Binding Name}"/>
+                                    <TextBlock Text="(預設)" Foreground="Gray"
+                                               IsVisible="{Binding IsDefault}"/>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </DockPanel>
+            </Border>
+
+            <!-- 右側：連線詳細設定 -->
+            <Border Grid.Column="1" BorderBrush="{DynamicResource SystemControlForegroundBaseMediumBrush}"
+                    BorderThickness="1" CornerRadius="4">
+                <DockPanel>
+                    <Border DockPanel.Dock="Top" Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}"
+                            Padding="10,8">
+                        <TextBlock Text="連線資訊" FontWeight="SemiBold"/>
+                    </Border>
+                    <ScrollViewer>
+                        <StackPanel Margin="15" Spacing="12">
+                            <!-- 名稱 -->
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="連線名稱"/>
+                                <TextBox Text="{Binding Name}" Watermark="例如: 開發環境"/>
+                            </StackPanel>
+
+                            <!-- 伺服器 -->
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="伺服器"/>
+                                <TextBox Text="{Binding Server}" Watermark="例如: localhost 或 192.168.1.100"/>
+                            </StackPanel>
+
+                            <!-- 資料庫 -->
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="資料庫名稱"/>
+                                <TextBox Text="{Binding Database}" Watermark="例如: MyDatabase"/>
+                            </StackPanel>
+
+                            <!-- 驗證方式 -->
+                            <StackPanel Spacing="8" Margin="0,5,0,0">
+                                <TextBlock Text="驗證方式"/>
+                                <RadioButton GroupName="Auth" Content="Windows 驗證"
+                                             IsChecked="{Binding UseWindowsAuth}"/>
+                                <RadioButton GroupName="Auth" Content="SQL Server 驗證"
+                                             IsChecked="{Binding UseWindowsAuth, Converter={x:Static BoolConverters.Not}}"/>
+                            </StackPanel>
+
+                            <!-- SQL Server 驗證欄位 -->
+                            <StackPanel Spacing="10" IsVisible="{Binding UseWindowsAuth, Converter={x:Static BoolConverters.Not}}">
+                                <StackPanel Spacing="4">
+                                    <TextBlock Text="使用者名稱"/>
+                                    <TextBox Text="{Binding Username}"/>
+                                </StackPanel>
+                                <StackPanel Spacing="4">
+                                    <TextBlock Text="密碼"/>
+                                    <TextBox Text="{Binding Password}" PasswordChar="●"/>
+                                </StackPanel>
+                            </StackPanel>
+
+                            <!-- 設為預設 -->
+                            <CheckBox Content="設為預設連線" IsChecked="{Binding IsDefault}" Margin="0,5,0,0"/>
+
+                            <!-- 測試連線 -->
+                            <StackPanel Spacing="8" Margin="0,10,0,0">
+                                <StackPanel Orientation="Horizontal" Spacing="10">
+                                    <Button Content="測試連線" Command="{Binding TestConnectionCommand}"
+                                            IsEnabled="{Binding !IsTesting}"/>
+                                    <ProgressBar IsIndeterminate="True" Width="80"
+                                                 IsVisible="{Binding IsTesting}"/>
+                                </StackPanel>
+                                <TextBlock Text="{Binding TestResult}"
+                                           Foreground="{Binding TestResult, Converter={StaticResource TestResultColorConverter}, FallbackValue=Gray}"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </ScrollViewer>
+                </DockPanel>
+            </Border>
+        </Grid>
+
+        <!-- 底部按鈕列 -->
+        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right"
+                    Spacing="10" Margin="0,15,0,0">
+            <Button Content="儲存" Command="{Binding SaveCommand}" Width="80"/>
+            <Button Content="連線" Command="{Binding ConnectCommand}" Width="80"
+                    IsEnabled="{Binding SelectedProfile, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+            <Button Content="關閉" Click="OnCloseClick" Width="80"/>
+        </StackPanel>
+    </Grid>
+</Window>

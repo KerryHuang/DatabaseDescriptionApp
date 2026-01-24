@@ -3,8 +3,10 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
+using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Platform.Storage;
+using Avalonia.Styling;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
@@ -36,6 +38,12 @@ public partial class MainWindowViewModel : ViewModelBase
 
     [ObservableProperty]
     private string _statusMessage = "就緒";
+
+    [ObservableProperty]
+    private bool _isDarkMode;
+
+    [ObservableProperty]
+    private string _themeIcon = "☀️";
 
     public ObservableCollection<ConnectionProfile> ConnectionProfiles { get; } = [];
 
@@ -69,6 +77,9 @@ public partial class MainWindowViewModel : ViewModelBase
                 }
             };
         }
+
+        // 初始化主題
+        InitializeTheme();
 
         // 初始化連線狀態並自動連線
         InitializeAsync();
@@ -206,6 +217,47 @@ public partial class MainWindowViewModel : ViewModelBase
 
             // 重新載入連線清單
             LoadConnectionProfiles();
+        }
+    }
+
+    [RelayCommand]
+    private async Task OpenSqlQueryAsync()
+    {
+        if (Avalonia.Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+        {
+            var viewModel = App.Services?.GetRequiredService<SqlQueryViewModel>()
+                ?? new SqlQueryViewModel();
+            var window = new SqlQueryWindow(viewModel);
+            await window.ShowDialog(desktop.MainWindow!);
+        }
+    }
+
+    [RelayCommand]
+    private void ToggleTheme()
+    {
+        if (Avalonia.Application.Current is { } app)
+        {
+            if (app.ActualThemeVariant == ThemeVariant.Dark)
+            {
+                app.RequestedThemeVariant = ThemeVariant.Light;
+                IsDarkMode = false;
+                ThemeIcon = "🌙";
+            }
+            else
+            {
+                app.RequestedThemeVariant = ThemeVariant.Dark;
+                IsDarkMode = true;
+                ThemeIcon = "☀️";
+            }
+        }
+    }
+
+    private void InitializeTheme()
+    {
+        if (Avalonia.Application.Current is { } app)
+        {
+            IsDarkMode = app.ActualThemeVariant == ThemeVariant.Dark;
+            ThemeIcon = IsDarkMode ? "☀️" : "🌙";
         }
     }
 }

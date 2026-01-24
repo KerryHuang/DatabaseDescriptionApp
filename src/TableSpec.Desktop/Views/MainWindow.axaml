@@ -18,90 +18,75 @@
     </Design.DataContext>
 
     <DockPanel>
-        <!-- 功能表列 -->
-        <Menu DockPanel.Dock="Top">
-            <MenuItem Header="檔案(_F)">
-                <MenuItem Header="連線設定(_C)" Command="{Binding OpenConnectionSettingsCommand}" InputGesture="Ctrl+L">
-                    <MenuItem.Icon>
-                        <TextBlock Text="" FontSize="14"/>
-                    </MenuItem.Icon>
+        <!-- 功能表列 + 主題切換 -->
+        <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto">
+            <Menu Grid.Column="0">
+                <MenuItem Header="檔案(_F)">
+                    <MenuItem Header="連線設定(_C)" Command="{Binding OpenConnectionSettingsCommand}" InputGesture="Ctrl+L">
+                        <MenuItem.Icon>
+                            <TextBlock Text="" FontSize="14"/>
+                        </MenuItem.Icon>
+                    </MenuItem>
+                    <MenuItem Header="匯出 Excel(_E)" Command="{Binding ExportToExcelCommand}" IsEnabled="{Binding IsConnected}">
+                        <MenuItem.Icon>
+                            <TextBlock Text="" FontSize="14"/>
+                        </MenuItem.Icon>
+                    </MenuItem>
+                    <Separator/>
+                    <MenuItem Header="結束(_X)" Command="{Binding ExitCommand}" InputGesture="Alt+F4">
+                        <MenuItem.Icon>
+                            <TextBlock Text="" FontSize="14"/>
+                        </MenuItem.Icon>
+                    </MenuItem>
                 </MenuItem>
-                <MenuItem Header="匯出 Excel(_E)" Command="{Binding ExportToExcelCommand}" IsEnabled="{Binding IsConnected}">
-                    <MenuItem.Icon>
-                        <TextBlock Text="" FontSize="14"/>
-                    </MenuItem.Icon>
+                <MenuItem Header="檢視(_V)">
+                    <MenuItem Header="深色模式(_D)" Command="{Binding ToggleThemeCommand}">
+                        <MenuItem.Icon>
+                            <CheckBox IsChecked="{Binding IsDarkMode}" BorderThickness="0" IsHitTestVisible="False"/>
+                        </MenuItem.Icon>
+                    </MenuItem>
+                    <Separator/>
+                    <MenuItem Header="關閉目前分頁(_C)" Command="{Binding CloseCurrentDocumentCommand}" InputGesture="Ctrl+W"/>
+                    <MenuItem Header="關閉所有分頁(_A)" Command="{Binding CloseAllDocumentsCommand}"/>
                 </MenuItem>
-                <Separator/>
-                <MenuItem Header="結束(_X)" Command="{Binding ExitCommand}" InputGesture="Alt+F4">
-                    <MenuItem.Icon>
-                        <TextBlock Text="" FontSize="14"/>
-                    </MenuItem.Icon>
+                <MenuItem Header="工具(_T)">
+                    <MenuItem Header="SQL 查詢(_S)" Command="{Binding OpenSqlQueryCommand}" InputGesture="Ctrl+Q" IsEnabled="{Binding IsConnected}">
+                        <MenuItem.Icon>
+                            <TextBlock Text="" FontSize="14"/>
+                        </MenuItem.Icon>
+                    </MenuItem>
+                    <MenuItem Header="欄位搜尋(_F)" Command="{Binding OpenColumnSearchCommand}" InputGesture="Ctrl+F" IsEnabled="{Binding IsConnected}">
+                        <MenuItem.Icon>
+                            <TextBlock Text="" FontSize="14"/>
+                        </MenuItem.Icon>
+                    </MenuItem>
+                    <Separator/>
+                    <MenuItem Header="備份與還原(_B)" Command="{Binding OpenBackupRestoreCommand}" InputGesture="Ctrl+B" IsEnabled="{Binding IsConnected}">
+                        <MenuItem.Icon>
+                            <TextBlock Text="" FontSize="14"/>
+                        </MenuItem.Icon>
+                    </MenuItem>
                 </MenuItem>
-            </MenuItem>
-            <MenuItem Header="檢視(_V)">
-                <MenuItem Header="深色模式(_D)" Command="{Binding ToggleThemeCommand}">
-                    <MenuItem.Icon>
-                        <CheckBox IsChecked="{Binding IsDarkMode}" BorderThickness="0" IsHitTestVisible="False"/>
-                    </MenuItem.Icon>
+                <MenuItem Header="說明(_H)">
+                    <MenuItem Header="關於 TableSpec(_A)" Command="{Binding ShowAboutCommand}">
+                        <MenuItem.Icon>
+                            <TextBlock Text="" FontSize="14"/>
+                        </MenuItem.Icon>
+                    </MenuItem>
                 </MenuItem>
-                <Separator/>
-                <MenuItem Header="關閉目前分頁(_C)" Command="{Binding CloseCurrentDocumentCommand}" InputGesture="Ctrl+W"/>
-                <MenuItem Header="關閉所有分頁(_A)" Command="{Binding CloseAllDocumentsCommand}"/>
-            </MenuItem>
-            <MenuItem Header="工具(_T)">
-                <MenuItem Header="SQL 查詢(_S)" Command="{Binding OpenSqlQueryCommand}" InputGesture="Ctrl+Q" IsEnabled="{Binding IsConnected}">
-                    <MenuItem.Icon>
-                        <TextBlock Text="" FontSize="14"/>
-                    </MenuItem.Icon>
-                </MenuItem>
-                <MenuItem Header="欄位搜尋(_F)" Command="{Binding OpenColumnSearchCommand}" InputGesture="Ctrl+F" IsEnabled="{Binding IsConnected}">
-                    <MenuItem.Icon>
-                        <TextBlock Text="" FontSize="14"/>
-                    </MenuItem.Icon>
-                </MenuItem>
-            </MenuItem>
-            <MenuItem Header="說明(_H)">
-                <MenuItem Header="關於 TableSpec(_A)" Command="{Binding ShowAboutCommand}">
-                    <MenuItem.Icon>
-                        <TextBlock Text="" FontSize="14"/>
-                    </MenuItem.Icon>
-                </MenuItem>
-            </MenuItem>
-        </Menu>
+            </Menu>
 
-        <!-- 頂部工具列 -->
-        <Border DockPanel.Dock="Top" Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}" Padding="10,8">
-            <Grid ColumnDefinitions="Auto,*,Auto">
-                <!-- 左側：標題 -->
-                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10">
-                    <TextBlock Text="TableSpec" FontSize="18" FontWeight="Bold" VerticalAlignment="Center"/>
-                </StackPanel>
-
-                <!-- 中間：連線狀態 -->
-                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center" Spacing="10">
-                    <ComboBox MinWidth="200" VerticalAlignment="Center"
-                              ItemsSource="{Binding ConnectionProfiles}"
-                              SelectedItem="{Binding SelectedProfile}"
-                              PlaceholderText="請選擇連線...">
-                        <ComboBox.ItemTemplate>
-                            <DataTemplate x:DataType="domain:ConnectionProfile">
-                                <TextBlock Text="{Binding Name}"/>
-                            </DataTemplate>
-                        </ComboBox.ItemTemplate>
-                    </ComboBox>
-                    <Button Content="設定連線" Command="{Binding OpenConnectionSettingsCommand}"/>
-                </StackPanel>
-
-                <!-- 右側：主題切換 -->
-                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="10">
-                    <Button Content="{Binding ThemeIcon}"
-                            Command="{Binding ToggleThemeCommand}"
-                            ToolTip.Tip="切換深色/淺色模式"
-                            FontSize="16"
-                            Padding="8,4"/>
-                </StackPanel>
-            </Grid>
-        </Border>
+            <!-- 右側：主題切換 -->
+            <Button Grid.Column="1"
+                    Content="{Binding ThemeIcon}"
+                    Command="{Binding ToggleThemeCommand}"
+                    ToolTip.Tip="切換深色/淺色模式"
+                    FontSize="16"
+                    Padding="10,4"
+                    Margin="5,0"
+                    Background="Transparent"
+                    BorderThickness="0"/>
+        </Grid>
 
         <!-- 底部狀態列 -->
         <Border DockPanel.Dock="Bottom" Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}" Padding="10,5">
@@ -117,8 +102,28 @@
             <!-- 左側：物件樹 -->
             <Border Grid.Column="0" Background="{DynamicResource SystemControlBackgroundAltMediumLowBrush}">
                 <DockPanel>
+                    <!-- 連線選擇區 -->
+                    <Border DockPanel.Dock="Top" Padding="10" Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}">
+                        <StackPanel Spacing="8">
+                            <ComboBox ItemsSource="{Binding ConnectionProfiles}"
+                                      SelectedItem="{Binding SelectedProfile}"
+                                      PlaceholderText="請選擇連線..."
+                                      HorizontalAlignment="Stretch">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate x:DataType="domain:ConnectionProfile">
+                                        <TextBlock Text="{Binding Name}"/>
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                            <Button Content="設定連線"
+                                    Command="{Binding OpenConnectionSettingsCommand}"
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+
                     <!-- 搜尋框 -->
-                    <Border DockPanel.Dock="Top" Padding="10">
+                    <Border DockPanel.Dock="Top" Padding="10,10,10,5">
                         <TextBox Watermark="搜尋物件..."
                                  Text="{Binding ObjectTree.SearchText, Mode=TwoWay}"/>
                     </Border>
@@ -206,6 +211,12 @@
                                         </DataTemplate>
                                         <DataTemplate DataType="{x:Type vm:SqlQueryDocumentViewModel}">
                                             <views:SqlQueryDocumentView/>
+                                        </DataTemplate>
+                                        <DataTemplate DataType="{x:Type vm:ColumnSearchDocumentViewModel}">
+                                            <views:ColumnSearchDocumentView/>
+                                        </DataTemplate>
+                                        <DataTemplate DataType="{x:Type vm:BackupRestoreDocumentViewModel}">
+                                            <views:BackupRestoreDocumentView/>
                                         </DataTemplate>
                                     </ContentControl.DataTemplates>
                                 </ContentControl>

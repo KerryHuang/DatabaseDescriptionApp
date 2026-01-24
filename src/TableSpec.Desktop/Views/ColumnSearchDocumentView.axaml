@@ -1,0 +1,275 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:TableSpec.Desktop.ViewModels"
+             xmlns:domain="using:TableSpec.Domain.Entities"
+             xmlns:converters="using:TableSpec.Desktop.Converters"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="1200" d:DesignHeight="700"
+             x:Class="TableSpec.Desktop.Views.ColumnSearchDocumentView"
+             x:DataType="vm:ColumnSearchDocumentViewModel">
+
+    <UserControl.Resources>
+        <converters:ConsistencyLevelToColorConverter x:Key="LevelToColorConverter"/>
+        <converters:ConsistencyLevelToForegroundConverter x:Key="LevelToForegroundConverter"/>
+        <converters:TypeInconsistentToColorConverter x:Key="InconsistentToColorConverter"/>
+        <converters:InverseBoolConverter x:Key="InverseBoolConverter"/>
+        <converters:ConstraintCountToTextConverter x:Key="ConstraintCountConverter"/>
+        <converters:BoolToYesNoConverter x:Key="BoolToYesNoConverter"/>
+    </UserControl.Resources>
+
+    <Design.DataContext>
+        <vm:ColumnSearchDocumentViewModel/>
+    </Design.DataContext>
+
+    <Grid RowDefinitions="Auto,*,Auto">
+        <!-- 工具列 -->
+        <Border Grid.Row="0" Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}" Padding="10,8">
+            <Grid ColumnDefinitions="Auto,*,Auto">
+                <!-- 左側：連線選擇 -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10">
+                    <TextBlock Text="連線：" VerticalAlignment="Center"/>
+                    <ComboBox MinWidth="180" VerticalAlignment="Center"
+                              ItemsSource="{Binding ConnectionProfiles}"
+                              SelectedItem="{Binding SelectedProfile}">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate x:DataType="domain:ConnectionProfile">
+                                <TextBlock Text="{Binding Name}"/>
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                </StackPanel>
+
+                <!-- 中間：搜尋 -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" Margin="20,0">
+                    <TextBlock Text="欄位名稱：" VerticalAlignment="Center"/>
+                    <TextBox Text="{Binding ColumnSearchText}"
+                             Width="250"
+                             Watermark="輸入欄位名稱關鍵字..."/>
+                    <Button Content="搜尋"
+                            Command="{Binding SearchColumnsCommand}"
+                            IsEnabled="{Binding !IsSearching}"/>
+                    <Button Content="分析一致性"
+                            Command="{Binding AnalyzeConsistencyCommand}"
+                            IsEnabled="{Binding !IsSearching}"
+                            ToolTip.Tip="分析同名欄位在不同資料表中的型態一致性"/>
+                    <Button Content="清除"
+                            Command="{Binding ClearColumnSearchCommand}"/>
+                    <ProgressBar IsIndeterminate="True" Width="80"
+                                 IsVisible="{Binding IsSearching}"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- 主要內容區域 -->
+        <Grid Grid.Row="1" Margin="10,5">
+            <!-- 搜尋結果（未分析時顯示） -->
+            <DataGrid ItemsSource="{Binding ColumnSearchResults}"
+                      AutoGenerateColumns="False"
+                      IsReadOnly="True"
+                      GridLinesVisibility="All"
+                      CanUserResizeColumns="True"
+                      CanUserReorderColumns="True"
+                      CanUserSortColumns="True"
+                      IsVisible="{Binding !ShowTypeAnalysis}">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="欄位/參數名稱" Binding="{Binding ColumnName}" Width="150"/>
+                    <DataGridTextColumn Header="物件類型" Binding="{Binding ObjectType}" Width="120"/>
+                    <DataGridTextColumn Header="Schema" Binding="{Binding SchemaName}" Width="80"/>
+                    <DataGridTextColumn Header="物件名稱" Binding="{Binding ObjectName}" Width="200"/>
+                    <DataGridTextColumn Header="資料型別" Binding="{Binding DataType}" Width="120"/>
+                    <DataGridTextColumn Header="欄位說明" Binding="{Binding Description}" Width="*"/>
+                </DataGrid.Columns>
+            </DataGrid>
+
+            <!-- 型態一致性分析結果（分析後顯示） -->
+            <Grid ColumnDefinitions="*,10,1.2*" IsVisible="{Binding ShowTypeAnalysis}">
+                <!-- 左側：欄位群組清單 -->
+                <Border Grid.Column="0" BorderBrush="{DynamicResource SystemControlForegroundBaseMediumBrush}"
+                        BorderThickness="1" CornerRadius="4">
+                    <Grid RowDefinitions="Auto,*">
+                        <Border Grid.Row="0" Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}"
+                                Padding="10,6" CornerRadius="4,4,0,0">
+                            <TextBlock Text="欄位型態一致性分析" FontWeight="SemiBold"/>
+                        </Border>
+                        <DataGrid Grid.Row="1"
+                                  ItemsSource="{Binding ColumnGroups}"
+                                  SelectedItem="{Binding SelectedGroup}"
+                                  AutoGenerateColumns="False"
+                                  IsReadOnly="True"
+                                  GridLinesVisibility="Horizontal"
+                                  CanUserResizeColumns="True"
+                                  CanUserSortColumns="True">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="欄位名稱" Binding="{Binding ColumnName}" Width="120"/>
+                                <DataGridTextColumn Header="資料表數" Binding="{Binding TableCount}" Width="70"/>
+                                <DataGridTextColumn Header="主要型態" Binding="{Binding PrimaryType}" Width="100"/>
+                                <DataGridTextColumn Header="不一致數" Binding="{Binding InconsistentCount}" Width="70"/>
+                                <DataGridTemplateColumn Header="一致性" Width="80">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate x:DataType="vm:ColumnTypeGroupViewModel">
+                                            <Border CornerRadius="3" Padding="6,2" Margin="2"
+                                                    HorizontalAlignment="Center"
+                                                    Background="{Binding Level, Converter={StaticResource LevelToColorConverter}}">
+                                                <TextBlock Text="{Binding LevelText}"
+                                                           Foreground="{Binding Level, Converter={StaticResource LevelToForegroundConverter}}"
+                                                           FontSize="11"/>
+                                            </Border>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Grid>
+                </Border>
+
+                <GridSplitter Grid.Column="1" Width="6" Background="Transparent"
+                              ResizeDirection="Columns" HorizontalAlignment="Center"/>
+
+                <!-- 右側：選中群組的詳細資訊 -->
+                <Border Grid.Column="2" BorderBrush="{DynamicResource SystemControlForegroundBaseMediumBrush}"
+                        BorderThickness="1" CornerRadius="4">
+                    <Grid RowDefinitions="Auto,Auto,*,Auto">
+                        <!-- 標題 -->
+                        <Border Grid.Row="0" Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}"
+                                Padding="10,6" CornerRadius="4,4,0,0">
+                            <TextBlock Text="型態詳細資訊" FontWeight="SemiBold"/>
+                        </Border>
+
+                        <!-- 說明區域 -->
+                        <Border Grid.Row="1" Padding="10,8"
+                                Background="{DynamicResource SystemControlBackgroundListLowBrush}"
+                                IsVisible="{Binding SelectedGroup, Converter={x:Static ObjectConverters.IsNotNull}}">
+                            <Grid RowDefinitions="Auto,Auto,Auto">
+                                <Grid Grid.Row="0" ColumnDefinitions="*,Auto">
+                                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10">
+                                        <TextBlock Text="欄位名稱：" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{Binding SelectedGroup.ColumnName}" FontSize="14" FontWeight="Bold" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                                        <TextBlock Text="篩選：" VerticalAlignment="Center"/>
+                                        <ComboBox ItemsSource="{Binding FilterOptions}"
+                                                  SelectedItem="{Binding DetailFilter}"
+                                                  MinWidth="100"/>
+                                    </StackPanel>
+                                </Grid>
+                                <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="20" Margin="0,5,0,0">
+                                    <StackPanel Orientation="Horizontal" Spacing="5">
+                                        <TextBlock Text="主要型態：" VerticalAlignment="Center"/>
+                                        <Border Background="#4CAF50" CornerRadius="3" Padding="6,2">
+                                            <TextBlock Text="{Binding SelectedGroup.PrimaryType}" Foreground="White" FontWeight="SemiBold"/>
+                                        </Border>
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal" Spacing="5">
+                                        <TextBlock Text="資料表總數：" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{Binding SelectedGroup.TableCount}" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal" Spacing="5">
+                                        <TextBlock Text="不一致數量：" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{Binding SelectedGroup.InconsistentCount}"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="#F44336" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </StackPanel>
+                                <TextBlock Grid.Row="2" Margin="0,5,0,0" FontSize="11"
+                                           Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}">
+                                    <Run Text="型態分布："/>
+                                    <Run Text="{Binding SelectedGroup.TypeSummary}"/>
+                                </TextBlock>
+                            </Grid>
+                        </Border>
+
+                        <!-- 詳細資料表格 -->
+                        <DataGrid Grid.Row="2"
+                                  ItemsSource="{Binding FilteredColumns}"
+                                  SelectedItem="{Binding SelectedColumnType}"
+                                  AutoGenerateColumns="False"
+                                  IsReadOnly="True"
+                                  GridLinesVisibility="All"
+                                  CanUserResizeColumns="True">
+                            <DataGrid.Columns>
+                                <!-- 狀態欄位 -->
+                                <DataGridTemplateColumn Header="狀態" Width="80">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate x:DataType="domain:ColumnTypeInfo">
+                                            <Border CornerRadius="3" Padding="4,2" Margin="2"
+                                                    HorizontalAlignment="Center">
+                                                <Border.Background>
+                                                    <Binding Path="IsConsistent">
+                                                        <Binding.Converter>
+                                                            <converters:ConsistentToColorConverter/>
+                                                        </Binding.Converter>
+                                                    </Binding>
+                                                </Border.Background>
+                                                <TextBlock Text="{Binding StatusText}" FontSize="11">
+                                                    <TextBlock.Foreground>
+                                                        <Binding Path="IsConsistent">
+                                                            <Binding.Converter>
+                                                                <converters:ConsistentToForegroundConverter/>
+                                                            </Binding.Converter>
+                                                        </Binding>
+                                                    </TextBlock.Foreground>
+                                                </TextBlock>
+                                            </Border>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTextColumn Header="Schema" Binding="{Binding SchemaName}" Width="80"/>
+                                <DataGridTextColumn Header="資料表" Binding="{Binding TableName}" Width="150"/>
+                                <DataGridTextColumn Header="型態" Binding="{Binding DataType}" Width="120"/>
+                                <DataGridCheckBoxColumn Header="可 Null" Binding="{Binding IsNullable}" Width="60"/>
+                                <DataGridTextColumn Header="約束數" Binding="{Binding Constraints.Count}" Width="60"/>
+                                <DataGridTextColumn Header="可變更" Binding="{Binding IsLengthChangeable, Converter={StaticResource BoolToYesNoConverter}}" Width="60"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+
+                        <!-- 更新長度面板 -->
+                        <Border Grid.Row="3" Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}"
+                                Padding="10,8" CornerRadius="0,0,4,4"
+                                IsVisible="{Binding SelectedColumnType, Converter={x:Static ObjectConverters.IsNotNull}}">
+                            <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto">
+                                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
+                                    <TextBlock Text="選中：" VerticalAlignment="Center"/>
+                                    <TextBlock Text="{Binding SelectedColumnType.FullTableName}"
+                                               FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                    <TextBlock Text="{Binding SelectedColumnType.DataType, StringFormat='({0})'}"
+                                               VerticalAlignment="Center"
+                                               Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"/>
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" Margin="20,0,0,0"
+                                            IsVisible="{Binding SelectedColumnType.IsLengthChangeable}">
+                                    <TextBlock Text="新長度：" VerticalAlignment="Center"/>
+                                    <NumericUpDown Value="{Binding NewLength}"
+                                                   Minimum="-1" Maximum="8000"
+                                                   Width="100"
+                                                   ToolTip.Tip="輸入新的長度（-1 表示 MAX）"/>
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" Margin="10,0,0,0"
+                                            IsVisible="{Binding SelectedColumnType.IsLengthChangeable}">
+                                    <Button Content="更新長度"
+                                            Command="{Binding UpdateColumnLengthCommand}"
+                                            CommandParameter="{Binding SelectedColumnType}"
+                                            IsEnabled="{Binding !IsUpdating}"/>
+                                    <ProgressBar IsIndeterminate="True" Width="60"
+                                                 IsVisible="{Binding IsUpdating}"/>
+                                </StackPanel>
+
+                                <Button Grid.Column="4" Content="載入約束"
+                                        Command="{Binding RefreshConstraintsCommand}"
+                                        CommandParameter="{Binding SelectedColumnType}"
+                                        HorizontalAlignment="Right"/>
+                            </Grid>
+                        </Border>
+                    </Grid>
+                </Border>
+            </Grid>
+        </Grid>
+
+        <!-- 狀態列 -->
+        <Border Grid.Row="2" Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}" Padding="10,5">
+            <SelectableTextBlock Text="{Binding StatusMessage}" VerticalAlignment="Center"/>
+        </Border>
+    </Grid>
+</UserControl>

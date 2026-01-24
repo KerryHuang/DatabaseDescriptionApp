@@ -23,6 +23,7 @@ public partial class MainWindowViewModel : ViewModelBase
     private readonly IExportService? _exportService;
     private readonly ITableQueryService? _tableQueryService;
     private readonly ISqlQueryRepository? _sqlQueryRepository;
+    private readonly IColumnTypeRepository? _columnTypeRepository;
 
     [ObservableProperty]
     private ObjectTreeViewModel? _objectTree;
@@ -70,12 +71,14 @@ public partial class MainWindowViewModel : ViewModelBase
         IExportService exportService,
         ITableQueryService tableQueryService,
         ISqlQueryRepository sqlQueryRepository,
+        IColumnTypeRepository columnTypeRepository,
         ObjectTreeViewModel objectTree)
     {
         _connectionManager = connectionManager;
         _exportService = exportService;
         _tableQueryService = tableQueryService;
         _sqlQueryRepository = sqlQueryRepository;
+        _columnTypeRepository = columnTypeRepository;
         ObjectTree = objectTree;
 
         // 訂閱連線變更事件
@@ -284,10 +287,27 @@ public partial class MainWindowViewModel : ViewModelBase
     [RelayCommand]
     private void OpenColumnSearch()
     {
-        if (_sqlQueryRepository == null || _connectionManager == null) return;
+        if (_sqlQueryRepository == null || _columnTypeRepository == null || _connectionManager == null) return;
 
-        var doc = new SqlQueryDocumentViewModel(_sqlQueryRepository, _connectionManager);
-        doc.SelectedTabIndex = 1; // 切換到欄位搜尋頁籤
+        var doc = new ColumnSearchDocumentViewModel(_sqlQueryRepository, _columnTypeRepository, _connectionManager);
+        doc.CloseRequested += OnDocumentCloseRequested;
+        Documents.Add(doc);
+        SelectedDocument = doc;
+    }
+
+    [RelayCommand]
+    private void OpenBackupRestore()
+    {
+        // 檢查是否已開啟
+        var existing = Documents.OfType<BackupRestoreDocumentViewModel>().FirstOrDefault();
+        if (existing != null)
+        {
+            SelectedDocument = existing;
+            return;
+        }
+
+        var doc = App.Services?.GetRequiredService<BackupRestoreDocumentViewModel>()
+            ?? new BackupRestoreDocumentViewModel();
         doc.CloseRequested += OnDocumentCloseRequested;
         Documents.Add(doc);
         SelectedDocument = doc;

@@ -5,6 +5,11 @@
     <Nullable>enable</Nullable>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    <!-- Velopack 版本資訊 -->
+    <Version>1.0.0</Version>
+    <AssemblyTitle>TableSpec</AssemblyTitle>
+    <Product>TableSpec</Product>
+    <Description>資料庫規格查詢工具</Description>
   </PropertyGroup>
 
   <ItemGroup>
@@ -28,6 +33,7 @@
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.2.1" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.2" />
     <PackageReference Include="Semi.Avalonia" Version="11.3.7.2" />
+    <PackageReference Include="Velopack" Version="0.0.942" />
   </ItemGroup>
 
   <ItemGroup>

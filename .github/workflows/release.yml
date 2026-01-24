@@ -11,22 +11,9 @@ env:
   DOTNET_CLI_TELEMETRY_OPTOUT: true
 
 jobs:
-  build-release:
-    name: 建置發布版本
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        include:
-          - os: windows-latest
-            runtime: win-x64
-            artifact: TableSpec-win-x64
-          - os: ubuntu-latest
-            runtime: linux-x64
-            artifact: TableSpec-linux-x64
-          - os: macos-latest
-            runtime: osx-arm64
-            artifact: TableSpec-osx-arm64
-
+  build-windows:
+    name: 建置 Windows 安裝包
+    runs-on: windows-latest
     steps:
       - name: 檢出程式碼
         uses: actions/checkout@v4
@@ -36,6 +23,11 @@ jobs:
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
+      - name: 取得版本號
+        id: get-version
+        shell: bash
+        run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
       - name: 還原相依套件
         run: dotnet restore
 
@@ -43,40 +35,121 @@ jobs:
         run: dotnet test --configuration Release --verbosity normal
 
       - name: 發布應用程式
-        run: |
-          dotnet publish src/TableSpec.Desktop -c Release -r ${{ matrix.runtime }} --self-contained -p:PublishSingleFile=true -o ./publish
+        run: dotnet publish src/TableSpec.Desktop -c Release -r win-x64 --self-contained -o publish
 
-      - name: 上傳發布產物
+      - name: 建立 Velopack 安裝包
+        run: |
+          dotnet tool install -g vpk
+          vpk pack --packId TableSpec --packVersion ${{ steps.get-version.outputs.version }} --packDir publish --mainExe TableSpec.Desktop.exe --packTitle "TableSpec" --icon src/TableSpec.Desktop/Assets/avalonia-logo.ico
+
+      - name: 上傳安裝包
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.artifact }}
-          path: ./publish
+          name: windows-installer
+          path: Releases/*
+          retention-days: 30
+
+  build-macos:
+    name: 建置 macOS 安裝包
+    runs-on: macos-latest
+    steps:
+      - name: 檢出程式碼
+        uses: actions/checkout@v4
+
+      - name: 設定 .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: 取得版本號
+        id: get-version
+        shell: bash
+        run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: 還原相依套件
+        run: dotnet restore
+
+      - name: 執行測試
+        run: dotnet test --configuration Release --verbosity normal
+
+      - name: 發布應用程式
+        run: dotnet publish src/TableSpec.Desktop -c Release -r osx-arm64 --self-contained -o publish
+
+      - name: 建立 Velopack 安裝包
+        run: |
+          dotnet tool install -g vpk
+          vpk pack --packId TableSpec --packVersion ${{ steps.get-version.outputs.version }} --packDir publish --mainExe TableSpec.Desktop --packTitle "TableSpec" --icon src/TableSpec.Desktop/Assets/TableSpec.png
+
+      - name: 上傳安裝包
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-installer
+          path: Releases/*
+          retention-days: 30
+
+  build-linux:
+    name: 建置 Linux 安裝包
+    runs-on: ubuntu-latest
+    steps:
+      - name: 檢出程式碼
+        uses: actions/checkout@v4
+
+      - name: 設定 .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: 取得版本號
+        id: get-version
+        shell: bash
+        run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: 還原相依套件
+        run: dotnet restore
+
+      - name: 執行測試
+        run: dotnet test --configuration Release --verbosity normal
+
+      - name: 發布應用程式
+        run: dotnet publish src/TableSpec.Desktop -c Release -r linux-x64 --self-contained -o publish
+
+      - name: 建立 Velopack 安裝包
+        run: |
+          dotnet tool install -g vpk
+          vpk pack --packId TableSpec --packVersion ${{ steps.get-version.outputs.version }} --packDir publish --mainExe TableSpec.Desktop --packTitle "TableSpec" --icon src/TableSpec.Desktop/Assets/TableSpec.png
+
+      - name: 上傳安裝包
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-installer
+          path: Releases/*
           retention-days: 30
 
   create-release:
     name: 建立 GitHub Release
-    needs: build-release
+    needs: [build-windows, build-macos, build-linux]
     runs-on: ubuntu-latest
     permissions:
       contents: write
 
     steps:
-      - name: 下載所有產物
+      - name: 下載所有安裝包
         uses: actions/download-artifact@v4
         with:
           path: artifacts
 
-      - name: 壓縮產物
+      - name: 整理發布檔案
         run: |
-          cd artifacts
-          for dir in */; do
-            zip -r "${dir%/}.zip" "$dir"
-          done
+          mkdir -p release-files
+          cp artifacts/windows-installer/* release-files/ 2>/dev/null || true
+          cp artifacts/macos-installer/* release-files/ 2>/dev/null || true
+          cp artifacts/linux-installer/* release-files/ 2>/dev/null || true
+          ls -la release-files/
 
       - name: 建立 Release
         uses: softprops/action-gh-release@v2
         with:
-          files: artifacts/*.zip
+          files: release-files/*
           generate_release_notes: true
           draft: false
           prerelease: ${{ contains(github.ref, '-') }}

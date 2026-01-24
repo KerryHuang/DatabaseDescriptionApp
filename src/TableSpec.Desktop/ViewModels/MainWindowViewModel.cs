@@ -314,6 +314,24 @@ public partial class MainWindowViewModel : ViewModelBase
     }
 
     [RelayCommand]
+    private void OpenSchemaCompare()
+    {
+        // 檢查是否已開啟
+        var existing = Documents.OfType<SchemaCompareDocumentViewModel>().FirstOrDefault();
+        if (existing != null)
+        {
+            SelectedDocument = existing;
+            return;
+        }
+
+        var doc = App.Services?.GetRequiredService<SchemaCompareDocumentViewModel>()
+            ?? new SchemaCompareDocumentViewModel();
+        doc.CloseRequested += OnDocumentCloseRequested;
+        Documents.Add(doc);
+        SelectedDocument = doc;
+    }
+
+    [RelayCommand]
     private void CloseDocument(DocumentViewModel? doc)
     {
         if (doc == null || !doc.CanClose) return;

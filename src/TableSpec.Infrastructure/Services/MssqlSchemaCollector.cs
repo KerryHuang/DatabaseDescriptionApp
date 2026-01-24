@@ -231,15 +231,19 @@ ORDER BY ic.key_ordinal";
         const string sql = @"
 SELECT
     kc.name AS Name,
-    STRING_AGG(c.name, ',') WITHIN GROUP (ORDER BY ic.key_ordinal) AS Columns
+    STUFF((
+        SELECT ',' + c2.name
+        FROM sys.index_columns ic2
+        JOIN sys.columns c2 ON ic2.object_id = c2.object_id AND ic2.column_id = c2.column_id
+        WHERE ic2.object_id = i.object_id AND ic2.index_id = i.index_id
+        ORDER BY ic2.key_ordinal
+        FOR XML PATH(''), TYPE
+    ).value('.', 'NVARCHAR(MAX)'), 1, 1, '') AS Columns
 FROM sys.key_constraints kc
 JOIN sys.indexes i ON kc.parent_object_id = i.object_id AND kc.unique_index_id = i.index_id
-JOIN sys.index_columns ic ON i.object_id = ic.object_id AND i.index_id = ic.index_id
-JOIN sys.columns c ON ic.object_id = c.object_id AND ic.column_id = c.column_id
 JOIN sys.tables t ON kc.parent_object_id = t.object_id
 JOIN sys.schemas s ON t.schema_id = s.schema_id
-WHERE s.name = @Schema AND t.name = @TableName AND kc.type = 'PK'
-GROUP BY kc.name";
+WHERE s.name = @Schema AND t.name = @TableName AND kc.type = 'PK'";
 
         var pk = await connection.QueryFirstOrDefaultAsync<(string Name, string Columns)?>(
             sql, new { Schema = schema, TableName = tableName });
@@ -263,22 +267,32 @@ GROUP BY kc.name";
         const string sql = @"
 SELECT
     fk.name AS Name,
-    STRING_AGG(pc.name, ',') WITHIN GROUP (ORDER BY fkc.constraint_column_id) AS Columns,
+    STUFF((
+        SELECT ',' + pc2.name
+        FROM sys.foreign_key_columns fkc2
+        JOIN sys.columns pc2 ON fkc2.parent_object_id = pc2.object_id AND fkc2.parent_column_id = pc2.column_id
+        WHERE fkc2.constraint_object_id = fk.object_id
+        ORDER BY fkc2.constraint_column_id
+        FOR XML PATH(''), TYPE
+    ).value('.', 'NVARCHAR(MAX)'), 1, 1, '') AS Columns,
     rs.name AS ReferencedSchema,
     rt.name AS ReferencedTable,
-    STRING_AGG(rc.name, ',') WITHIN GROUP (ORDER BY fkc.constraint_column_id) AS ReferencedColumns,
+    STUFF((
+        SELECT ',' + rc2.name
+        FROM sys.foreign_key_columns fkc2
+        JOIN sys.columns rc2 ON fkc2.referenced_object_id = rc2.object_id AND fkc2.referenced_column_id = rc2.column_id
+        WHERE fkc2.constraint_object_id = fk.object_id
+        ORDER BY fkc2.constraint_column_id
+        FOR XML PATH(''), TYPE
+    ).value('.', 'NVARCHAR(MAX)'), 1, 1, '') AS ReferencedColumns,
     fk.delete_referential_action_desc AS OnDelete,
     fk.update_referential_action_desc AS OnUpdate
 FROM sys.foreign_keys fk
-JOIN sys.foreign_key_columns fkc ON fk.object_id = fkc.constraint_object_id
-JOIN sys.columns pc ON fkc.parent_object_id = pc.object_id AND fkc.parent_column_id = pc.column_id
-JOIN sys.columns rc ON fkc.referenced_object_id = rc.object_id AND fkc.referenced_column_id = rc.column_id
 JOIN sys.tables pt ON fk.parent_object_id = pt.object_id
 JOIN sys.tables rt ON fk.referenced_object_id = rt.object_id
 JOIN sys.schemas ps ON pt.schema_id = ps.schema_id
 JOIN sys.schemas rs ON rt.schema_id = rs.schema_id
-WHERE ps.name = @Schema AND pt.name = @TableName
-GROUP BY fk.name, rs.name, rt.name, fk.delete_referential_action_desc, fk.update_referential_action_desc";
+WHERE ps.name = @Schema AND pt.name = @TableName";
 
         var fks = await connection.QueryAsync<(string Name, string Columns, string ReferencedSchema, string ReferencedTable, string ReferencedColumns, string OnDelete, string OnUpdate)>(
             sql, new { Schema = schema, TableName = tableName });
@@ -304,15 +318,19 @@ GROUP BY fk.name, rs.name, rt.name, fk.delete_referential_action_desc, fk.update
         const string sql = @"
 SELECT
     kc.name AS Name,
-    STRING_AGG(c.name, ',') WITHIN GROUP (ORDER BY ic.key_ordinal) AS Columns
+    STUFF((
+        SELECT ',' + c2.name
+        FROM sys.index_columns ic2
+        JOIN sys.columns c2 ON ic2.object_id = c2.object_id AND ic2.column_id = c2.column_id
+        WHERE ic2.object_id = i.object_id AND ic2.index_id = i.index_id
+        ORDER BY ic2.key_ordinal
+        FOR XML PATH(''), TYPE
+    ).value('.', 'NVARCHAR(MAX)'), 1, 1, '') AS Columns
 FROM sys.key_constraints kc
 JOIN sys.indexes i ON kc.parent_object_id = i.object_id AND kc.unique_index_id = i.index_id
-JOIN sys.index_columns ic ON i.object_id = ic.object_id AND i.index_id = ic.index_id
-JOIN sys.columns c ON ic.object_id = c.object_id AND ic.column_id = c.column_id
 JOIN sys.tables t ON kc.parent_object_id = t.object_id
 JOIN sys.schemas s ON t.schema_id = s.schema_id
-WHERE s.name = @Schema AND t.name = @TableName AND kc.type = 'UQ'
-GROUP BY kc.name";
+WHERE s.name = @Schema AND t.name = @TableName AND kc.type = 'UQ'";
 
         var uqs = await connection.QueryAsync<(string Name, string Columns)>(
             sql, new { Schema = schema, TableName = tableName });

@@ -1,0 +1,230 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:TableSpec.Desktop.ViewModels"
+             xmlns:domain="using:TableSpec.Domain.Entities"
+             xmlns:sc="using:TableSpec.Domain.Entities.SchemaCompare"
+             xmlns:conv="using:TableSpec.Desktop.Converters"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="1000" d:DesignHeight="700"
+             x:Class="TableSpec.Desktop.Views.SchemaCompareDocumentView"
+             x:DataType="vm:SchemaCompareDocumentViewModel">
+
+    <UserControl.Resources>
+        <conv:RiskLevelToColorConverter x:Key="RiskLevelToColorConverter"/>
+        <conv:RiskLevelToTextConverter x:Key="RiskLevelToTextConverter"/>
+        <conv:DifferenceTypeToTextConverter x:Key="DifferenceTypeToTextConverter"/>
+        <conv:SchemaObjectTypeToTextConverter x:Key="SchemaObjectTypeToTextConverter"/>
+    </UserControl.Resources>
+
+    <Design.DataContext>
+        <vm:SchemaCompareDocumentViewModel/>
+    </Design.DataContext>
+
+    <Grid RowDefinitions="Auto,*,Auto">
+        <!-- 工具列 -->
+        <Border Grid.Row="0" Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}" Padding="10,8">
+            <StackPanel Orientation="Horizontal" Spacing="10">
+                <Button Content="比對" Command="{Binding CompareCommand}" ToolTip.Tip="開始比對選取的環境"/>
+                <Separator/>
+                <Button Content="匯出 Excel" Command="{Binding ExportExcelCommand}" ToolTip.Tip="匯出比對結果為 Excel 檔案"/>
+                <Button Content="匯出 HTML" Command="{Binding ExportHtmlCommand}" ToolTip.Tip="匯出比對結果為 HTML 報告"/>
+                <Button Content="匯出 SQL" Command="{Binding ExportSqlCommand}" ToolTip.Tip="匯出同步報告"/>
+                <Separator/>
+                <Button Content="重新整理" Command="{Binding RefreshProfilesCommand}" ToolTip.Tip="重新載入連線設定檔"/>
+                <Button Content="取消" Command="{Binding CancelCommand}"
+                        IsVisible="{Binding IsComparing}"/>
+                <ProgressBar IsIndeterminate="True" Width="100"
+                             IsVisible="{Binding IsComparing}"/>
+            </StackPanel>
+        </Border>
+
+        <!-- 主要內容區 -->
+        <Grid Grid.Row="1" ColumnDefinitions="300,Auto,*">
+            <!-- 左側面板：環境選擇 -->
+            <Border Grid.Column="0" Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
+                    Margin="5" CornerRadius="5" Padding="10">
+                <Grid RowDefinitions="Auto,Auto,Auto,*,Auto">
+                    <!-- 基準環境 -->
+                    <StackPanel Grid.Row="0" Spacing="5">
+                        <TextBlock Text="基準環境" FontWeight="Bold" FontSize="14"/>
+                        <ComboBox ItemsSource="{Binding AvailableProfiles}"
+                                  SelectedItem="{Binding BaseProfile}"
+                                  HorizontalAlignment="Stretch">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate x:DataType="domain:ConnectionProfile">
+                                    <StackPanel>
+                                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold"/>
+                                        <TextBlock Text="{Binding Database}" FontSize="11" Foreground="Gray"/>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                        <TextBlock Text="{Binding CurrentBaseName, StringFormat=已選擇：{0}}"
+                                   FontSize="11" Foreground="Gray"
+                                   IsVisible="{Binding CurrentBaseName, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                    </StackPanel>
+
+                    <Separator Grid.Row="1" Margin="0,10"/>
+
+                    <!-- 目標環境 -->
+                    <StackPanel Grid.Row="2" Spacing="5">
+                        <Grid ColumnDefinitions="*,Auto,Auto">
+                            <TextBlock Grid.Column="0" Text="目標環境" FontWeight="Bold" FontSize="14" VerticalAlignment="Center"/>
+                            <Button Grid.Column="1" Content="全選" Command="{Binding SelectAllProfilesCommand}"
+                                    Padding="8,2" Margin="5,0" FontSize="11"/>
+                            <Button Grid.Column="2" Content="清除" Command="{Binding ClearSelectedProfilesCommand}"
+                                    Padding="8,2" FontSize="11"/>
+                        </Grid>
+                        <TextBlock Text="點擊項目可切換選取狀態" FontSize="11" Foreground="Gray"/>
+                    </StackPanel>
+
+                    <!-- 目標環境清單 -->
+                    <ScrollViewer Grid.Row="3" Margin="0,10,0,0">
+                        <ItemsControl ItemsSource="{Binding TargetProfileItems}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:ProfileItemViewModel">
+                                    <Border Padding="8,6" CornerRadius="3" Margin="0,2">
+                                        <CheckBox IsChecked="{Binding IsSelected}"
+                                                  IsEnabled="{Binding IsEnabled}"
+                                                  Cursor="Hand">
+                                            <StackPanel Orientation="Vertical" Spacing="2">
+                                                <TextBlock Text="{Binding Profile.Name}" FontWeight="SemiBold"/>
+                                                <StackPanel Orientation="Horizontal" Spacing="5">
+                                                    <TextBlock Text="{Binding Profile.Server}" FontSize="11" Foreground="Gray"/>
+                                                    <TextBlock Text="(基準環境)" FontSize="11" Foreground="Orange"
+                                                               IsVisible="{Binding !IsEnabled}"/>
+                                                </StackPanel>
+                                            </StackPanel>
+                                        </CheckBox>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+
+                    <!-- 已選擇數量 -->
+                    <TextBlock Grid.Row="4" Margin="0,5,0,0"
+                               Text="{Binding SelectedProfileCount, StringFormat=已選擇 {0} 個目標環境}"
+                               FontSize="11" Foreground="Gray"/>
+                </Grid>
+            </Border>
+
+            <GridSplitter Grid.Column="1" Width="5" Background="Transparent"/>
+
+            <!-- 右側面板：比對結果 -->
+            <Grid Grid.Column="2" RowDefinitions="Auto,*">
+                <!-- 風險篩選 -->
+                <Border Grid.Row="0" Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
+                        Margin="5,5,5,0" CornerRadius="5" Padding="10">
+                    <StackPanel Orientation="Horizontal" Spacing="15">
+                        <TextBlock Text="風險篩選：" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                        <CheckBox IsChecked="{Binding ShowLowRisk}" Content="低" Foreground="Green"/>
+                        <CheckBox IsChecked="{Binding ShowMediumRisk}" Content="中" Foreground="Orange"/>
+                        <CheckBox IsChecked="{Binding ShowHighRisk}" Content="高" Foreground="Red"/>
+                        <CheckBox IsChecked="{Binding ShowForbidden}" Content="禁止" Foreground="DarkRed"/>
+                        <Separator/>
+                        <TextBlock Text="{Binding TotalDifferenceCount, StringFormat=總計 {0} 個差異}"
+                                   VerticalAlignment="Center" FontWeight="Bold"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- 比對結果內容 -->
+                <Grid Grid.Row="1" RowDefinitions="Auto,*" Margin="5">
+                    <!-- 環境比對結果清單 -->
+                    <Border Grid.Row="0" Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
+                            CornerRadius="5" Padding="10" Margin="0,5,0,0"
+                            IsVisible="{Binding ComparisonResults.Count}">
+                        <StackPanel>
+                            <TextBlock Text="比對結果" FontWeight="Bold" FontSize="14" Margin="0,0,0,5"/>
+                            <ListBox ItemsSource="{Binding ComparisonResults}"
+                                     SelectedItem="{Binding SelectedComparison}"
+                                     MaxHeight="120"
+                                     Background="Transparent">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate x:DataType="sc:SchemaComparison">
+                                        <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto">
+                                            <TextBlock Grid.Column="0" Text="{Binding TargetEnvironment}" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                            <Border Grid.Column="1" Background="Green" CornerRadius="3" Padding="5,2" Margin="5,0">
+                                                <TextBlock Text="{Binding RiskSummary.LowCount}" Foreground="White" FontSize="11"/>
+                                            </Border>
+                                            <Border Grid.Column="2" Background="Orange" CornerRadius="3" Padding="5,2" Margin="0,0,5,0">
+                                                <TextBlock Text="{Binding RiskSummary.MediumCount}" Foreground="White" FontSize="11"/>
+                                            </Border>
+                                            <Border Grid.Column="3" Background="Red" CornerRadius="3" Padding="5,2" Margin="0,0,5,0">
+                                                <TextBlock Text="{Binding RiskSummary.HighCount}" Foreground="White" FontSize="11"/>
+                                            </Border>
+                                            <Border Grid.Column="4" Background="DarkRed" CornerRadius="3" Padding="5,2">
+                                                <TextBlock Text="{Binding RiskSummary.ForbiddenCount}" Foreground="White" FontSize="11"/>
+                                            </Border>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- 差異詳情 -->
+                    <Border Grid.Row="1" Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
+                            CornerRadius="5" Padding="10" Margin="0,5,0,0">
+                        <Grid RowDefinitions="Auto,*">
+                            <TextBlock Grid.Row="0" Text="差異詳情" FontWeight="Bold" FontSize="14" Margin="0,0,0,5"/>
+
+                            <!-- 差異清單 -->
+                            <DataGrid Grid.Row="1"
+                                      ItemsSource="{Binding FilteredDifferences}"
+                                      SelectedItem="{Binding SelectedDifference}"
+                                      AutoGenerateColumns="False"
+                                      IsReadOnly="True"
+                                      CanUserResizeColumns="True"
+                                      CanUserSortColumns="True"
+                                      GridLinesVisibility="Horizontal"
+                                      IsVisible="{Binding ComparisonResults.Count}">
+                                <DataGrid.Columns>
+                                    <DataGridTemplateColumn Header="風險" Width="60">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate x:DataType="sc:SchemaDifference">
+                                                <Border CornerRadius="3" Padding="5,2" HorizontalAlignment="Center"
+                                                        Background="{Binding RiskLevel, Converter={StaticResource RiskLevelToColorConverter}}">
+                                                    <TextBlock Text="{Binding RiskLevel, Converter={StaticResource RiskLevelToTextConverter}}"
+                                                               Foreground="White" FontSize="11"/>
+                                                </Border>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                    <DataGridTextColumn Header="物件類型" Binding="{Binding ObjectType, Converter={StaticResource SchemaObjectTypeToTextConverter}}" Width="100"/>
+                                    <DataGridTextColumn Header="物件名稱" Binding="{Binding ObjectName}" Width="250"/>
+                                    <DataGridTextColumn Header="差異類型" Binding="{Binding DifferenceType, Converter={StaticResource DifferenceTypeToTextConverter}}" Width="80"/>
+                                    <DataGridTextColumn Header="屬性" Binding="{Binding PropertyName}" Width="100"/>
+                                    <DataGridTextColumn Header="來源值" Binding="{Binding SourceValue}" Width="100"/>
+                                    <DataGridTextColumn Header="目標值" Binding="{Binding TargetValue}" Width="100"/>
+                                    <DataGridTextColumn Header="描述" Binding="{Binding Description}" Width="*"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+
+                            <!-- 無比對結果提示 -->
+                            <StackPanel Grid.Row="1"
+                                        HorizontalAlignment="Center" VerticalAlignment="Center"
+                                        IsVisible="{Binding !ComparisonResults.Count}">
+                                <TextBlock Text="尚無比對結果" FontSize="16" Foreground="Gray" HorizontalAlignment="Center"/>
+                                <TextBlock Text="請選擇基準環境和目標環境，然後點擊「比對」按鈕" FontSize="12" Foreground="Gray" HorizontalAlignment="Center" Margin="0,5,0,0"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </Grid>
+        </Grid>
+
+        <!-- 狀態列 -->
+        <Border Grid.Row="2" Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}" Padding="10,5">
+            <Grid ColumnDefinitions="*,Auto">
+                <SelectableTextBlock Grid.Column="0" Text="{Binding StatusMessage}" VerticalAlignment="Center"/>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10"
+                            IsVisible="{Binding IsComparing}">
+                    <TextBlock Text="{Binding ProgressMessage}" VerticalAlignment="Center"/>
+                    <ProgressBar Minimum="0" Maximum="100" Value="{Binding ProgressPercentage}" Width="150"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>

@@ -8,7 +8,7 @@
         mc:Ignorable="d" d:DesignWidth="1200" d:DesignHeight="700"
         x:Class="TableSpec.Desktop.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
-        Icon="/Assets/avalonia-logo.ico"
+        Icon="/Assets/TableSpec.png"
         Title="TableSpec - 資料庫規格查詢工具"
         Width="1200" Height="700"
         MinWidth="800" MinHeight="500">
@@ -62,6 +62,11 @@
                     </MenuItem>
                     <Separator/>
                     <MenuItem Header="備份與還原(_B)" Command="{Binding OpenBackupRestoreCommand}" InputGesture="Ctrl+B" IsEnabled="{Binding IsConnected}">
+                        <MenuItem.Icon>
+                            <TextBlock Text="" FontSize="14"/>
+                        </MenuItem.Icon>
+                    </MenuItem>
+                    <MenuItem Header="Schema Compare(_M)" Command="{Binding OpenSchemaCompareCommand}" InputGesture="Ctrl+M">
                         <MenuItem.Icon>
                             <TextBlock Text="" FontSize="14"/>
                         </MenuItem.Icon>
@@ -231,6 +236,9 @@
                                         </DataTemplate>
                                         <DataTemplate DataType="{x:Type vm:BackupRestoreDocumentViewModel}">
                                             <views:BackupRestoreDocumentView/>
+                                        </DataTemplate>
+                                        <DataTemplate DataType="{x:Type vm:SchemaCompareDocumentViewModel}">
+                                            <views:SchemaCompareDocumentView/>
                                         </DataTemplate>
                                     </ContentControl.DataTemplates>
                                 </ContentControl>

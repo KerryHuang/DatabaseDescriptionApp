@@ -1,0 +1,283 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:TableSpec.Desktop.ViewModels"
+             xmlns:domain="using:TableSpec.Domain.Entities"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="900" d:DesignHeight="600"
+             x:Class="TableSpec.Desktop.Views.BackupRestoreDocumentView"
+             x:DataType="vm:BackupRestoreDocumentViewModel">
+
+    <Design.DataContext>
+        <vm:BackupRestoreDocumentViewModel/>
+    </Design.DataContext>
+
+    <Grid RowDefinitions="Auto,*,Auto">
+        <!-- 工具列 -->
+        <Border Grid.Row="0" Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}" Padding="10,8">
+            <StackPanel Orientation="Horizontal" Spacing="10">
+                <Button Content="備份" Command="{Binding BackupCommand}"/>
+                <Button Content="還原" Command="{Binding RestoreCommand}"/>
+                <Button Content="重新整理歷史" Command="{Binding RefreshHistoryCommand}"/>
+                <Separator/>
+                <Button Content="取消" Command="{Binding CancelOperationCommand}"
+                        IsVisible="{Binding IsProcessing}"/>
+                <ProgressBar IsIndeterminate="True" Width="100"
+                             IsVisible="{Binding IsProcessing}"/>
+            </StackPanel>
+        </Border>
+
+        <!-- 主要內容區 - 分頁 -->
+        <TabControl Grid.Row="1" Margin="10" SelectedIndex="{Binding SelectedTabIndex}">
+
+            <!-- 備份分頁 -->
+            <TabItem Header="備份">
+                <ScrollViewer>
+                    <StackPanel Spacing="15" Margin="10">
+                        <!-- 來源資料庫 -->
+                        <Border Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
+                                CornerRadius="5" Padding="15">
+                            <StackPanel Spacing="10">
+                                <TextBlock Text="來源資料庫" FontWeight="Bold" FontSize="14"/>
+                                <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto">
+                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="連線：" VerticalAlignment="Center" Margin="0,0,10,5"/>
+                                    <ComboBox Grid.Row="0" Grid.Column="1" MinWidth="250" Margin="0,0,0,5"
+                                              ItemsSource="{Binding ConnectionProfiles}"
+                                              SelectedItem="{Binding SelectedProfile}">
+                                        <ComboBox.ItemTemplate>
+                                            <DataTemplate x:DataType="domain:ConnectionProfile">
+                                                <TextBlock Text="{Binding Name}"/>
+                                            </DataTemplate>
+                                        </ComboBox.ItemTemplate>
+                                    </ComboBox>
+
+                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="資料庫：" VerticalAlignment="Center" Margin="0,0,10,5"/>
+                                    <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding CurrentDatabaseName}" VerticalAlignment="Center" Margin="0,0,0,5"/>
+
+                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="伺服器：" VerticalAlignment="Center" Margin="0,0,10,5"/>
+                                    <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding CurrentServerName}" VerticalAlignment="Center" Margin="0,0,0,5"/>
+
+                                    <TextBlock Grid.Row="3" Grid.Column="0" Text="上次備份：" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                    <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding LastBackupInfo}" VerticalAlignment="Center"/>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- 備份設定 -->
+                        <Border Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
+                                CornerRadius="5" Padding="15">
+                            <StackPanel Spacing="10">
+                                <TextBlock Text="備份設定" FontWeight="Bold" FontSize="14"/>
+
+                                <StackPanel Orientation="Horizontal" Spacing="10">
+                                    <TextBlock Text="備份類型：" VerticalAlignment="Center"/>
+                                    <ComboBox MinWidth="150"
+                                              ItemsSource="{Binding BackupTypes}"
+                                              SelectedValue="{Binding SelectedBackupType}"
+                                              SelectedValueBinding="{Binding Type}">
+                                        <ComboBox.ItemTemplate>
+                                            <DataTemplate x:DataType="vm:BackupTypeItem">
+                                                <TextBlock Text="{Binding DisplayName}"/>
+                                            </DataTemplate>
+                                        </ComboBox.ItemTemplate>
+                                    </ComboBox>
+                                </StackPanel>
+
+                                <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto">
+                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="備份路徑：" VerticalAlignment="Center" Margin="0,0,10,5"/>
+                                    <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding BackupPath}" Margin="0,0,0,5"
+                                             Watermark="SQL Server 伺服器上的路徑，例如：C:\Backup\MyDB.bak"/>
+
+                                    <TextBlock Grid.Row="1" Grid.Column="1" Text="* 此路徑為 SQL Server 伺服器端路徑，非本機路徑"
+                                               FontSize="11" Foreground="Gray" Margin="0,0,0,10"/>
+
+                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="備份描述：" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                    <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding BackupDescription}"
+                                             Watermark="選填，例如：Schema Compare 前的備份"/>
+                                </Grid>
+
+                                <CheckBox IsChecked="{Binding VerifyAfterBackup}" Content="備份完成後自動驗證"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- 開始備份按鈕 -->
+                        <Button Content="開始備份" Command="{Binding BackupCommand}"
+                                HorizontalAlignment="Left" Padding="20,10"/>
+
+                        <!-- 進度 -->
+                        <Border Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
+                                CornerRadius="5" Padding="15"
+                                IsVisible="{Binding IsProcessing}">
+                            <StackPanel Spacing="10">
+                                <TextBlock Text="進度" FontWeight="Bold"/>
+                                <ProgressBar Minimum="0" Maximum="100" Value="{Binding ProgressPercentage}"
+                                             ShowProgressText="True"/>
+                                <TextBlock Text="{Binding ProgressMessage}"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <!-- 還原分頁 -->
+            <TabItem Header="還原">
+                <ScrollViewer>
+                    <StackPanel Spacing="15" Margin="10">
+                        <!-- 備份檔案 -->
+                        <Border Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
+                                CornerRadius="5" Padding="15">
+                            <StackPanel Spacing="10">
+                                <TextBlock Text="備份檔案" FontWeight="Bold" FontSize="14"/>
+                                <Grid ColumnDefinitions="Auto,*,Auto,Auto">
+                                    <TextBlock Grid.Column="0" Text="檔案路徑：" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                    <TextBox Grid.Column="1" Text="{Binding RestoreFilePath}" Margin="0,0,10,0"/>
+                                    <Button Grid.Column="2" Content="瀏覽..." Command="{Binding BrowseRestoreFileCommand}" Margin="0,0,10,0"/>
+                                    <Button Grid.Column="3" Content="驗證備份" Command="{Binding VerifyRestoreBackupCommand}"/>
+                                </Grid>
+
+                                <TextBlock Text="{Binding BackupValidationMessage}"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- 備份資訊 -->
+                        <Border Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
+                                CornerRadius="5" Padding="15"
+                                IsVisible="{Binding RestoreFileInfo, Converter={x:Static ObjectConverters.IsNotNull}}">
+                            <StackPanel Spacing="10">
+                                <TextBlock Text="備份資訊" FontWeight="Bold" FontSize="14"/>
+                                <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto">
+                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="來源資料庫：" Margin="0,0,10,5"/>
+                                    <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding RestoreFileInfo.DatabaseName}" Margin="0,0,0,5"/>
+
+                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="來源伺服器：" Margin="0,0,10,5"/>
+                                    <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding RestoreFileInfo.ServerName}" Margin="0,0,0,5"/>
+
+                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="備份時間：" Margin="0,0,10,5"/>
+                                    <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding RestoreFileInfo.BackupStartTime, StringFormat={}{0:yyyy-MM-dd HH:mm:ss}}" Margin="0,0,0,5"/>
+
+                                    <TextBlock Grid.Row="3" Grid.Column="0" Text="備份類型：" Margin="0,0,10,5"/>
+                                    <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding RestoreFileInfo.BackupType}" Margin="0,0,0,5"/>
+
+                                    <TextBlock Grid.Row="4" Grid.Column="0" Text="檔案大小：" Margin="0,0,10,0"/>
+                                    <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding RestoreFileInfo.FormattedBackupSize}"/>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- 還原設定 -->
+                        <Border Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
+                                CornerRadius="5" Padding="15">
+                            <StackPanel Spacing="10">
+                                <TextBlock Text="還原設定" FontWeight="Bold" FontSize="14"/>
+
+                                <StackPanel Orientation="Horizontal" Spacing="10">
+                                    <TextBlock Text="目標連線：" VerticalAlignment="Center"/>
+                                    <ComboBox MinWidth="250"
+                                              ItemsSource="{Binding ConnectionProfiles}"
+                                              SelectedItem="{Binding RestoreTargetProfile}">
+                                        <ComboBox.ItemTemplate>
+                                            <DataTemplate x:DataType="domain:ConnectionProfile">
+                                                <TextBlock Text="{Binding Name}"/>
+                                            </DataTemplate>
+                                        </ComboBox.ItemTemplate>
+                                    </ComboBox>
+                                </StackPanel>
+
+                                <TextBlock Text="還原模式：" Margin="0,10,0,5"/>
+                                <StackPanel Spacing="5">
+                                    <RadioButton GroupName="RestoreMode"
+                                                 IsChecked="{Binding IsOverwriteMode}">
+                                        <StackPanel Orientation="Horizontal" Spacing="5">
+                                            <TextBlock Text="覆蓋原資料庫"/>
+                                            <TextBlock Text="{Binding RestoreFileInfo.DatabaseName, StringFormat=({0})}"
+                                                       IsVisible="{Binding RestoreFileInfo, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                                        </StackPanel>
+                                    </RadioButton>
+                                    <RadioButton GroupName="RestoreMode"
+                                                 IsChecked="{Binding IsCreateNewMode}">
+                                        <StackPanel Orientation="Horizontal" Spacing="5">
+                                            <TextBlock Text="還原到新資料庫：" VerticalAlignment="Center"/>
+                                            <TextBox Text="{Binding NewDatabaseName}" MinWidth="200"
+                                                     IsEnabled="{Binding IsCreateNewMode}"/>
+                                        </StackPanel>
+                                    </RadioButton>
+                                </StackPanel>
+
+                                <Border Background="#FFFFC107" CornerRadius="3" Padding="10" Margin="0,10,0,0"
+                                        IsVisible="{Binding IsOverwriteMode}">
+                                    <TextBlock Text="警告：覆蓋原資料庫將會遺失所有現有資料！" Foreground="Black"/>
+                                </Border>
+
+                                <CheckBox IsChecked="{Binding WithRecovery}" Content="還原後立即可用 (WITH RECOVERY)" Margin="0,10,0,0"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- 開始還原按鈕 -->
+                        <Button Content="開始還原" Command="{Binding RestoreCommand}"
+                                HorizontalAlignment="Left" Padding="20,10"/>
+
+                        <!-- 進度 -->
+                        <Border Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
+                                CornerRadius="5" Padding="15"
+                                IsVisible="{Binding IsProcessing}">
+                            <StackPanel Spacing="10">
+                                <TextBlock Text="進度" FontWeight="Bold"/>
+                                <ProgressBar Minimum="0" Maximum="100" Value="{Binding ProgressPercentage}"
+                                             ShowProgressText="True"/>
+                                <TextBlock Text="{Binding ProgressMessage}"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <!-- 歷史分頁 -->
+            <TabItem Header="歷史">
+                <Grid RowDefinitions="Auto,*,Auto">
+                    <!-- 篩選 -->
+                    <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="10" Margin="10">
+                        <TextBlock Text="連線：" VerticalAlignment="Center"/>
+                        <ComboBox MinWidth="150"
+                                  ItemsSource="{Binding HistoryFilterConnections}"
+                                  SelectedItem="{Binding HistoryFilterConnection}"/>
+                    </StackPanel>
+
+                    <!-- 歷史清單 -->
+                    <DataGrid Grid.Row="1" Margin="10,0"
+                              ItemsSource="{Binding BackupHistoryList}"
+                              SelectedItem="{Binding SelectedHistoryItem}"
+                              AutoGenerateColumns="False"
+                              IsReadOnly="True"
+                              CanUserResizeColumns="True"
+                              CanUserSortColumns="True">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="時間" Binding="{Binding BackupTime, StringFormat={}{0:yyyy-MM-dd HH:mm}}" Width="130"/>
+                            <DataGridTextColumn Header="連線" Binding="{Binding ConnectionName}" Width="120"/>
+                            <DataGridTextColumn Header="資料庫" Binding="{Binding DatabaseName}" Width="120"/>
+                            <DataGridTextColumn Header="類型" Binding="{Binding BackupType}" Width="80"/>
+                            <DataGridTextColumn Header="大小" Binding="{Binding FormattedFileSize}" Width="100"/>
+                            <DataGridTextColumn Header="描述" Binding="{Binding Description}" Width="*"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+
+                    <!-- 操作按鈕 -->
+                    <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="10" Margin="10">
+                        <Button Content="還原此備份" Command="{Binding RestoreFromHistoryCommand}"
+                                IsEnabled="{Binding SelectedHistoryItem, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                        <Button Content="驗證" Command="{Binding VerifyHistoryItemCommand}"
+                                IsEnabled="{Binding SelectedHistoryItem, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                        <Button Content="開啟資料夾" Command="{Binding OpenBackupFolderCommand}"
+                                IsEnabled="{Binding SelectedHistoryItem, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                        <Button Content="從歷史移除" Command="{Binding RemoveFromHistoryCommand}"
+                                IsEnabled="{Binding SelectedHistoryItem, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                    </StackPanel>
+                </Grid>
+            </TabItem>
+        </TabControl>
+
+        <!-- 狀態列 -->
+        <Border Grid.Row="2" Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}" Padding="10,5">
+            <TextBlock Text="{Binding StatusMessage}"/>
+        </Border>
+    </Grid>
+</UserControl>

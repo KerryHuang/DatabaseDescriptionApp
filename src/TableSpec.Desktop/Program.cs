@@ -46,6 +46,8 @@ sealed class Program
             new RelationRepository(() => sp.GetRequiredService<IConnectionManager>().GetCurrentConnectionString()));
         services.AddSingleton<IParameterRepository>(sp =>
             new ParameterRepository(() => sp.GetRequiredService<IConnectionManager>().GetCurrentConnectionString()));
+        services.AddSingleton<ISqlQueryRepository>(sp =>
+            new SqlQueryRepository(() => sp.GetRequiredService<IConnectionManager>().GetCurrentConnectionString()));
 
         // Application - Services
         services.AddSingleton<ITableQueryService, TableQueryService>();
@@ -56,6 +58,7 @@ sealed class Program
         services.AddTransient<ConnectionSetupViewModel>();
         services.AddTransient<ObjectTreeViewModel>();
         services.AddTransient<TableDetailViewModel>();
+        services.AddTransient<SqlQueryViewModel>();
 
         return services.BuildServiceProvider();
     }

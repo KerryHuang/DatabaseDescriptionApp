@@ -1,0 +1,179 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:TableSpec.Desktop.ViewModels"
+        xmlns:domain="using:TableSpec.Domain.Entities"
+        xmlns:interfaces="using:TableSpec.Domain.Interfaces"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="900" d:DesignHeight="600"
+        x:Class="TableSpec.Desktop.Views.SqlQueryWindow"
+        x:DataType="vm:SqlQueryViewModel"
+        Title="SQL 查詢 / 欄位搜尋"
+        Width="1000" Height="650"
+        MinWidth="700" MinHeight="450"
+        WindowStartupLocation="CenterOwner">
+
+    <Design.DataContext>
+        <vm:SqlQueryViewModel/>
+    </Design.DataContext>
+
+    <Grid RowDefinitions="Auto,*,Auto">
+        <!-- 工具列 -->
+        <Border Grid.Row="0" Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}" Padding="10,8">
+            <Grid ColumnDefinitions="Auto,*,Auto">
+                <!-- 左側：連線選擇 -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10">
+                    <TextBlock Text="連線：" VerticalAlignment="Center"/>
+                    <ComboBox MinWidth="180" VerticalAlignment="Center"
+                              ItemsSource="{Binding ConnectionProfiles}"
+                              SelectedItem="{Binding SelectedProfile}">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate x:DataType="domain:ConnectionProfile">
+                                <TextBlock Text="{Binding Name}"/>
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                </StackPanel>
+
+                <!-- 中間：執行按鈕 -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" Margin="20,0">
+                    <Button Content="執行 (F5)"
+                            Command="{Binding ExecuteQueryCommand}"
+                            IsEnabled="{Binding !IsExecuting}"
+                            HotKey="F5"/>
+                    <Button Content="清除"
+                            Command="{Binding ClearQueryCommand}"/>
+                    <ProgressBar IsIndeterminate="True" Width="80"
+                                 IsVisible="{Binding IsExecuting}"/>
+                </StackPanel>
+
+                <!-- 右側：歷史記錄 -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="10">
+                    <TextBlock Text="歷史：" VerticalAlignment="Center"/>
+                    <ComboBox MinWidth="250"
+                              ItemsSource="{Binding QueryHistory}"
+                              PlaceholderText="選擇歷史記錄..."
+                              SelectedItem="{Binding SqlText, Mode=OneWayToSource}">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding}"
+                                           TextTrimming="CharacterEllipsis"
+                                           MaxWidth="350"/>
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- 主內容區 - 分頁 -->
+        <TabControl Grid.Row="1" Margin="10,5,10,0">
+            <TabControl.Styles>
+                <Style Selector="TabItem">
+                    <Setter Property="FontSize" Value="14"/>
+                    <Setter Property="FontWeight" Value="SemiBold"/>
+                    <Setter Property="Padding" Value="16,10"/>
+                    <Setter Property="Margin" Value="0,0,4,0"/>
+                    <Setter Property="Background" Value="{DynamicResource SystemControlBackgroundBaseLowBrush}"/>
+                </Style>
+                <Style Selector="TabItem:pointerover">
+                    <Setter Property="Background" Value="{DynamicResource SystemControlHighlightListLowBrush}"/>
+                </Style>
+                <Style Selector="TabItem:selected">
+                    <Setter Property="Background" Value="{DynamicResource SystemAccentColorLight2}"/>
+                    <Setter Property="Foreground" Value="{DynamicResource SystemControlForegroundBaseHighBrush}"/>
+                </Style>
+            </TabControl.Styles>
+            <!-- SQL 查詢頁籤 -->
+            <TabItem Header="SQL 查詢">
+                <Grid RowDefinitions="180,5,*">
+                    <!-- SQL 輸入區 -->
+                    <Border Grid.Row="0" Margin="0,5,0,0">
+                        <TextBox x:Name="SqlTextBox"
+                                 Text="{Binding SqlText}"
+                                 AcceptsReturn="True"
+                                 AcceptsTab="True"
+                                 TextWrapping="Wrap"
+                                 FontFamily="Consolas, Menlo, monospace"
+                                 FontSize="13"
+                                 Watermark="請輸入 SQL 查詢語句...&#x0a;例如：SELECT TOP 100 * FROM TableName"/>
+                    </Border>
+
+                    <!-- 分隔線 -->
+                    <GridSplitter Grid.Row="1" Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
+                                  ResizeDirection="Rows"/>
+
+                    <!-- 結果區 -->
+                    <Border Grid.Row="2" Margin="0,0,0,5">
+                        <DataGrid x:Name="ResultGrid"
+                                  ItemsSource="{Binding QueryResults}"
+                                  AutoGenerateColumns="False"
+                                  IsReadOnly="True"
+                                  GridLinesVisibility="All"
+                                  CanUserResizeColumns="True"
+                                  CanUserReorderColumns="True"
+                                  CanUserSortColumns="True"/>
+                    </Border>
+                </Grid>
+            </TabItem>
+
+            <!-- 欄位搜尋頁籤 -->
+            <TabItem Header="欄位搜尋">
+                <Grid RowDefinitions="Auto,*">
+                    <!-- 搜尋工具列 -->
+                    <Border Grid.Row="0" Padding="0,5">
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <TextBlock Text="欄位名稱：" VerticalAlignment="Center"/>
+                            <TextBox Text="{Binding ColumnSearchText}"
+                                     Width="300"
+                                     Watermark="輸入欄位名稱關鍵字..."/>
+                            <Button Content="搜尋"
+                                    Command="{Binding SearchColumnsCommand}"
+                                    IsEnabled="{Binding !IsSearching}"/>
+                            <Button Content="清除"
+                                    Command="{Binding ClearColumnSearchCommand}"/>
+                            <ProgressBar IsIndeterminate="True" Width="80"
+                                         IsVisible="{Binding IsSearching}"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- 搜尋結果 -->
+                    <Border Grid.Row="1" Margin="0,5,0,5">
+                        <DataGrid ItemsSource="{Binding ColumnSearchResults}"
+                                  AutoGenerateColumns="False"
+                                  IsReadOnly="True"
+                                  GridLinesVisibility="All"
+                                  CanUserResizeColumns="True"
+                                  CanUserReorderColumns="True"
+                                  CanUserSortColumns="True">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="欄位/參數名稱" Binding="{Binding ColumnName}" Width="150"/>
+                                <DataGridTextColumn Header="物件類型" Binding="{Binding ObjectType}" Width="120"/>
+                                <DataGridTextColumn Header="Schema" Binding="{Binding SchemaName}" Width="80"/>
+                                <DataGridTextColumn Header="物件名稱" Binding="{Binding ObjectName}" Width="200"/>
+                                <DataGridTextColumn Header="資料型別" Binding="{Binding DataType}" Width="120"/>
+                                <DataGridTextColumn Header="欄位說明" Binding="{Binding Description}" Width="*"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Border>
+                </Grid>
+            </TabItem>
+        </TabControl>
+
+        <!-- 狀態列 -->
+        <Border Grid.Row="2" Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}" Padding="10,5">
+            <Grid ColumnDefinitions="*,Auto,Auto">
+                <TextBlock Grid.Column="0" Text="{Binding StatusMessage}" VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="1" VerticalAlignment="Center" Margin="20,0">
+                    <Run Text="筆數："/>
+                    <Run Text="{Binding RowCount}"/>
+                </TextBlock>
+                <TextBlock Grid.Column="2" VerticalAlignment="Center">
+                    <Run Text="耗時："/>
+                    <Run Text="{Binding ExecutionTimeMs}"/>
+                    <Run Text=" ms"/>
+                </TextBlock>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

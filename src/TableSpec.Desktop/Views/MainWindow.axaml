@@ -40,11 +40,19 @@
                     <Button Content="設定連線" Command="{Binding OpenConnectionSettingsCommand}"/>
                 </StackPanel>
 
-                <!-- 右側：匯出按鈕 -->
+                <!-- 右側：功能按鈕 -->
                 <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="10">
+                    <Button Content="SQL 查詢"
+                            Command="{Binding OpenSqlQueryCommand}"
+                            IsEnabled="{Binding IsConnected}"/>
                     <Button Content="匯出 Excel"
                             Command="{Binding ExportToExcelCommand}"
                             IsEnabled="{Binding IsConnected}"/>
+                    <Button Content="{Binding ThemeIcon}"
+                            Command="{Binding ToggleThemeCommand}"
+                            ToolTip.Tip="切換深色/淺色模式"
+                            FontSize="16"
+                            Padding="8,4"/>
                 </StackPanel>
             </Grid>
         </Border>

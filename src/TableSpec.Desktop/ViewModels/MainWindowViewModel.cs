@@ -287,9 +287,9 @@ public partial class MainWindowViewModel : ViewModelBase
     [RelayCommand]
     private void OpenColumnSearch()
     {
-        if (_sqlQueryRepository == null || _columnTypeRepository == null || _connectionManager == null) return;
+        if (_sqlQueryRepository == null || _columnTypeRepository == null || _connectionManager == null || _tableQueryService == null) return;
 
-        var doc = new ColumnSearchDocumentViewModel(_sqlQueryRepository, _columnTypeRepository, _connectionManager);
+        var doc = new ColumnSearchDocumentViewModel(_sqlQueryRepository, _columnTypeRepository, _connectionManager, _tableQueryService);
         doc.CloseRequested += OnDocumentCloseRequested;
         Documents.Add(doc);
         SelectedDocument = doc;

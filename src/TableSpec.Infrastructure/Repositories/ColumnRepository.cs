@@ -185,9 +185,10 @@ ORDER BY
 
     public async Task UpdateColumnDescriptionAsync(
         string schema,
-        string tableName,
+        string objectName,
         string columnName,
         string? description,
+        string objectType = "TABLE",
         CancellationToken ct = default)
     {
         var connectionString = _connectionStringProvider();
@@ -197,6 +198,14 @@ ORDER BY
         await using var connection = new SqlConnection(connectionString);
         await connection.OpenAsync(ct);
 
+        // 驗證 objectType 只能是 TABLE 或 VIEW
+        var level1Type = objectType.ToUpperInvariant() switch
+        {
+            "TABLE" => "TABLE",
+            "VIEW" => "VIEW",
+            _ => "TABLE"
+        };
+
         // 先檢查是否已存在說明
         const string checkSql = @"
             SELECT COUNT(*)
@@ -205,14 +214,14 @@ ORDER BY
             INNER JOIN sys.schemas s ON o.schema_id = s.schema_id
             INNER JOIN sys.columns c ON ep.major_id = c.object_id AND ep.minor_id = c.column_id
             WHERE s.name = @Schema
-                AND o.name = @TableName
+                AND o.name = @ObjectName
                 AND c.name = @ColumnName
                 AND ep.name = 'MS_Description'";
 
         var exists = await connection.ExecuteScalarAsync<int>(checkSql, new
         {
             Schema = schema,
-            TableName = tableName,
+            ObjectName = objectName,
             ColumnName = columnName
         });
 
@@ -221,17 +230,17 @@ ORDER BY
             // 如果說明為空，刪除現有的說明
             if (exists > 0)
             {
-                const string dropSql = @"
+                var dropSql = $@"
                     EXEC sp_dropextendedproperty
                         @name = N'MS_Description',
                         @level0type = N'SCHEMA', @level0name = @Schema,
-                        @level1type = N'TABLE', @level1name = @TableName,
+                        @level1type = N'{level1Type}', @level1name = @ObjectName,
                         @level2type = N'COLUMN', @level2name = @ColumnName";
 
                 await connection.ExecuteAsync(dropSql, new
                 {
                     Schema = schema,
-                    TableName = tableName,
+                    ObjectName = objectName,
                     ColumnName = columnName
                 });
             }
@@ -239,38 +248,38 @@ ORDER BY
         else if (exists > 0)
         {
             // 更新現有的說明
-            const string updateSql = @"
+            var updateSql = $@"
                 EXEC sp_updateextendedproperty
                     @name = N'MS_Description',
                     @value = @Description,
                     @level0type = N'SCHEMA', @level0name = @Schema,
-                    @level1type = N'TABLE', @level1name = @TableName,
+                    @level1type = N'{level1Type}', @level1name = @ObjectName,
                     @level2type = N'COLUMN', @level2name = @ColumnName";
 
             await connection.ExecuteAsync(updateSql, new
             {
                 Description = description,
                 Schema = schema,
-                TableName = tableName,
+                ObjectName = objectName,
                 ColumnName = columnName
             });
         }
         else
         {
             // 新增說明
-            const string addSql = @"
+            var addSql = $@"
                 EXEC sp_addextendedproperty
                     @name = N'MS_Description',
                     @value = @Description,
                     @level0type = N'SCHEMA', @level0name = @Schema,
-                    @level1type = N'TABLE', @level1name = @TableName,
+                    @level1type = N'{level1Type}', @level1name = @ObjectName,
                     @level2type = N'COLUMN', @level2name = @ColumnName";
 
             await connection.ExecuteAsync(addSql, new
             {
                 Description = description,
                 Schema = schema,
-                TableName = tableName,
+                ObjectName = objectName,
                 ColumnName = columnName
             });
         }

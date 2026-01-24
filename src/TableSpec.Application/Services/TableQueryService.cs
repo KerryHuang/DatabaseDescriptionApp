@@ -67,9 +67,10 @@ public class TableQueryService : ITableQueryService
 
     public Task UpdateColumnDescriptionAsync(
         string schema,
-        string tableName,
+        string objectName,
         string columnName,
         string? description,
+        string objectType = "TABLE",
         CancellationToken ct = default)
-        => _columnRepository.UpdateColumnDescriptionAsync(schema, tableName, columnName, description, ct);
+        => _columnRepository.UpdateColumnDescriptionAsync(schema, objectName, columnName, description, objectType, ct);
 }

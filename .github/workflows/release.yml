@@ -40,7 +40,7 @@ jobs:
       - name: 建立 Velopack 安裝包
         run: |
           dotnet tool install -g vpk
-          vpk pack --packId TableSpec --packVersion ${{ steps.get-version.outputs.version }} --packDir publish --mainExe TableSpec.Desktop.exe --packTitle "TableSpec" --icon src/TableSpec.Desktop/Assets/avalonia-logo.ico
+          vpk pack -u TableSpec -v ${{ steps.get-version.outputs.version }} -p publish -e TableSpec.Desktop.exe --packTitle "TableSpec" -i src/TableSpec.Desktop/Assets/avalonia-logo.ico -o Releases
 
       - name: 上傳安裝包
         uses: actions/upload-artifact@v4
@@ -78,7 +78,7 @@ jobs:
       - name: 建立 Velopack 安裝包
         run: |
           dotnet tool install -g vpk
-          vpk pack --packId TableSpec --packVersion ${{ steps.get-version.outputs.version }} --packDir publish --mainExe TableSpec.Desktop --packTitle "TableSpec" --icon src/TableSpec.Desktop/Assets/TableSpec.png
+          vpk pack -u TableSpec -v ${{ steps.get-version.outputs.version }} -p publish -e TableSpec.Desktop --packTitle "TableSpec" -i src/TableSpec.Desktop/Assets/TableSpec.png -o Releases
 
       - name: 上傳安裝包
         uses: actions/upload-artifact@v4
@@ -116,7 +116,7 @@ jobs:
       - name: 建立 Velopack 安裝包
         run: |
           dotnet tool install -g vpk
-          vpk pack --packId TableSpec --packVersion ${{ steps.get-version.outputs.version }} --packDir publish --mainExe TableSpec.Desktop --packTitle "TableSpec" --icon src/TableSpec.Desktop/Assets/TableSpec.png
+          vpk pack -u TableSpec -v ${{ steps.get-version.outputs.version }} -p publish -e TableSpec.Desktop --packTitle "TableSpec" -i src/TableSpec.Desktop/Assets/TableSpec.png -o Releases
 
       - name: 上傳安裝包
         uses: actions/upload-artifact@v4

@@ -6,6 +6,7 @@
         mc:Ignorable="d" d:DesignWidth="600" d:DesignHeight="500"
         x:Class="TableSpec.Desktop.Views.ConnectionSetupWindow"
         x:DataType="vm:ConnectionSetupViewModel"
+        Icon="/Assets/avalonia-logo.ico"
         Title="連線設定"
         Width="650" Height="500"
         MinWidth="550" MinHeight="400"

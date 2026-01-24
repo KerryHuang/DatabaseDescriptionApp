@@ -8,6 +8,7 @@
         mc:Ignorable="d" d:DesignWidth="900" d:DesignHeight="600"
         x:Class="TableSpec.Desktop.Views.SqlQueryWindow"
         x:DataType="vm:SqlQueryViewModel"
+        Icon="/Assets/avalonia-logo.ico"
         Title="SQL 查詢 / 欄位搜尋"
         Width="1000" Height="650"
         MinWidth="700" MinHeight="450"

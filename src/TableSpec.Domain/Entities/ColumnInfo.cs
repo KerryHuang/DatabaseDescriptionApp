@@ -58,5 +58,10 @@ public class ColumnInfo
     /// <summary>
     /// 欄位說明
     /// </summary>
-    public string? Description { get; init; }
+    public string? Description { get; set; }
+
+    /// <summary>
+    /// 原始欄位說明（用於比對是否有變更）
+    /// </summary>
+    public string? OriginalDescription { get; set; }
 }

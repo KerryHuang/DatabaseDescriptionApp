@@ -134,21 +134,44 @@
                                  IsVisible="{Binding TableDetail.CurrentTable.Type,
                                              Converter={x:Static StringConverters.IsNotNullOrEmpty},
                                              FallbackValue=True}">
-                            <DataGrid ItemsSource="{Binding TableDetail.Columns}"
-                                      AutoGenerateColumns="False"
-                                      IsReadOnly="True"
-                                      GridLinesVisibility="All"
-                                      CanUserResizeColumns="True">
-                                <DataGrid.Columns>
-                                    <DataGridTextColumn Header="欄位名稱" Binding="{Binding ColumnName}" Width="150"/>
-                                    <DataGridTextColumn Header="資料型別" Binding="{Binding DataType}" Width="100"/>
-                                    <DataGridTextColumn Header="長度" Binding="{Binding Length}" Width="60"/>
-                                    <DataGridCheckBoxColumn Header="PK" Binding="{Binding IsPrimaryKey}" Width="50"/>
-                                    <DataGridCheckBoxColumn Header="Null" Binding="{Binding IsNullable}" Width="50"/>
-                                    <DataGridTextColumn Header="預設值" Binding="{Binding DefaultValue}" Width="100"/>
-                                    <DataGridTextColumn Header="說明" Binding="{Binding Description}" Width="*"/>
-                                </DataGrid.Columns>
-                            </DataGrid>
+                            <DockPanel>
+                                <!-- 工具列 -->
+                                <Border DockPanel.Dock="Top" Padding="5" Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10">
+                                            <TextBlock Text="{Binding TableDetail.StatusMessage}"
+                                                       VerticalAlignment="Center"
+                                                       Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="5">
+                                            <Button Content="儲存變更"
+                                                    Command="{Binding TableDetail.SaveColumnDescriptionsCommand}"
+                                                    IsVisible="{Binding TableDetail.HasUnsavedChanges}"/>
+                                            <Button Content="取消"
+                                                    Command="{Binding TableDetail.CancelChangesCommand}"
+                                                    IsVisible="{Binding TableDetail.HasUnsavedChanges}"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                                <!-- 欄位表格 -->
+                                <DataGrid x:Name="ColumnsGrid"
+                                          ItemsSource="{Binding TableDetail.Columns}"
+                                          AutoGenerateColumns="False"
+                                          IsReadOnly="False"
+                                          GridLinesVisibility="All"
+                                          CanUserResizeColumns="True"
+                                          CellEditEnded="OnColumnCellEditEnded">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="欄位名稱" Binding="{Binding ColumnName}" Width="150" IsReadOnly="True"/>
+                                        <DataGridTextColumn Header="資料型別" Binding="{Binding DataType}" Width="100" IsReadOnly="True"/>
+                                        <DataGridTextColumn Header="長度" Binding="{Binding Length}" Width="60" IsReadOnly="True"/>
+                                        <DataGridCheckBoxColumn Header="PK" Binding="{Binding IsPrimaryKey}" Width="50" IsReadOnly="True"/>
+                                        <DataGridCheckBoxColumn Header="Null" Binding="{Binding IsNullable}" Width="50" IsReadOnly="True"/>
+                                        <DataGridTextColumn Header="預設值" Binding="{Binding DefaultValue}" Width="100" IsReadOnly="True"/>
+                                        <DataGridTextColumn Header="說明 (可編輯)" Binding="{Binding Description}" Width="*" IsReadOnly="False"/>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </DockPanel>
                         </TabItem>
                         <!-- 索引頁籤 (Table only) -->
                         <TabItem Header="索引">

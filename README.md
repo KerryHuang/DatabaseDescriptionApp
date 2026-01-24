@@ -129,8 +129,25 @@ DatabaseDescriptionApp/
 └── docs/
 ```
 
+## 下載
+
+從 [GitHub Releases](https://github.com/KerryHuang/DatabaseDescriptionApp/releases) 下載最新版本：
+
+| 平台 | 下載連結 |
+|------|----------|
+| Windows x64 | [TableSpec-win-x64.zip](https://github.com/KerryHuang/DatabaseDescriptionApp/releases/latest/download/TableSpec-win-x64.zip) |
+| macOS (Apple Silicon) | [TableSpec-osx-arm64.zip](https://github.com/KerryHuang/DatabaseDescriptionApp/releases/latest/download/TableSpec-osx-arm64.zip) |
+| Linux x64 | [TableSpec-linux-x64.zip](https://github.com/KerryHuang/DatabaseDescriptionApp/releases/latest/download/TableSpec-linux-x64.zip) |
+
+> 下載後解壓縮即可執行，無需安裝 .NET Runtime。
+
 ## 系統需求
 
+### 執行預編譯版本
+- Windows 10/11、macOS 11+、或 Linux（glibc 2.17+）
+- SQL Server 2008 或更高版本
+
+### 從原始碼建置
 - .NET 8.0 SDK 或更高版本
 - SQL Server 2008 或更高版本（支援 Windows 驗證或 SQL Server 驗證）
 

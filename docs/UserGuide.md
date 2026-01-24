@@ -32,15 +32,31 @@ TableSpec 是一個資料庫規格查詢工具，可以幫助您：
 
 ## 安裝與啟動
 
+### 下載
+
+從 [GitHub Releases](https://github.com/KerryHuang/DatabaseDescriptionApp/releases) 下載適合您作業系統的版本：
+
+| 作業系統 | 下載連結 |
+|---------|----------|
+| Windows x64 | [TableSpec-win-x64.zip](https://github.com/KerryHuang/DatabaseDescriptionApp/releases/latest/download/TableSpec-win-x64.zip) |
+| macOS (Apple Silicon) | [TableSpec-osx-arm64.zip](https://github.com/KerryHuang/DatabaseDescriptionApp/releases/latest/download/TableSpec-osx-arm64.zip) |
+| Linux x64 | [TableSpec-linux-x64.zip](https://github.com/KerryHuang/DatabaseDescriptionApp/releases/latest/download/TableSpec-linux-x64.zip) |
+
 ### 系統需求
 
-- 作業系統：Windows 10/11、macOS 10.15+、Linux
+- 作業系統：Windows 10/11、macOS 11+、Linux（glibc 2.17+）
 - SQL Server 2008 或更新版本
+
+### 安裝步驟
+
+1. 下載對應您作業系統的壓縮檔
+2. 解壓縮到任意目錄
+3. 無需安裝 .NET Runtime，可直接執行
 
 ### 啟動程式
 
-1. 找到 TableSpec 執行檔
-2. 雙擊執行
+1. 找到解壓縮後的 TableSpec 執行檔
+2. 雙擊執行（macOS/Linux 可能需要先賦予執行權限：`chmod +x TableSpec`）
 
 首次啟動時，程式會顯示空白畫面，您需要先設定資料庫連線。
 
@@ -446,5 +462,5 @@ Excel 檔案包含多個工作表：
 
 ---
 
-*TableSpec 使用手冊 v1.0*
-*最後更新：2025 年 1 月*
+*TableSpec 使用手冊 v1.0.0*
+*最後更新：2026 年 1 月*

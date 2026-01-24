@@ -53,6 +53,13 @@ public interface IConnectionManager
     string? GetCurrentConnectionString();
 
     /// <summary>
+    /// 取得指定連線設定的連線字串
+    /// </summary>
+    /// <param name="profileId">連線設定檔 ID</param>
+    /// <returns>連線字串，若找不到則回傳 null</returns>
+    string? GetConnectionString(Guid profileId);
+
+    /// <summary>
     /// 連線變更事件
     /// </summary>
     event EventHandler<ConnectionProfile?>? CurrentProfileChanged;

@@ -48,10 +48,15 @@ sealed class Program
             new ParameterRepository(() => sp.GetRequiredService<IConnectionManager>().GetCurrentConnectionString()));
         services.AddSingleton<ISqlQueryRepository>(sp =>
             new SqlQueryRepository(() => sp.GetRequiredService<IConnectionManager>().GetCurrentConnectionString()));
+        services.AddSingleton<IColumnTypeRepository>(sp =>
+            new ColumnTypeRepository(() => sp.GetRequiredService<IConnectionManager>().GetCurrentConnectionString()));
 
         // Application - Services
         services.AddSingleton<ITableQueryService, TableQueryService>();
         services.AddSingleton<IExportService, ExcelExportService>();
+
+        // Infrastructure - Backup Service
+        services.AddSingleton<IBackupService, MssqlBackupService>();
 
         // ViewModels
         services.AddTransient<MainWindowViewModel>(sp =>
@@ -60,9 +65,14 @@ sealed class Program
                 sp.GetRequiredService<IExportService>(),
                 sp.GetRequiredService<ITableQueryService>(),
                 sp.GetRequiredService<ISqlQueryRepository>(),
+                sp.GetRequiredService<IColumnTypeRepository>(),
                 sp.GetRequiredService<ObjectTreeViewModel>()));
         services.AddTransient<ConnectionSetupViewModel>();
         services.AddTransient<ObjectTreeViewModel>();
+        services.AddTransient<BackupRestoreDocumentViewModel>(sp =>
+            new BackupRestoreDocumentViewModel(
+                sp.GetRequiredService<IBackupService>(),
+                sp.GetRequiredService<IConnectionManager>()));
 
         return services.BuildServiceProvider();
     }

@@ -13,6 +13,7 @@ using Microsoft.Extensions.DependencyInjection;
 using TableSpec.Application.Services;
 using TableSpec.Desktop.Views;
 using TableSpec.Domain.Entities;
+using TableSpec.Domain.Interfaces;
 
 namespace TableSpec.Desktop.ViewModels;
 
@@ -20,12 +21,11 @@ public partial class MainWindowViewModel : ViewModelBase
 {
     private readonly IConnectionManager? _connectionManager;
     private readonly IExportService? _exportService;
+    private readonly ITableQueryService? _tableQueryService;
+    private readonly ISqlQueryRepository? _sqlQueryRepository;
 
     [ObservableProperty]
     private ObjectTreeViewModel? _objectTree;
-
-    [ObservableProperty]
-    private TableDetailViewModel? _tableDetail;
 
     [ObservableProperty]
     private ConnectionProfile? _selectedProfile;
@@ -45,7 +45,20 @@ public partial class MainWindowViewModel : ViewModelBase
     [ObservableProperty]
     private string _themeIcon = "☀️";
 
+    [ObservableProperty]
+    private DocumentViewModel? _selectedDocument;
+
     public ObservableCollection<ConnectionProfile> ConnectionProfiles { get; } = [];
+
+    /// <summary>
+    /// MDI 文件集合
+    /// </summary>
+    public ObservableCollection<DocumentViewModel> Documents { get; } = [];
+
+    /// <summary>
+    /// 確認儲存的回調函數（由 View 設定）
+    /// </summary>
+    public Func<string, Task<bool>>? ConfirmSaveCallback { get; set; }
 
     public MainWindowViewModel()
     {
@@ -55,13 +68,15 @@ public partial class MainWindowViewModel : ViewModelBase
     public MainWindowViewModel(
         IConnectionManager connectionManager,
         IExportService exportService,
-        ObjectTreeViewModel objectTree,
-        TableDetailViewModel tableDetail)
+        ITableQueryService tableQueryService,
+        ISqlQueryRepository sqlQueryRepository,
+        ObjectTreeViewModel objectTree)
     {
         _connectionManager = connectionManager;
         _exportService = exportService;
+        _tableQueryService = tableQueryService;
+        _sqlQueryRepository = sqlQueryRepository;
         ObjectTree = objectTree;
-        TableDetail = tableDetail;
 
         // 訂閱連線變更事件
         _connectionManager.CurrentProfileChanged += OnCurrentProfileChanged;
@@ -71,9 +86,9 @@ public partial class MainWindowViewModel : ViewModelBase
         {
             ObjectTree.PropertyChanged += (s, e) =>
             {
-                if (e.PropertyName == nameof(ObjectTreeViewModel.SelectedTable) && TableDetail != null)
+                if (e.PropertyName == nameof(ObjectTreeViewModel.SelectedTable))
                 {
-                    TableDetail.LoadTableAsync(ObjectTree.SelectedTable).ConfigureAwait(false);
+                    OnTableSelected(ObjectTree.SelectedTable);
                 }
             };
         }
@@ -151,6 +166,41 @@ public partial class MainWindowViewModel : ViewModelBase
         await LoadObjectsAsync();
     }
 
+    /// <summary>
+    /// 當選擇資料表時，在 Documents 中開啟或切換到對應的 Tab
+    /// </summary>
+    private void OnTableSelected(TableInfo? table)
+    {
+        if (table == null || _tableQueryService == null) return;
+
+        var tableKey = $"TableDetail:{table.Schema}.{table.Name}";
+
+        // 檢查是否已開啟
+        var existing = Documents.OfType<TableDetailDocumentViewModel>()
+            .FirstOrDefault(d => d.DocumentKey == tableKey);
+
+        if (existing != null)
+        {
+            SelectedDocument = existing;
+        }
+        else
+        {
+            var doc = new TableDetailDocumentViewModel(_tableQueryService, table);
+            doc.ConfirmSaveCallback = ConfirmSaveCallback;
+            doc.CloseRequested += OnDocumentCloseRequested;
+            Documents.Add(doc);
+            SelectedDocument = doc;
+        }
+    }
+
+    private void OnDocumentCloseRequested(object? sender, EventArgs e)
+    {
+        if (sender is DocumentViewModel doc)
+        {
+            CloseDocument(doc);
+        }
+    }
+
     [RelayCommand]
     private async Task ExportToExcelAsync()
     {
@@ -221,15 +271,62 @@ public partial class MainWindowViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private async Task OpenSqlQueryAsync()
+    private void OpenSqlQuery()
     {
-        if (Avalonia.Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+        if (_sqlQueryRepository == null || _connectionManager == null) return;
+
+        var doc = new SqlQueryDocumentViewModel(_sqlQueryRepository, _connectionManager);
+        doc.CloseRequested += OnDocumentCloseRequested;
+        Documents.Add(doc);
+        SelectedDocument = doc;
+    }
+
+    [RelayCommand]
+    private void OpenColumnSearch()
+    {
+        if (_sqlQueryRepository == null || _connectionManager == null) return;
+
+        var doc = new SqlQueryDocumentViewModel(_sqlQueryRepository, _connectionManager);
+        doc.SelectedTabIndex = 1; // 切換到欄位搜尋頁籤
+        doc.CloseRequested += OnDocumentCloseRequested;
+        Documents.Add(doc);
+        SelectedDocument = doc;
+    }
+
+    [RelayCommand]
+    private void CloseDocument(DocumentViewModel? doc)
+    {
+        if (doc == null || !doc.CanClose) return;
+
+        doc.CloseRequested -= OnDocumentCloseRequested;
+        Documents.Remove(doc);
+
+        // 選擇下一個文件
+        if (SelectedDocument == doc)
         {
-            var viewModel = App.Services?.GetRequiredService<SqlQueryViewModel>()
-                ?? new SqlQueryViewModel();
-            var window = new SqlQueryWindow(viewModel);
-            await window.ShowDialog(desktop.MainWindow!);
+            SelectedDocument = Documents.LastOrDefault();
         }
+    }
+
+    [RelayCommand]
+    private void CloseCurrentDocument()
+    {
+        if (SelectedDocument != null && SelectedDocument.CanClose)
+        {
+            CloseDocument(SelectedDocument);
+        }
+    }
+
+    [RelayCommand]
+    private void CloseAllDocuments()
+    {
+        var closableDocuments = Documents.Where(d => d.CanClose).ToList();
+        foreach (var doc in closableDocuments)
+        {
+            doc.CloseRequested -= OnDocumentCloseRequested;
+            Documents.Remove(doc);
+        }
+        SelectedDocument = Documents.LastOrDefault();
     }
 
     [RelayCommand]
@@ -249,6 +346,21 @@ public partial class MainWindowViewModel : ViewModelBase
                 IsDarkMode = true;
                 ThemeIcon = "☀️";
             }
+        }
+    }
+
+    [RelayCommand]
+    private void ShowAbout()
+    {
+        StatusMessage = "TableSpec v1.0 - 資料庫規格查詢工具";
+    }
+
+    [RelayCommand]
+    private void Exit()
+    {
+        if (Avalonia.Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+        {
+            desktop.Shutdown();
         }
     }
 

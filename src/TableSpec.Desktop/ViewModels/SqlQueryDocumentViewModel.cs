@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Data;
 using System.Diagnostics;
-using System.Dynamic;
 using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Controls;
@@ -15,11 +14,15 @@ using TableSpec.Domain.Interfaces;
 
 namespace TableSpec.Desktop.ViewModels;
 
-public partial class SqlQueryViewModel : ViewModelBase
+/// <summary>
+/// SQL 查詢文件 ViewModel
+/// </summary>
+public partial class SqlQueryDocumentViewModel : DocumentViewModel
 {
     private readonly ISqlQueryRepository? _sqlQueryRepository;
     private readonly IConnectionManager? _connectionManager;
     private Dictionary<string, string> _columnDescriptions = new(StringComparer.OrdinalIgnoreCase);
+    private static int _instanceCount;
 
     [ObservableProperty]
     private string _sqlText = string.Empty;
@@ -45,21 +48,38 @@ public partial class SqlQueryViewModel : ViewModelBase
     [ObservableProperty]
     private bool _isSearching;
 
+    [ObservableProperty]
+    private int _selectedTabIndex;
+
     public ObservableCollection<ConnectionProfile> ConnectionProfiles { get; } = [];
     public ObservableCollection<Dictionary<string, object?>> QueryResults { get; } = [];
     public ObservableCollection<DataGridColumn> ResultColumns { get; } = [];
     public ObservableCollection<string> QueryHistory { get; } = [];
     public ObservableCollection<ColumnSearchResult> ColumnSearchResults { get; } = [];
 
-    public SqlQueryViewModel()
+    public override string DocumentType => "SqlQuery";
+
+    public override string DocumentKey => $"{DocumentType}:{_instanceId}";
+
+    private readonly int _instanceId;
+
+    public SqlQueryDocumentViewModel()
     {
         // Design-time constructor
+        _instanceId = ++_instanceCount;
+        Title = $"SQL 查詢 {_instanceId}";
+        Icon = "";
     }
 
-    public SqlQueryViewModel(ISqlQueryRepository sqlQueryRepository, IConnectionManager connectionManager)
+    public SqlQueryDocumentViewModel(ISqlQueryRepository sqlQueryRepository, IConnectionManager connectionManager)
     {
         _sqlQueryRepository = sqlQueryRepository;
         _connectionManager = connectionManager;
+        _instanceId = ++_instanceCount;
+        Title = $"SQL 查詢 {_instanceId}";
+        Icon = "";
+        CanClose = true;
+
         LoadConnectionProfiles();
         _ = LoadColumnDescriptionsAsync();
     }

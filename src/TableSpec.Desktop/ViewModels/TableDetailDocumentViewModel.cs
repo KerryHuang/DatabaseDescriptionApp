@@ -10,15 +10,15 @@ using TableSpec.Domain.Entities;
 
 namespace TableSpec.Desktop.ViewModels;
 
-public partial class TableDetailViewModel : ViewModelBase
+/// <summary>
+/// 資料表/視圖/預存程序詳細資訊文件 ViewModel
+/// </summary>
+public partial class TableDetailDocumentViewModel : DocumentViewModel
 {
     private readonly ITableQueryService? _tableQueryService;
 
     [ObservableProperty]
     private TableInfo? _currentTable;
-
-    [ObservableProperty]
-    private string _searchText = string.Empty;
 
     [ObservableProperty]
     private bool _isLoading;
@@ -45,21 +45,44 @@ public partial class TableDetailViewModel : ViewModelBase
     /// </summary>
     public Func<string, Task<bool>>? ConfirmSaveCallback { get; set; }
 
-    public TableDetailViewModel()
+    public override string DocumentType => "TableDetail";
+
+    public override string DocumentKey => CurrentTable != null
+        ? $"{DocumentType}:{CurrentTable.Schema}.{CurrentTable.Name}"
+        : base.DocumentKey;
+
+    public TableDetailDocumentViewModel()
     {
         // Design-time constructor
+        Title = "資料表";
+        Icon = "";
     }
 
-    public TableDetailViewModel(ITableQueryService tableQueryService)
+    public TableDetailDocumentViewModel(ITableQueryService tableQueryService, TableInfo table)
     {
         _tableQueryService = tableQueryService;
+        CurrentTable = table;
+        Title = table.Name;
+        Icon = GetIconForType(table.Type);
+        CanClose = true;
+
+        // 立即載入資料
+        _ = LoadTableAsync();
     }
 
-    public async Task LoadTableAsync(TableInfo? table)
+    private static string GetIconForType(string type) => type switch
     {
-        if (table == null || _tableQueryService == null)
+        "BASE TABLE" => "",
+        "VIEW" => "",
+        "PROCEDURE" => "",
+        "FUNCTION" => "",
+        _ => ""
+    };
+
+    public async Task LoadTableAsync()
+    {
+        if (CurrentTable == null || _tableQueryService == null)
         {
-            CurrentTable = null;
             ClearAll();
             return;
         }
@@ -67,24 +90,23 @@ public partial class TableDetailViewModel : ViewModelBase
         try
         {
             IsLoading = true;
-            CurrentTable = table;
             ClearAll();
 
-            if (table.Type is "PROCEDURE" or "FUNCTION")
+            if (CurrentTable.Type is "PROCEDURE" or "FUNCTION")
             {
                 // 載入參數和定義
-                var parameters = await _tableQueryService.GetParametersAsync(table.Schema, table.Name);
+                var parameters = await _tableQueryService.GetParametersAsync(CurrentTable.Schema, CurrentTable.Name);
                 foreach (var param in parameters)
                 {
                     Parameters.Add(param);
                 }
 
-                Definition = await _tableQueryService.GetDefinitionAsync(table.Schema, table.Name);
+                Definition = await _tableQueryService.GetDefinitionAsync(CurrentTable.Schema, CurrentTable.Name);
             }
             else
             {
                 // 載入欄位
-                var columns = await _tableQueryService.GetColumnsAsync(table.Type, table.Schema, table.Name);
+                var columns = await _tableQueryService.GetColumnsAsync(CurrentTable.Type, CurrentTable.Schema, CurrentTable.Name);
                 foreach (var col in columns)
                 {
                     col.OriginalDescription = col.Description;
@@ -92,16 +114,16 @@ public partial class TableDetailViewModel : ViewModelBase
                 }
 
                 // 載入索引 (僅 Table)
-                if (table.Type == "BASE TABLE")
+                if (CurrentTable.Type == "BASE TABLE")
                 {
-                    var indexes = await _tableQueryService.GetIndexesAsync(table.Schema, table.Name);
+                    var indexes = await _tableQueryService.GetIndexesAsync(CurrentTable.Schema, CurrentTable.Name);
                     foreach (var idx in indexes)
                     {
                         Indexes.Add(idx);
                     }
 
                     // 載入關聯
-                    var relations = await _tableQueryService.GetRelationsAsync(table.Schema, table.Name);
+                    var relations = await _tableQueryService.GetRelationsAsync(CurrentTable.Schema, CurrentTable.Name);
                     foreach (var rel in relations)
                     {
                         Relations.Add(rel);
@@ -111,7 +133,8 @@ public partial class TableDetailViewModel : ViewModelBase
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"Error loading table details: {ex.Message}");
+            System.Diagnostics.Debug.WriteLine($"載入資料表詳細資訊時發生錯誤: {ex.Message}");
+            StatusMessage = $"載入失敗: {ex.Message}";
         }
         finally
         {
@@ -130,17 +153,20 @@ public partial class TableDetailViewModel : ViewModelBase
         StatusMessage = string.Empty;
     }
 
-    partial void OnSearchTextChanged(string value)
-    {
-        // TODO: 實作欄位搜尋過濾
-    }
-
     /// <summary>
     /// 檢查是否有未儲存的變更
     /// </summary>
     public void CheckForChanges()
     {
         HasUnsavedChanges = Columns.Any(c => c.Description != c.OriginalDescription);
+        if (HasUnsavedChanges)
+        {
+            Title = $"{CurrentTable?.Name} *";
+        }
+        else
+        {
+            Title = CurrentTable?.Name ?? "資料表";
+        }
     }
 
     /// <summary>
@@ -196,6 +222,7 @@ public partial class TableDetailViewModel : ViewModelBase
             }
 
             HasUnsavedChanges = false;
+            Title = CurrentTable?.Name ?? "資料表";
             StatusMessage = $"已成功更新 {changedColumns.Count} 個欄位的說明";
         }
         catch (Exception ex)
@@ -216,6 +243,7 @@ public partial class TableDetailViewModel : ViewModelBase
             col.Description = col.OriginalDescription;
         }
         HasUnsavedChanges = false;
+        Title = CurrentTable?.Name ?? "資料表";
         StatusMessage = "已取消變更";
     }
 }

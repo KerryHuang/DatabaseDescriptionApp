@@ -6,6 +6,7 @@ using TableSpec.Desktop.ViewModels;
 using TableSpec.Domain.Interfaces;
 using TableSpec.Infrastructure.Repositories;
 using TableSpec.Infrastructure.Services;
+using Velopack;
 
 namespace TableSpec.Desktop;
 
@@ -14,6 +15,9 @@ sealed class Program
     [STAThread]
     public static void Main(string[] args)
     {
+        // Velopack 初始化（必須在最前面）
+        VelopackApp.Build().Run();
+
         // 配置 DI 容器
         var services = ConfigureServices();
         App.Services = services;

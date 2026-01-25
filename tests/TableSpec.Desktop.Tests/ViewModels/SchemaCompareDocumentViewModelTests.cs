@@ -35,7 +35,7 @@ public class SchemaCompareDocumentViewModelTests
 
         // Assert
         vm.Should().NotBeNull();
-        vm.Title.Should().Be("Schema Compare");
+        vm.Title.Should().Be("結構比對");
         vm.DocumentType.Should().Be("SchemaCompare");
     }
 
@@ -145,7 +145,7 @@ public class SchemaCompareDocumentViewModelTests
         var vm = new SchemaCompareDocumentViewModel();
 
         // Assert
-        vm.Title.Should().Be("Schema Compare");
+        vm.Title.Should().Be("結構比對");
     }
 
     [Fact]

@@ -350,6 +350,27 @@ public partial class MainWindowViewModel : ViewModelBase
     }
 
     [RelayCommand]
+    private async Task OpenPerformanceDiagnosticsAsync()
+    {
+        // 檢查是否已開啟
+        var existing = Documents.OfType<PerformanceDiagnosticsDocumentViewModel>().FirstOrDefault();
+        if (existing != null)
+        {
+            SelectedDocument = existing;
+            return;
+        }
+
+        var doc = App.Services?.GetRequiredService<PerformanceDiagnosticsDocumentViewModel>()
+            ?? new PerformanceDiagnosticsDocumentViewModel();
+        doc.CloseRequested += OnDocumentCloseRequested;
+        Documents.Add(doc);
+        SelectedDocument = doc;
+
+        // 初始化載入資料
+        await doc.InitializeAsync();
+    }
+
+    [RelayCommand]
     private void CloseDocument(DocumentViewModel? doc)
     {
         if (doc == null || !doc.CanClose) return;

@@ -95,6 +95,12 @@
                             <TextBlock Text="🩺" FontSize="14"/>
                         </MenuItem.Icon>
                     </MenuItem>
+                    <MenuItem Header="效能診斷(_P)" Command="{Binding OpenPerformanceDiagnosticsCommand}" InputGesture="Ctrl+P" IsEnabled="{Binding IsConnected}"
+                              ToolTip.Tip="分析 SQL Server 效能，包含等候事件、耗時查詢、索引狀態">
+                        <MenuItem.Icon>
+                            <TextBlock Text="⚡" FontSize="14"/>
+                        </MenuItem.Icon>
+                    </MenuItem>
                 </MenuItem>
                 <MenuItem Header="說明(_H)">
                     <MenuItem Header="關於 TableSpec(_A)" Command="{Binding ShowAboutCommand}"
@@ -267,6 +273,9 @@
                                         </DataTemplate>
                                         <DataTemplate DataType="{x:Type vm:HealthMonitoringDocumentViewModel}">
                                             <views:HealthMonitoringDocumentView/>
+                                        </DataTemplate>
+                                        <DataTemplate DataType="{x:Type vm:PerformanceDiagnosticsDocumentViewModel}">
+                                            <views:PerformanceDiagnosticsDocumentView/>
                                         </DataTemplate>
                                         <DataTemplate DataType="{x:Type vm:AboutDocumentViewModel}">
                                             <views:AboutDocumentView/>

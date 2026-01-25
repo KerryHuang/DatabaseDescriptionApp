@@ -77,6 +77,13 @@ sealed class Program
         // Application - Health Monitoring Service
         services.AddSingleton<IHealthMonitoringService, HealthMonitoringService>();
 
+        // Infrastructure - Performance Diagnostics
+        services.AddSingleton<IPerformanceDiagnosticsRepository>(sp =>
+            new PerformanceDiagnosticsRepository(() => sp.GetRequiredService<IConnectionManager>().GetCurrentConnectionString()));
+
+        // Application - Performance Diagnostics Service
+        services.AddSingleton<IPerformanceDiagnosticsService, PerformanceDiagnosticsService>();
+
         // ViewModels
         services.AddTransient<MainWindowViewModel>(sp =>
             new MainWindowViewModel(
@@ -101,6 +108,9 @@ sealed class Program
             new HealthMonitoringDocumentViewModel(
                 sp.GetRequiredService<IHealthMonitoringService>(),
                 sp.GetRequiredService<IConnectionManager>()));
+        services.AddTransient<PerformanceDiagnosticsDocumentViewModel>(sp =>
+            new PerformanceDiagnosticsDocumentViewModel(
+                sp.GetRequiredService<IPerformanceDiagnosticsService>()));
 
         return services.BuildServiceProvider();
     }

@@ -54,3 +54,36 @@ appsettings.*.json
 
 # Claude Code local settings
 .claude/settings.local.json
+
+# VS Code
+.vscode/
+
+# Security sensitive files
+*.pfx
+*.p12
+*.snk
+.env
+.env.*
+**/secrets.json
+
+# Test coverage
+**/coverage/
+*.coveragexml
+**/TestResults/
+
+# Benchmark results
+**/BenchmarkDotNet.Artifacts/
+
+# Publish profiles
+**/PublishProfiles/
+*.pubxml
+*.pubxml.user
+
+# Launch settings (may contain sensitive environment variables)
+**/launchSettings.json
+
+# ReSharper
+*.DotSettings.user
+
+# Legacy lock file
+project.lock.json

@@ -25,15 +25,44 @@
         <!-- 工具列 -->
         <Border Grid.Row="0" Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}" Padding="10,8">
             <StackPanel Orientation="Horizontal" Spacing="10">
-                <Button Content="比對" Command="{Binding CompareCommand}" ToolTip.Tip="開始比對選取的環境"/>
+                <Button Command="{Binding CompareCommand}" ToolTip.Tip="開始比對選取的環境">
+                    <StackPanel Orientation="Horizontal" Spacing="5">
+                        <TextBlock Text="▶️" FontSize="14"/>
+                        <TextBlock Text="比對"/>
+                    </StackPanel>
+                </Button>
                 <Separator/>
-                <Button Content="匯出 Excel" Command="{Binding ExportExcelCommand}" ToolTip.Tip="匯出比對結果為 Excel 檔案"/>
-                <Button Content="匯出 HTML" Command="{Binding ExportHtmlCommand}" ToolTip.Tip="匯出比對結果為 HTML 報告"/>
-                <Button Content="匯出 SQL" Command="{Binding ExportSqlCommand}" ToolTip.Tip="匯出同步報告"/>
+                <Button Command="{Binding ExportExcelCommand}" ToolTip.Tip="匯出比對結果為 Excel 檔案">
+                    <StackPanel Orientation="Horizontal" Spacing="5">
+                        <TextBlock Text="📊" FontSize="14"/>
+                        <TextBlock Text="匯出 Excel"/>
+                    </StackPanel>
+                </Button>
+                <Button Command="{Binding ExportHtmlCommand}" ToolTip.Tip="匯出比對結果為 HTML 報告">
+                    <StackPanel Orientation="Horizontal" Spacing="5">
+                        <TextBlock Text="📄" FontSize="14"/>
+                        <TextBlock Text="匯出 HTML"/>
+                    </StackPanel>
+                </Button>
+                <Button Command="{Binding ExportSqlCommand}" ToolTip.Tip="匯出同步腳本">
+                    <StackPanel Orientation="Horizontal" Spacing="5">
+                        <TextBlock Text="📝" FontSize="14"/>
+                        <TextBlock Text="匯出 SQL"/>
+                    </StackPanel>
+                </Button>
                 <Separator/>
-                <Button Content="重新整理" Command="{Binding RefreshProfilesCommand}" ToolTip.Tip="重新載入連線設定檔"/>
-                <Button Content="取消" Command="{Binding CancelCommand}"
-                        IsVisible="{Binding IsComparing}"/>
+                <Button Command="{Binding RefreshProfilesCommand}" ToolTip.Tip="重新載入連線設定檔">
+                    <StackPanel Orientation="Horizontal" Spacing="5">
+                        <TextBlock Text="🔃" FontSize="14"/>
+                        <TextBlock Text="重新整理"/>
+                    </StackPanel>
+                </Button>
+                <Button Command="{Binding CancelCommand}" IsVisible="{Binding IsComparing}">
+                    <StackPanel Orientation="Horizontal" Spacing="5">
+                        <TextBlock Text="✕" FontSize="14"/>
+                        <TextBlock Text="取消"/>
+                    </StackPanel>
+                </Button>
                 <ProgressBar IsIndeterminate="True" Width="100"
                              IsVisible="{Binding IsComparing}"/>
             </StackPanel>

@@ -16,12 +16,31 @@
         <!-- 工具列 -->
         <Border Grid.Row="0" Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}" Padding="10,8">
             <StackPanel Orientation="Horizontal" Spacing="10">
-                <Button Content="備份" Command="{Binding BackupCommand}"/>
-                <Button Content="還原" Command="{Binding RestoreCommand}"/>
-                <Button Content="重新整理歷史" Command="{Binding RefreshHistoryCommand}"/>
+                <Button Command="{Binding BackupCommand}">
+                    <StackPanel Orientation="Horizontal" Spacing="5">
+                        <TextBlock Text="📦" FontSize="14"/>
+                        <TextBlock Text="備份"/>
+                    </StackPanel>
+                </Button>
+                <Button Command="{Binding RestoreCommand}">
+                    <StackPanel Orientation="Horizontal" Spacing="5">
+                        <TextBlock Text="📥" FontSize="14"/>
+                        <TextBlock Text="還原"/>
+                    </StackPanel>
+                </Button>
+                <Button Command="{Binding RefreshHistoryCommand}">
+                    <StackPanel Orientation="Horizontal" Spacing="5">
+                        <TextBlock Text="🔃" FontSize="14"/>
+                        <TextBlock Text="重新整理歷史"/>
+                    </StackPanel>
+                </Button>
                 <Separator/>
-                <Button Content="取消" Command="{Binding CancelOperationCommand}"
-                        IsVisible="{Binding IsProcessing}"/>
+                <Button Command="{Binding CancelOperationCommand}" IsVisible="{Binding IsProcessing}">
+                    <StackPanel Orientation="Horizontal" Spacing="5">
+                        <TextBlock Text="✕" FontSize="14"/>
+                        <TextBlock Text="取消"/>
+                    </StackPanel>
+                </Button>
                 <ProgressBar IsIndeterminate="True" Width="100"
                              IsVisible="{Binding IsProcessing}"/>
             </StackPanel>

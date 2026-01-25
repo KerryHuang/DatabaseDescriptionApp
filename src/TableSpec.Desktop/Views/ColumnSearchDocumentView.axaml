@@ -46,15 +46,27 @@
                     <TextBox Text="{Binding ColumnSearchText}"
                              Width="250"
                              Watermark="輸入欄位名稱關鍵字..."/>
-                    <Button Content="搜尋"
-                            Command="{Binding SearchColumnsCommand}"
-                            IsEnabled="{Binding !IsSearching}"/>
-                    <Button Content="分析一致性"
-                            Command="{Binding AnalyzeConsistencyCommand}"
+                    <Button Command="{Binding SearchColumnsCommand}"
+                            IsEnabled="{Binding !IsSearching}">
+                        <StackPanel Orientation="Horizontal" Spacing="5">
+                            <TextBlock Text="🔍" FontSize="14"/>
+                            <TextBlock Text="搜尋"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Command="{Binding AnalyzeConsistencyCommand}"
                             IsEnabled="{Binding !IsSearching}"
-                            ToolTip.Tip="分析同名欄位在不同資料表中的型態一致性"/>
-                    <Button Content="清除"
-                            Command="{Binding ClearColumnSearchCommand}"/>
+                            ToolTip.Tip="分析同名欄位在不同資料表中的型態一致性">
+                        <StackPanel Orientation="Horizontal" Spacing="5">
+                            <TextBlock Text="📊" FontSize="14"/>
+                            <TextBlock Text="分析一致性"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Command="{Binding ClearColumnSearchCommand}">
+                        <StackPanel Orientation="Horizontal" Spacing="5">
+                            <TextBlock Text="🗑️" FontSize="14"/>
+                            <TextBlock Text="清除"/>
+                        </StackPanel>
+                    </Button>
                     <ProgressBar IsIndeterminate="True" Width="80"
                                  IsVisible="{Binding IsSearching}"/>
                 </StackPanel>

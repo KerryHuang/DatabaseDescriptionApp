@@ -32,12 +32,20 @@
 
                 <!-- 中間：執行按鈕 -->
                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" Margin="20,0">
-                    <Button Content="執行 (F5)"
-                            Command="{Binding ExecuteQueryCommand}"
+                    <Button Command="{Binding ExecuteQueryCommand}"
                             IsEnabled="{Binding !IsExecuting}"
-                            HotKey="F5"/>
-                    <Button Content="清除"
-                            Command="{Binding ClearQueryCommand}"/>
+                            HotKey="F5">
+                        <StackPanel Orientation="Horizontal" Spacing="5">
+                            <TextBlock Text="▶️" FontSize="14"/>
+                            <TextBlock Text="執行 (F5)"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Command="{Binding ClearQueryCommand}">
+                        <StackPanel Orientation="Horizontal" Spacing="5">
+                            <TextBlock Text="🗑️" FontSize="14"/>
+                            <TextBlock Text="清除"/>
+                        </StackPanel>
+                    </Button>
                     <ProgressBar IsIndeterminate="True" Width="80"
                                  IsVisible="{Binding IsExecuting}"/>
                 </StackPanel>

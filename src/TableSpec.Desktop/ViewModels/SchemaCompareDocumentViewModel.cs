@@ -181,7 +181,7 @@ public partial class SchemaCompareDocumentViewModel : DocumentViewModel
     /// </summary>
     public SchemaCompareDocumentViewModel()
     {
-        Title = "Schema Compare";
+        Title = "結構比對";
         Icon = "🔄";
         CanClose = true;
     }

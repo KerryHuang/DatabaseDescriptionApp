@@ -1,0 +1,131 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:TableSpec.Desktop.ViewModels"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="600"
+             x:Class="TableSpec.Desktop.Views.AboutDocumentView"
+             x:DataType="vm:AboutDocumentViewModel">
+
+    <Design.DataContext>
+        <vm:AboutDocumentViewModel/>
+    </Design.DataContext>
+
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+        <StackPanel Spacing="15" Margin="20">
+
+            <!-- 應用程式資訊卡片 -->
+            <Border Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
+                    CornerRadius="8" Padding="25">
+                <StackPanel Spacing="12" HorizontalAlignment="Center">
+                    <!-- 應用程式圖示與名稱 -->
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="12">
+                        <TextBlock Text="🗃️" FontSize="48" VerticalAlignment="Center"/>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="{Binding AppName}" FontSize="28" FontWeight="Bold"/>
+                            <TextBlock Text="{Binding AppDescription}" FontSize="14"
+                                       Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"/>
+                        </StackPanel>
+                    </StackPanel>
+
+                    <!-- 版本與版權 -->
+                    <StackPanel Spacing="4" HorizontalAlignment="Center">
+                        <TextBlock Text="{Binding Version, StringFormat='版本：{0}'}"
+                                   HorizontalAlignment="Center" FontSize="14"/>
+                        <TextBlock Text="{Binding Copyright}"
+                                   HorizontalAlignment="Center" FontSize="12"
+                                   Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"/>
+                    </StackPanel>
+
+                    <!-- 操作按鈕 -->
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="15" Margin="0,10,0,0">
+                        <Button Command="{Binding OpenGitHubCommand}" Padding="15,8">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBlock Text="🔗" FontSize="14"/>
+                                <TextBlock Text="GitHub"/>
+                            </StackPanel>
+                        </Button>
+                        <Button Command="{Binding ToggleLicenseCommand}" Padding="15,8">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBlock Text="📄" FontSize="14"/>
+                                <TextBlock Text="{Binding LicenseButtonText}"/>
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- 授權條款（可展開） -->
+            <Border Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
+                    CornerRadius="8" Padding="20"
+                    IsVisible="{Binding ShowLicense}">
+                <StackPanel Spacing="10">
+                    <TextBlock Text="📜 MIT License" FontWeight="Bold" FontSize="14"/>
+                    <TextBox Text="{Binding LicenseText}"
+                             IsReadOnly="True"
+                             AcceptsReturn="True"
+                             TextWrapping="Wrap"
+                             FontFamily="Consolas, Menlo, monospace"
+                             FontSize="12"
+                             MaxHeight="250"
+                             BorderThickness="0"
+                             Background="Transparent"/>
+                </StackPanel>
+            </Border>
+
+            <!-- 系統資訊與相依套件 -->
+            <Grid ColumnDefinitions="*,15,*">
+                <!-- 系統資訊 -->
+                <Border Grid.Column="0"
+                        Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
+                        CornerRadius="8" Padding="20">
+                    <StackPanel Spacing="12">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBlock Text="📊" FontSize="16"/>
+                            <TextBlock Text="系統資訊" FontWeight="Bold" FontSize="14"/>
+                        </StackPanel>
+                        <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto">
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="作業系統：" Margin="0,0,15,8"
+                                       Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"/>
+                            <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding OsVersion}" Margin="0,0,0,8"/>
+
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text=".NET 版本：" Margin="0,0,15,8"
+                                       Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"/>
+                            <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding DotNetVersion}" Margin="0,0,0,8"/>
+
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="系統架構：" Margin="0,0,15,0"
+                                       Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"/>
+                            <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding Architecture}"/>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <!-- 相依套件 -->
+                <Border Grid.Column="2"
+                        Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
+                        CornerRadius="8" Padding="20">
+                    <StackPanel Spacing="12">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBlock Text="📦" FontSize="16"/>
+                            <TextBlock Text="相依套件" FontWeight="Bold" FontSize="14"/>
+                        </StackPanel>
+                        <ItemsControl ItemsSource="{Binding Dependencies}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:DependencyInfo">
+                                    <Grid ColumnDefinitions="Auto,*" Margin="0,0,0,6">
+                                        <TextBlock Grid.Column="0" Text="{Binding Name}" FontWeight="SemiBold"
+                                                   Margin="0,0,10,0" MinWidth="160"/>
+                                        <TextBlock Grid.Column="1" Text="{Binding Description}"
+                                                   Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"
+                                                   TextTrimming="CharacterEllipsis"/>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

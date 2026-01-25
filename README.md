@@ -36,6 +36,18 @@ TableSpec 是一個跨平台桌面應用程式，用於查詢和管理 SQL Serve
 - **Excel 匯出** - 將資料庫規格匯出為 Excel 檔案
 - **跨平台** - 支援 Windows、macOS、Linux
 
+### 備份與還原
+- **資料庫備份** - 支援完整備份、差異備份、交易記錄備份
+- **資料庫還原** - 支援覆蓋現有資料庫或還原為新資料庫
+- **備份驗證** - 自動驗證備份檔案的完整性
+- **歷史記錄** - 保留備份歷史，可快速從歷史還原
+
+### 健康監控
+- **伺服器健康監控** - 監控 CPU、記憶體、磁碟、連線數等系統資源
+- **自動告警** - 當指標超過閾值時自動標記警告或危險狀態
+- **趨勢分析** - 以圖表顯示歷史趨勢，分析資源使用模式
+- **排程執行** - 透過 SQL Agent 作業每小時自動檢查
+
 ## 快捷鍵
 
 | 快捷鍵 | 功能 |
@@ -83,14 +95,19 @@ DatabaseDescriptionApp/
 │   │       ├── IColumnTypeRepository.cs
 │   │       ├── IIndexRepository.cs
 │   │       ├── IRelationRepository.cs
-│   │       └── IParameterRepository.cs
+│   │       ├── IParameterRepository.cs
+│   │       ├── IBackupRepository.cs
+│   │       └── IHealthMonitoringRepository.cs
 │   │
 │   ├── TableSpec.Application/     # 應用層：服務介面與實作
 │   │   └── Services/
 │   │       ├── ITableQueryService.cs
 │   │       ├── TableQueryService.cs
 │   │       ├── IConnectionManager.cs
-│   │       └── IExportService.cs
+│   │       ├── IExportService.cs
+│   │       ├── IBackupService.cs
+│   │       ├── IHealthMonitoringService.cs
+│   │       └── HealthMonitoringService.cs
 │   │
 │   ├── TableSpec.Infrastructure/  # 基礎設施層：資料存取實作
 │   │   ├── Repositories/
@@ -99,10 +116,16 @@ DatabaseDescriptionApp/
 │   │   │   ├── ColumnTypeRepository.cs
 │   │   │   ├── IndexRepository.cs
 │   │   │   ├── RelationRepository.cs
-│   │   │   └── ParameterRepository.cs
-│   │   └── Services/
-│   │       ├── ConnectionManager.cs
-│   │       └── ExcelExportService.cs
+│   │   │   ├── ParameterRepository.cs
+│   │   │   └── HealthMonitoringRepository.cs
+│   │   ├── Services/
+│   │   │   ├── ConnectionManager.cs
+│   │   │   ├── ExcelExportService.cs
+│   │   │   ├── BackupService.cs
+│   │   │   └── HealthMonitoringInstaller.cs
+│   │   └── Scripts/
+│   │       ├── HealthMonitoringInstall.sql
+│   │       └── HealthMonitoringUninstall.sql
 │   │
 │   └── TableSpec.Desktop/         # 桌面應用層：UI
 │       ├── Views/
@@ -110,14 +133,18 @@ DatabaseDescriptionApp/
 │       │   ├── ConnectionSetupWindow.axaml
 │       │   ├── TableDetailDocumentView.axaml
 │       │   ├── SqlQueryDocumentView.axaml
-│       │   └── ColumnSearchDocumentView.axaml
+│       │   ├── ColumnSearchDocumentView.axaml
+│       │   ├── BackupRestoreDocumentView.axaml
+│       │   └── HealthMonitoringDocumentView.axaml
 │       ├── ViewModels/
 │       │   ├── MainWindowViewModel.cs
 │       │   ├── DocumentViewModel.cs
 │       │   ├── TableDetailDocumentViewModel.cs
 │       │   ├── SqlQueryDocumentViewModel.cs
 │       │   ├── ColumnSearchDocumentViewModel.cs
-│       │   └── ConnectionSetupViewModel.cs
+│       │   ├── ConnectionSetupViewModel.cs
+│       │   ├── BackupRestoreDocumentViewModel.cs
+│       │   └── HealthMonitoringDocumentViewModel.cs
 │       ├── Converters/
 │       └── Program.cs
 │
@@ -230,6 +257,22 @@ dotnet publish src/TableSpec.Desktop -c Release -r linux-x64 --self-contained -p
 - 點擊「匯出 Excel」按鈕
 - 選擇儲存位置
 - 匯出包含所有物件規格的 Excel 檔案
+
+### 7. 備份與還原
+1. 按 Ctrl+B 或選單「工具 > 備份與還原」
+2. **備份**：選擇連線、備份類型（完整/差異/交易記錄），設定儲存路徑後點擊「備份」
+3. **還原**：選擇備份檔案，選擇覆蓋現有或建立新資料庫，點擊「還原」
+4. **歷史記錄**：從歷史分頁可快速檢視過去的備份，並可直接還原
+
+### 8. 健康監控
+1. 選單「工具 > 健康監控」
+2. 首次使用需要安裝監控系統（會在目標伺服器建立 DBA 資料庫）
+3. 安裝完成後可檢視：
+   - **總覽**：各監控類型的狀態摘要卡片
+   - **即時指標**：所有監控指標的詳細資料
+   - **告警**：最近的警告和危險狀態紀錄
+   - **趨勢**：歷史趨勢圖表
+   - **監控設定**：管理監控類別的啟用狀態和檢查間隔
 
 ## 連線設定儲存位置
 

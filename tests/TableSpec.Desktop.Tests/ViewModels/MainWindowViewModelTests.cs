@@ -190,16 +190,36 @@ public class MainWindowViewModelTests
     #region ShowAboutCommand 測試
 
     [Fact]
-    public void ShowAboutCommand_應更新StatusMessage()
+    public void ShowAboutCommand_應開啟關於分頁()
+    {
+        // Arrange
+        var vm = new MainWindowViewModel();
+        var initialCount = vm.Documents.Count;
+
+        // Act
+        vm.ShowAboutCommand.Execute(null);
+
+        // Assert
+        vm.Documents.Should().HaveCount(initialCount + 1);
+        vm.Documents.Last().Should().BeOfType<AboutDocumentViewModel>();
+        vm.Documents.Last().Title.Should().Be("關於");
+        vm.SelectedDocument.Should().BeOfType<AboutDocumentViewModel>();
+    }
+
+    [Fact]
+    public void ShowAboutCommand_重複執行_應只開啟一個分頁()
     {
         // Arrange
         var vm = new MainWindowViewModel();
 
         // Act
         vm.ShowAboutCommand.Execute(null);
+        var countAfterFirst = vm.Documents.Count;
+        vm.ShowAboutCommand.Execute(null);
 
         // Assert
-        vm.StatusMessage.Should().Contain("TableSpec");
+        vm.Documents.Should().HaveCount(countAfterFirst);
+        vm.Documents.Count(d => d.DocumentKey == "About").Should().Be(1);
     }
 
     #endregion

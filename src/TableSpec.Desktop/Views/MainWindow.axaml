@@ -22,60 +22,85 @@
         <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto">
             <Menu Grid.Column="0">
                 <MenuItem Header="檔案(_F)">
-                    <MenuItem Header="連線設定(_C)" Command="{Binding OpenConnectionSettingsCommand}" InputGesture="Ctrl+L">
+                    <MenuItem Header="連線設定(_C)" Command="{Binding OpenConnectionSettingsCommand}" InputGesture="Ctrl+L"
+                              ToolTip.Tip="管理資料庫連線設定檔">
                         <MenuItem.Icon>
-                            <TextBlock Text="" FontSize="14"/>
+                            <TextBlock Text="🔌" FontSize="14"/>
                         </MenuItem.Icon>
                     </MenuItem>
-                    <MenuItem Header="匯出 Excel(_E)" Command="{Binding ExportToExcelCommand}" IsEnabled="{Binding IsConnected}">
+                    <MenuItem Header="匯出 Excel(_E)" Command="{Binding ExportToExcelCommand}" IsEnabled="{Binding IsConnected}"
+                              ToolTip.Tip="將目前資料庫的所有物件規格匯出為 Excel 檔案">
                         <MenuItem.Icon>
-                            <TextBlock Text="" FontSize="14"/>
+                            <TextBlock Text="📤" FontSize="14"/>
                         </MenuItem.Icon>
                     </MenuItem>
                     <Separator/>
-                    <MenuItem Header="結束(_X)" Command="{Binding ExitCommand}" InputGesture="Alt+F4">
+                    <MenuItem Header="結束(_X)" Command="{Binding ExitCommand}" InputGesture="Alt+F4"
+                              ToolTip.Tip="關閉應用程式">
                         <MenuItem.Icon>
-                            <TextBlock Text="" FontSize="14"/>
+                            <TextBlock Text="🚪" FontSize="14"/>
                         </MenuItem.Icon>
                     </MenuItem>
                 </MenuItem>
                 <MenuItem Header="檢視(_V)">
-                    <MenuItem Header="深色模式(_D)" Command="{Binding ToggleThemeCommand}">
+                    <MenuItem Header="深色模式(_D)" Command="{Binding ToggleThemeCommand}"
+                              ToolTip.Tip="切換深色/淺色主題">
                         <MenuItem.Icon>
                             <CheckBox IsChecked="{Binding IsDarkMode}" BorderThickness="0" IsHitTestVisible="False"/>
                         </MenuItem.Icon>
                     </MenuItem>
                     <Separator/>
-                    <MenuItem Header="關閉目前分頁(_C)" Command="{Binding CloseCurrentDocumentCommand}" InputGesture="Ctrl+W"/>
-                    <MenuItem Header="關閉所有分頁(_A)" Command="{Binding CloseAllDocumentsCommand}"/>
-                </MenuItem>
-                <MenuItem Header="工具(_T)">
-                    <MenuItem Header="SQL 查詢(_S)" Command="{Binding OpenSqlQueryCommand}" InputGesture="Ctrl+Q" IsEnabled="{Binding IsConnected}">
+                    <MenuItem Header="關閉目前分頁(_C)" Command="{Binding CloseCurrentDocumentCommand}" InputGesture="Ctrl+W"
+                              ToolTip.Tip="關閉目前選取的分頁">
                         <MenuItem.Icon>
-                            <TextBlock Text="" FontSize="14"/>
+                            <TextBlock Text="✕" FontSize="14"/>
                         </MenuItem.Icon>
                     </MenuItem>
-                    <MenuItem Header="欄位搜尋(_F)" Command="{Binding OpenColumnSearchCommand}" InputGesture="Ctrl+F" IsEnabled="{Binding IsConnected}">
+                    <MenuItem Header="關閉所有分頁(_A)" Command="{Binding CloseAllDocumentsCommand}"
+                              ToolTip.Tip="關閉所有已開啟的分頁">
                         <MenuItem.Icon>
-                            <TextBlock Text="" FontSize="14"/>
+                            <TextBlock Text="✕✕" FontSize="12"/>
+                        </MenuItem.Icon>
+                    </MenuItem>
+                </MenuItem>
+                <MenuItem Header="工具(_T)">
+                    <MenuItem Header="SQL 查詢(_S)" Command="{Binding OpenSqlQueryCommand}" InputGesture="Ctrl+Q" IsEnabled="{Binding IsConnected}"
+                              ToolTip.Tip="開啟 SQL 查詢編輯器，執行自訂查詢">
+                        <MenuItem.Icon>
+                            <TextBlock Text="📝" FontSize="14"/>
+                        </MenuItem.Icon>
+                    </MenuItem>
+                    <MenuItem Header="欄位搜尋(_F)" Command="{Binding OpenColumnSearchCommand}" InputGesture="Ctrl+F" IsEnabled="{Binding IsConnected}"
+                              ToolTip.Tip="搜尋欄位名稱，分析型態一致性">
+                        <MenuItem.Icon>
+                            <TextBlock Text="🔍" FontSize="14"/>
                         </MenuItem.Icon>
                     </MenuItem>
                     <Separator/>
-                    <MenuItem Header="備份與還原(_B)" Command="{Binding OpenBackupRestoreCommand}" InputGesture="Ctrl+B" IsEnabled="{Binding IsConnected}">
+                    <MenuItem Header="備份與還原(_B)" Command="{Binding OpenBackupRestoreCommand}" InputGesture="Ctrl+B" IsEnabled="{Binding IsConnected}"
+                              ToolTip.Tip="備份或還原資料庫">
                         <MenuItem.Icon>
-                            <TextBlock Text="" FontSize="14"/>
+                            <TextBlock Text="💾" FontSize="14"/>
                         </MenuItem.Icon>
                     </MenuItem>
-                    <MenuItem Header="Schema Compare(_M)" Command="{Binding OpenSchemaCompareCommand}" InputGesture="Ctrl+M">
+                    <MenuItem Header="結構比對(_M)" Command="{Binding OpenSchemaCompareCommand}" InputGesture="Ctrl+M"
+                              ToolTip.Tip="比對不同環境的資料庫結構差異">
                         <MenuItem.Icon>
-                            <TextBlock Text="" FontSize="14"/>
+                            <TextBlock Text="🔄" FontSize="14"/>
+                        </MenuItem.Icon>
+                    </MenuItem>
+                    <MenuItem Header="健康監控(_H)" Command="{Binding OpenHealthMonitoringCommand}" InputGesture="Ctrl+H" IsEnabled="{Binding IsConnected}"
+                              ToolTip.Tip="監控資料庫健康狀態與效能指標">
+                        <MenuItem.Icon>
+                            <TextBlock Text="🩺" FontSize="14"/>
                         </MenuItem.Icon>
                     </MenuItem>
                 </MenuItem>
                 <MenuItem Header="說明(_H)">
-                    <MenuItem Header="關於 TableSpec(_A)" Command="{Binding ShowAboutCommand}">
+                    <MenuItem Header="關於 TableSpec(_A)" Command="{Binding ShowAboutCommand}"
+                              ToolTip.Tip="顯示應用程式版本與相關資訊">
                         <MenuItem.Icon>
-                            <TextBlock Text="" FontSize="14"/>
+                            <TextBlock Text="ℹ️" FontSize="14"/>
                         </MenuItem.Icon>
                     </MenuItem>
                 </MenuItem>
@@ -239,6 +264,12 @@
                                         </DataTemplate>
                                         <DataTemplate DataType="{x:Type vm:SchemaCompareDocumentViewModel}">
                                             <views:SchemaCompareDocumentView/>
+                                        </DataTemplate>
+                                        <DataTemplate DataType="{x:Type vm:HealthMonitoringDocumentViewModel}">
+                                            <views:HealthMonitoringDocumentView/>
+                                        </DataTemplate>
+                                        <DataTemplate DataType="{x:Type vm:AboutDocumentViewModel}">
+                                            <views:AboutDocumentView/>
                                         </DataTemplate>
                                     </ContentControl.DataTemplates>
                                 </ContentControl>

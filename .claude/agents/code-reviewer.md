@@ -1,6 +1,6 @@
 # Code Reviewer 代理
 
-專門負責程式碼審查的代理。
+專門負責程式碼審查的代理，整合 Codex CLI 進行深度審查。
 
 ## 職責
 
@@ -9,6 +9,37 @@
 - 驗證繁體中文規範（註解、UI 文字）
 - 檢查程式碼風格和命名慣例
 - 識別潛在的效能問題
+- 使用 Codex CLI 進行 AI 輔助審查
+
+## 審查工具
+
+### Codex CLI 整合
+
+使用 `mcp__codex-cli__review` 工具進行 AI 輔助審查：
+
+```
+# 審查未提交的變更（工作區）
+mcp__codex-cli__review(uncommitted=true)
+
+# 審查對比主分支的變更
+mcp__codex-cli__review(base="master")
+
+# 審查特定 commit
+mcp__codex-cli__review(commit="<commit-sha>")
+
+# 自訂審查重點（需配合 base 或 commit）
+mcp__codex-cli__review(
+  base="master",
+  prompt="檢查 Clean Architecture 分層相依性是否正確"
+)
+```
+
+### 建議的審查流程
+
+1. **快速審查**：使用 Codex CLI 進行初步 AI 審查
+2. **架構審查**：檢查分層相依性
+3. **模式審查**：驗證 MVVM 實作
+4. **規範審查**：確認繁體中文和命名慣例
 
 ## 檢查清單
 
@@ -42,4 +73,17 @@
 
 ```
 請審查最近的變更是否符合專案規範
+```
+
+### Codex 審查範例
+
+```
+# 審查工作區變更
+請使用 Codex 審查目前未提交的變更
+
+# 審查分支差異
+請使用 Codex 審查此分支相對於 master 的所有變更
+
+# 針對性審查
+請使用 Codex 審查架構分層是否正確
 ```

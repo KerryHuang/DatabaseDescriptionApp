@@ -332,6 +332,24 @@ public partial class MainWindowViewModel : ViewModelBase
     }
 
     [RelayCommand]
+    private void OpenHealthMonitoring()
+    {
+        // 檢查是否已開啟
+        var existing = Documents.OfType<HealthMonitoringDocumentViewModel>().FirstOrDefault();
+        if (existing != null)
+        {
+            SelectedDocument = existing;
+            return;
+        }
+
+        var doc = App.Services?.GetRequiredService<HealthMonitoringDocumentViewModel>()
+            ?? new HealthMonitoringDocumentViewModel();
+        doc.CloseRequested += OnDocumentCloseRequested;
+        Documents.Add(doc);
+        SelectedDocument = doc;
+    }
+
+    [RelayCommand]
     private void CloseDocument(DocumentViewModel? doc)
     {
         if (doc == null || !doc.CanClose) return;
@@ -390,7 +408,16 @@ public partial class MainWindowViewModel : ViewModelBase
     [RelayCommand]
     private void ShowAbout()
     {
-        StatusMessage = "TableSpec v1.0 - 資料庫規格查詢工具";
+        var existing = Documents.FirstOrDefault(d => d.DocumentKey == "About");
+        if (existing != null)
+        {
+            SelectedDocument = existing;
+            return;
+        }
+
+        var aboutVm = new AboutDocumentViewModel();
+        Documents.Add(aboutVm);
+        SelectedDocument = aboutVm;
     }
 
     [RelayCommand]

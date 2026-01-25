@@ -1,0 +1,459 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:TableSpec.Desktop.ViewModels"
+             xmlns:domain="using:TableSpec.Domain.Entities"
+             xmlns:converters="using:TableSpec.Desktop.Converters"
+             xmlns:lvc="using:LiveChartsCore.SkiaSharpView.Avalonia"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="900" d:DesignHeight="600"
+             x:Class="TableSpec.Desktop.Views.HealthMonitoringDocumentView"
+             x:DataType="vm:HealthMonitoringDocumentViewModel">
+
+    <UserControl.Resources>
+        <converters:BoolToYesNoConverter x:Key="BoolToYesNoConverter"/>
+        <converters:HealthStatusColorConverter x:Key="HealthStatusColorConverter"/>
+        <converters:HealthStatusIconConverter x:Key="HealthStatusIconConverter"/>
+        <converters:OverallStatusBackgroundConverter x:Key="OverallStatusBackgroundConverter"/>
+        <converters:InstallStatusColorConverter x:Key="InstallStatusColorConverter"/>
+    </UserControl.Resources>
+
+    <Design.DataContext>
+        <vm:HealthMonitoringDocumentViewModel/>
+    </Design.DataContext>
+
+    <Grid RowDefinitions="Auto,*,Auto">
+        <!-- 工具列 -->
+        <Border Grid.Row="0" Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}" Padding="10,8">
+            <StackPanel Orientation="Horizontal" Spacing="10">
+                <Button Command="{Binding SwitchToSetupCommand}">
+                    <StackPanel Orientation="Horizontal" Spacing="5">
+                        <TextBlock Text="⚙️" FontSize="14"/>
+                        <TextBlock Text="設定"/>
+                    </StackPanel>
+                </Button>
+                <Button Command="{Binding SwitchToDashboardCommand}" IsEnabled="{Binding IsInstalled}">
+                    <StackPanel Orientation="Horizontal" Spacing="5">
+                        <TextBlock Text="📊" FontSize="14"/>
+                        <TextBlock Text="看板"/>
+                    </StackPanel>
+                </Button>
+                <Separator/>
+                <Button Command="{Binding RefreshCommand}">
+                    <StackPanel Orientation="Horizontal" Spacing="5">
+                        <TextBlock Text="🔃" FontSize="14"/>
+                        <TextBlock Text="重新整理"/>
+                    </StackPanel>
+                </Button>
+                <Button Command="{Binding ExecuteHealthCheckCommand}" IsEnabled="{Binding IsInstalled}">
+                    <StackPanel Orientation="Horizontal" Spacing="5">
+                        <TextBlock Text="🩺" FontSize="14"/>
+                        <TextBlock Text="執行健康檢查"/>
+                    </StackPanel>
+                </Button>
+                <Separator/>
+                <Button Command="{Binding CancelOperationCommand}" IsVisible="{Binding IsProcessing}">
+                    <StackPanel Orientation="Horizontal" Spacing="5">
+                        <TextBlock Text="✕" FontSize="14"/>
+                        <TextBlock Text="取消"/>
+                    </StackPanel>
+                </Button>
+                <ProgressBar IsIndeterminate="True" Width="100"
+                             IsVisible="{Binding IsProcessing}"/>
+            </StackPanel>
+        </Border>
+
+        <!-- 主要內容區 -->
+        <Grid Grid.Row="1">
+            <!-- 設定面板 -->
+            <ScrollViewer IsVisible="{Binding ShowSetupPanel}">
+                <StackPanel Spacing="15" Margin="15">
+                    <!-- 安裝狀態 -->
+                    <Border Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
+                            CornerRadius="5" Padding="15">
+                        <StackPanel Spacing="10">
+                            <TextBlock Text="安裝狀態" FontWeight="Bold" FontSize="14"/>
+                            <Grid ColumnDefinitions="Auto,Auto,Auto,Auto" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto">
+                                <TextBlock Grid.Row="0" Grid.Column="0" Text="DBA 資料庫：" Margin="0,0,10,5"/>
+                                <TextBlock Grid.Row="0" Grid.Column="1"
+                                           Text="{Binding InstallStatus.DatabaseExists, Converter={StaticResource BoolToYesNoConverter}}"
+                                           Foreground="{Binding InstallStatus.DatabaseExists, Converter={StaticResource InstallStatusColorConverter}}"
+                                           Margin="0,0,30,5"/>
+
+                                <TextBlock Grid.Row="1" Grid.Column="0" Text="監控記錄表：" Margin="0,0,10,5"/>
+                                <TextBlock Grid.Row="1" Grid.Column="1"
+                                           Text="{Binding InstallStatus.HealthLogTableExists, Converter={StaticResource BoolToYesNoConverter}}"
+                                           Foreground="{Binding InstallStatus.HealthLogTableExists, Converter={StaticResource InstallStatusColorConverter}}"
+                                           Margin="0,0,30,5"/>
+
+                                <TextBlock Grid.Row="2" Grid.Column="0" Text="監控類別表：" Margin="0,0,10,5"/>
+                                <TextBlock Grid.Row="2" Grid.Column="1"
+                                           Text="{Binding InstallStatus.CategoriesTableExists, Converter={StaticResource BoolToYesNoConverter}}"
+                                           Foreground="{Binding InstallStatus.CategoriesTableExists, Converter={StaticResource InstallStatusColorConverter}}"
+                                           Margin="0,0,30,5"/>
+
+                                <TextBlock Grid.Row="3" Grid.Column="0" Text="主監控程序：" Margin="0,0,10,5"/>
+                                <TextBlock Grid.Row="3" Grid.Column="1"
+                                           Text="{Binding InstallStatus.MasterProcedureExists, Converter={StaticResource BoolToYesNoConverter}}"
+                                           Foreground="{Binding InstallStatus.MasterProcedureExists, Converter={StaticResource InstallStatusColorConverter}}"
+                                           Margin="0,0,30,5"/>
+
+                                <TextBlock Grid.Row="4" Grid.Column="0" Text="監控視圖：" Margin="0,0,10,5"/>
+                                <TextBlock Grid.Row="4" Grid.Column="1"
+                                           Text="{Binding InstallStatus.ViewsExist, Converter={StaticResource BoolToYesNoConverter}}"
+                                           Foreground="{Binding InstallStatus.ViewsExist, Converter={StaticResource InstallStatusColorConverter}}"
+                                           Margin="0,0,30,5"/>
+
+                                <TextBlock Grid.Row="5" Grid.Column="0" Text="SQL Agent 作業：" Margin="0,0,10,5"/>
+                                <TextBlock Grid.Row="5" Grid.Column="1"
+                                           Text="{Binding InstallStatus.AgentJobsExist, Converter={StaticResource BoolToYesNoConverter}}"
+                                           Foreground="{Binding InstallStatus.AgentJobsExist, Converter={StaticResource InstallStatusColorConverter}}"
+                                           Margin="0,0,30,5"/>
+
+                                <TextBlock Grid.Row="6" Grid.Column="0" Text="監控記錄數：" Margin="0,0,10,0"/>
+                                <TextBlock Grid.Row="6" Grid.Column="1"
+                                           Text="{Binding InstallStatus.LogCount, StringFormat={}{0:N0} 筆}"/>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- 安裝/移除操作 -->
+                    <Border Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
+                            CornerRadius="5" Padding="15">
+                        <StackPanel Spacing="15">
+                            <TextBlock Text="操作" FontWeight="Bold" FontSize="14"/>
+
+                            <!-- 安裝按鈕 -->
+                            <StackPanel Spacing="10" IsVisible="{Binding !IsInstalled}">
+                                <TextBlock Text="尚未安裝健康監控系統，點擊下方按鈕開始安裝。"/>
+                                <TextBlock Text="安裝將會：" FontWeight="SemiBold"/>
+                                <TextBlock Text="• 建立 DBA 資料庫" Margin="10,0,0,0"/>
+                                <TextBlock Text="• 建立監控資料表和視圖" Margin="10,0,0,0"/>
+                                <TextBlock Text="• 建立監控預存程序" Margin="10,0,0,0"/>
+                                <TextBlock Text="• 建立 SQL Agent 排程作業（每小時執行）" Margin="10,0,0,0"/>
+                                <Button Content="安裝健康監控系統" Command="{Binding InstallCommand}"
+                                        HorizontalAlignment="Left" Padding="20,10"/>
+                            </StackPanel>
+
+                            <!-- 移除選項 -->
+                            <StackPanel Spacing="10" IsVisible="{Binding InstallStatus.IsPartiallyInstalled}">
+                                <TextBlock Text="移除選項" FontWeight="SemiBold"/>
+                                <CheckBox IsChecked="{Binding KeepHistoryData}" Content="保留歷史監控資料"/>
+                                <CheckBox IsChecked="{Binding RemoveJobsOnly}" Content="只移除 SQL Agent 作業"/>
+                                <Button Content="移除健康監控系統" Command="{Binding UninstallCommand}"
+                                        HorizontalAlignment="Left" Padding="20,10"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- 進度 -->
+                    <Border Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
+                            CornerRadius="5" Padding="15"
+                            IsVisible="{Binding IsProcessing}">
+                        <StackPanel Spacing="10">
+                            <TextBlock Text="進度" FontWeight="Bold"/>
+                            <ProgressBar Minimum="0" Maximum="100" Value="{Binding ProgressPercentage}"
+                                         ShowProgressText="True"/>
+                            <TextBlock Text="{Binding ProgressMessage}"/>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
+
+            <!-- 看板面板 -->
+            <TabControl IsVisible="{Binding ShowDashboard}" Margin="10"
+                        SelectedIndex="{Binding SelectedTabIndex}">
+
+                <!-- 總覽分頁 -->
+                <TabItem Header="總覽">
+                    <ScrollViewer>
+                        <StackPanel Spacing="15" Margin="10">
+                            <!-- 狀態卡片 -->
+                            <Border Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
+                                    CornerRadius="5" Padding="10" Margin="0,0,0,5">
+                                <StackPanel Spacing="5">
+                                    <TextBlock Text="系統狀態摘要" FontWeight="Bold" FontSize="14"/>
+                                    <TextBlock TextWrapping="Wrap" FontSize="11" Foreground="Gray">
+                                        <Run Text="• 顯示「最新一次健康檢查」的結果（非歷史統計）"/>
+                                    </TextBlock>
+                                    <TextBlock TextWrapping="Wrap" FontSize="11" Foreground="Gray">
+                                        <Run Text="• 數字代表該類型有幾個「指標」處於各狀態（例如 Memory 有 2 個指標：Memory Usage % 和 Page Life Expectancy）"/>
+                                    </TextBlock>
+                                    <TextBlock TextWrapping="Wrap" FontSize="11" Foreground="Gray">
+                                        <Run Text="• 點擊卡片可查看該類型的「歷史告警記錄」（僅顯示 WARNING 和 CRITICAL）"/>
+                                    </TextBlock>
+                                </StackPanel>
+                            </Border>
+                            <ItemsControl ItemsSource="{Binding StatusSummaries}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel Orientation="Horizontal"/>
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="domain:HealthStatusSummary">
+                                        <Button Command="{Binding $parent[ItemsControl].((vm:HealthMonitoringDocumentViewModel)DataContext).NavigateToAlertsCommand}"
+                                                CommandParameter="{Binding CheckType}"
+                                                Padding="0" Margin="5" Cursor="Hand">
+                                            <Button.Template>
+                                                <ControlTemplate>
+                                                    <Border Background="{Binding OverallStatus, Converter={StaticResource OverallStatusBackgroundConverter}}"
+                                                            BorderBrush="{DynamicResource SystemControlBackgroundChromeMediumBrush}"
+                                                            BorderThickness="1" CornerRadius="5" Padding="15" Width="180"
+                                                            x:Name="CardBorder">
+                                                        <StackPanel Spacing="8">
+                                                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                                                <TextBlock Text="{Binding OverallStatus, Converter={StaticResource HealthStatusIconConverter}}"
+                                                                           FontSize="18"
+                                                                           Foreground="{Binding OverallStatus, Converter={StaticResource HealthStatusColorConverter}}"/>
+                                                                <TextBlock Text="{Binding CheckType}" FontWeight="Bold" FontSize="14"/>
+                                                            </StackPanel>
+                                                            <Grid ColumnDefinitions="*,*,*">
+                                                                <StackPanel Grid.Column="0" HorizontalAlignment="Center"
+                                                                            ToolTip.Tip="狀態為 OK 的檢查項目數量">
+                                                                    <TextBlock Text="{Binding OkCount}" HorizontalAlignment="Center"
+                                                                               FontSize="16" FontWeight="Bold" Foreground="Green"/>
+                                                                    <TextBlock Text="正常" HorizontalAlignment="Center" FontSize="11"/>
+                                                                </StackPanel>
+                                                                <StackPanel Grid.Column="1" HorizontalAlignment="Center"
+                                                                            ToolTip.Tip="狀態為 WARNING 的檢查項目數量（超過警告閾值）">
+                                                                    <TextBlock Text="{Binding WarningCount}" HorizontalAlignment="Center"
+                                                                               FontSize="16" FontWeight="Bold" Foreground="Orange"/>
+                                                                    <TextBlock Text="警告" HorizontalAlignment="Center" FontSize="11"/>
+                                                                </StackPanel>
+                                                                <StackPanel Grid.Column="2" HorizontalAlignment="Center"
+                                                                            ToolTip.Tip="狀態為 CRITICAL 的檢查項目數量（超過危險閾值）">
+                                                                    <TextBlock Text="{Binding CriticalCount}" HorizontalAlignment="Center"
+                                                                               FontSize="16" FontWeight="Bold" Foreground="Red"/>
+                                                                    <TextBlock Text="危險" HorizontalAlignment="Center" FontSize="11"/>
+                                                                </StackPanel>
+                                                            </Grid>
+                                                            <TextBlock Text="點擊查看告警 →" FontSize="10" Foreground="Gray"
+                                                                       HorizontalAlignment="Right" Opacity="0.7"/>
+                                                        </StackPanel>
+                                                    </Border>
+                                                </ControlTemplate>
+                                            </Button.Template>
+                                        </Button>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </ScrollViewer>
+                </TabItem>
+
+                <!-- 即時指標分頁 -->
+                <TabItem Header="即時指標">
+                    <Grid RowDefinitions="Auto,*">
+                        <!-- 說明 -->
+                        <Border Grid.Row="0" Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
+                                CornerRadius="5" Padding="10" Margin="10,10,10,0">
+                            <StackPanel Spacing="3">
+                                <TextBlock Text="即時指標狀態" FontWeight="Bold" FontSize="12"/>
+                                <TextBlock Text="• 顯示「最新一次健康檢查」各項指標的詳細數值與狀態"
+                                           FontSize="11" Foreground="Gray"/>
+                                <TextBlock Text="• 「檢查時間」為該指標最後執行健康檢查的時間點"
+                                           FontSize="11" Foreground="Gray"/>
+                                <TextBlock Text="• 目前值超過閾值時，狀態會顯示為 WARNING 或 CRITICAL"
+                                           FontSize="11" Foreground="Gray"/>
+                            </StackPanel>
+                        </Border>
+                        <!-- 指標清單 -->
+                        <DataGrid Grid.Row="1" ItemsSource="{Binding CurrentMetrics}"
+                                  AutoGenerateColumns="False"
+                                  IsReadOnly="True"
+                                  CanUserResizeColumns="True"
+                                  CanUserSortColumns="True"
+                                  Margin="10">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="類型" Binding="{Binding CheckType}" Width="100"/>
+                                <DataGridTextColumn Header="指標名稱" Binding="{Binding MetricName}" Width="200"/>
+                                <DataGridTextColumn Header="目前值" Binding="{Binding MetricValue, StringFormat={}{0:N2}}" Width="100"/>
+                                <DataGridTextColumn Header="閾值" Binding="{Binding ThresholdValue, StringFormat={}{0:N2}}" Width="100"/>
+                                <DataGridTemplateColumn Header="狀態" Width="80">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate x:DataType="domain:HealthMetric">
+                                            <TextBlock Text="{Binding Status}"
+                                                       Foreground="{Binding Status, Converter={StaticResource HealthStatusColorConverter}}"
+                                                       FontWeight="Bold"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTextColumn Header="檢查時間" Binding="{Binding CheckTime, StringFormat={}{0:yyyy-MM-dd HH:mm:ss}}" Width="150"/>
+                                <DataGridTextColumn Header="告警訊息" Binding="{Binding AlertMessage}" Width="*"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Grid>
+                </TabItem>
+
+                <!-- 告警分頁 -->
+                <TabItem Header="告警">
+                    <Grid RowDefinitions="Auto,Auto,*">
+                        <!-- 說明 -->
+                        <Border Grid.Row="0" Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
+                                CornerRadius="5" Padding="10" Margin="10,10,10,0">
+                            <StackPanel Spacing="3">
+                                <TextBlock Text="歷史健康檢查記錄" FontWeight="Bold" FontSize="12"/>
+                                <TextBlock Text="• 可依類型、狀態、天數篩選，點擊列可展開詳細資訊"
+                                           FontSize="11" Foreground="Gray"/>
+                                <TextBlock Text="• 預設顯示 WARNING 和 CRITICAL，可勾選 OK 查看正常記錄"
+                                           FontSize="11" Foreground="Gray"/>
+                            </StackPanel>
+                        </Border>
+                        <!-- 篩選 -->
+                        <WrapPanel Grid.Row="1" Orientation="Horizontal" Margin="10">
+                            <TextBlock Text="類型：" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                            <ComboBox MinWidth="120"
+                                      ItemsSource="{Binding AlertCheckTypeOptions}"
+                                      SelectedItem="{Binding AlertCheckTypeFilter}"
+                                      PlaceholderText="全部"
+                                      Margin="0,0,10,0"/>
+                            <TextBlock Text="狀態：" VerticalAlignment="Center" Margin="10,0,5,0"/>
+                            <CheckBox IsChecked="{Binding FilterStatusOk}" VerticalAlignment="Center" Margin="0,0,10,0">
+                                <TextBlock Text="OK" Foreground="Green" FontWeight="Bold"/>
+                            </CheckBox>
+                            <CheckBox IsChecked="{Binding FilterStatusWarning}" VerticalAlignment="Center" Margin="0,0,10,0">
+                                <TextBlock Text="WARNING" Foreground="Orange" FontWeight="Bold"/>
+                            </CheckBox>
+                            <CheckBox IsChecked="{Binding FilterStatusCritical}" VerticalAlignment="Center" Margin="0,0,10,0">
+                                <TextBlock Text="CRITICAL" Foreground="Red" FontWeight="Bold"/>
+                            </CheckBox>
+                            <TextBlock Text="顯示最近：" VerticalAlignment="Center" Margin="10,0,5,0"/>
+                            <ComboBox MinWidth="80"
+                                      ItemsSource="{Binding AlertDaysOptions}"
+                                      SelectedItem="{Binding AlertDays}"
+                                      Margin="0,0,5,0"/>
+                            <TextBlock Text="天" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                            <Button Content="清除篩選" Margin="10,0,0,0"
+                                    Command="{Binding NavigateToAlertsCommand}"
+                                    CommandParameter="{x:Null}"
+                                    IsVisible="{Binding AlertCheckTypeFilter, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                        </WrapPanel>
+
+                        <!-- 告警清單或無資料提示 -->
+                        <Panel Grid.Row="2">
+                            <DataGrid ItemsSource="{Binding RecentAlerts}"
+                                      AutoGenerateColumns="False"
+                                      IsReadOnly="True"
+                                      CanUserResizeColumns="True"
+                                      CanUserSortColumns="True"
+                                      AreRowDetailsFrozen="True"
+                                      RowDetailsVisibilityMode="VisibleWhenSelected"
+                                      Margin="10,0,10,10"
+                                      IsVisible="{Binding HasAlerts}">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="時間" Binding="{Binding CheckTime, StringFormat={}{0:yyyy-MM-dd HH:mm}}" Width="130"/>
+                                <DataGridTextColumn Header="類型" Binding="{Binding CheckType}" Width="100"/>
+                                <DataGridTextColumn Header="指標" Binding="{Binding MetricName}" Width="150"/>
+                                <DataGridTextColumn Header="值" Binding="{Binding MetricValue, StringFormat={}{0:N2}}" Width="80"/>
+                                <DataGridTextColumn Header="閾值" Binding="{Binding ThresholdValue, StringFormat={}{0:N2}}" Width="80"/>
+                                <DataGridTemplateColumn Header="狀態" Width="80">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate x:DataType="domain:HealthLogEntry">
+                                            <TextBlock Text="{Binding Status}"
+                                                       Foreground="{Binding Status, Converter={StaticResource HealthStatusColorConverter}}"
+                                                       FontWeight="Bold"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTextColumn Header="告警訊息" Binding="{Binding AlertMessage}" Width="*"/>
+                            </DataGrid.Columns>
+                            <DataGrid.RowDetailsTemplate>
+                                <DataTemplate x:DataType="domain:HealthLogEntry">
+                                    <Border Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
+                                            Padding="20,10" Margin="0,2">
+                                        <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto"
+                                              HorizontalAlignment="Left">
+                                            <TextBlock Grid.Row="0" Grid.Column="0" Text="伺服器：" FontWeight="SemiBold" Margin="0,2"/>
+                                            <SelectableTextBlock Grid.Row="0" Grid.Column="1" Text="{Binding ServerName}" Margin="10,2"/>
+
+                                            <TextBlock Grid.Row="1" Grid.Column="0" Text="資料庫：" FontWeight="SemiBold" Margin="0,2"/>
+                                            <SelectableTextBlock Grid.Row="1" Grid.Column="1" Text="{Binding DatabaseName}" Margin="10,2"/>
+
+                                            <TextBlock Grid.Row="2" Grid.Column="0" Text="告警訊息：" FontWeight="SemiBold" Margin="0,2"/>
+                                            <SelectableTextBlock Grid.Row="2" Grid.Column="1" Text="{Binding AlertMessage}" Margin="10,2" TextWrapping="Wrap"/>
+
+                                            <TextBlock Grid.Row="3" Grid.Column="0" Text="額外資訊：" FontWeight="SemiBold" Margin="0,2"/>
+                                            <SelectableTextBlock Grid.Row="3" Grid.Column="1" Text="{Binding AdditionalInfo}" Margin="10,2" TextWrapping="Wrap"/>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </DataGrid.RowDetailsTemplate>
+                            </DataGrid>
+                            <TextBlock Text="{Binding AlertsEmptyMessage}"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"
+                                       FontSize="14"
+                                       Foreground="Gray"
+                                       TextAlignment="Center"
+                                       IsVisible="{Binding !HasAlerts}"/>
+                        </Panel>
+                    </Grid>
+                </TabItem>
+
+                <!-- 趨勢分頁 -->
+                <TabItem Header="趨勢">
+                    <Grid RowDefinitions="Auto,*">
+                        <!-- 選擇器 -->
+                        <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="10" Margin="10">
+                            <TextBlock Text="檢查類型：" VerticalAlignment="Center"/>
+                            <ComboBox MinWidth="120"
+                                      ItemsSource="{Binding TrendCheckTypes}"
+                                      SelectedItem="{Binding SelectedTrendCheckType}"/>
+                            <TextBlock Text="指標：" VerticalAlignment="Center" Margin="20,0,0,0"/>
+                            <ComboBox MinWidth="180"
+                                      ItemsSource="{Binding TrendMetricNames}"
+                                      SelectedItem="{Binding SelectedTrendMetricName}"/>
+                        </StackPanel>
+
+                        <!-- 圖表或無資料提示 -->
+                        <Panel Grid.Row="1">
+                            <lvc:CartesianChart Series="{Binding TrendSeries}"
+                                                XAxes="{Binding TrendXAxes}"
+                                                YAxes="{Binding TrendYAxes}"
+                                                Margin="10"
+                                                IsVisible="{Binding HasTrendData}"/>
+                            <SelectableTextBlock Text="{Binding TrendNoDataMessage}"
+                                               HorizontalAlignment="Center"
+                                               VerticalAlignment="Center"
+                                               FontSize="16"
+                                               Foreground="Gray"
+                                               IsVisible="{Binding !HasTrendData}"/>
+                        </Panel>
+                    </Grid>
+                </TabItem>
+
+                <!-- 監控設定分頁 -->
+                <TabItem Header="監控設定">
+                    <DataGrid ItemsSource="{Binding Categories}"
+                              AutoGenerateColumns="False"
+                              CanUserResizeColumns="True"
+                              Margin="10">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="類別名稱" Binding="{Binding CategoryName}" Width="120" IsReadOnly="True"/>
+                            <DataGridTextColumn Header="描述" Binding="{Binding Description}" Width="200" IsReadOnly="True"/>
+                            <DataGridCheckBoxColumn Header="啟用" Binding="{Binding IsEnabled}" Width="60"/>
+                            <DataGridTextColumn Header="檢查間隔（分鐘）" Binding="{Binding CheckIntervalMinutes}" Width="120"/>
+                            <DataGridTextColumn Header="上次檢查" Binding="{Binding LastCheckTime, StringFormat={}{0:yyyy-MM-dd HH:mm}}" Width="140" IsReadOnly="True"/>
+                            <DataGridTemplateColumn Header="操作" Width="80">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate x:DataType="domain:MonitoringCategory">
+                                        <Button Content="儲存"
+                                                Command="{Binding $parent[DataGrid].((vm:HealthMonitoringDocumentViewModel)DataContext).UpdateCategoryCommand}"
+                                                CommandParameter="{Binding}"
+                                                Padding="8,4"/>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </TabItem>
+            </TabControl>
+        </Grid>
+
+        <!-- 狀態列 -->
+        <Border Grid.Row="2" Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}" Padding="10,5">
+            <TextBlock Text="{Binding StatusMessage}"/>
+        </Border>
+    </Grid>
+</UserControl>

@@ -1,4 +1,6 @@
 using Avalonia;
+using LiveChartsCore;
+using LiveChartsCore.SkiaSharpView;
 using Microsoft.Extensions.DependencyInjection;
 using System;
 using TableSpec.Application.Services;
@@ -66,6 +68,15 @@ sealed class Program
         services.AddSingleton<ISchemaCollector, MssqlSchemaCollector>();
         services.AddSingleton<ISchemaCompareService, SchemaCompareService>();
 
+        // Infrastructure - Health Monitoring
+        services.AddSingleton<IHealthMonitoringRepository>(sp =>
+            new HealthMonitoringRepository(() => sp.GetRequiredService<IConnectionManager>().GetCurrentConnectionString()));
+        services.AddSingleton<IHealthMonitoringInstaller>(sp =>
+            new HealthMonitoringInstaller(() => sp.GetRequiredService<IConnectionManager>().GetCurrentConnectionString()));
+
+        // Application - Health Monitoring Service
+        services.AddSingleton<IHealthMonitoringService, HealthMonitoringService>();
+
         // ViewModels
         services.AddTransient<MainWindowViewModel>(sp =>
             new MainWindowViewModel(
@@ -85,6 +96,10 @@ sealed class Program
             new SchemaCompareDocumentViewModel(
                 sp.GetRequiredService<ISchemaCompareService>(),
                 sp.GetRequiredService<ISchemaCollector>(),
+                sp.GetRequiredService<IConnectionManager>()));
+        services.AddTransient<HealthMonitoringDocumentViewModel>(sp =>
+            new HealthMonitoringDocumentViewModel(
+                sp.GetRequiredService<IHealthMonitoringService>(),
                 sp.GetRequiredService<IConnectionManager>()));
 
         return services.BuildServiceProvider();

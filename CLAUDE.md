@@ -18,12 +18,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 <law>所有檔案使用 UTF-8 編碼（無 BOM），確保繁體中文正確顯示。</law>
 
+<law>技能探索：開始工作前，檢查 `.claude/skills/` 中的可用技能；若有相關技能則必須使用。</law>
+
+<law>規則諮詢：執行任務時，檢查 `.claude/rules/` 中的相關規則並遵循。</law>
+
 ## Quick Commands
 
 - `/build` - 建置解決方案
 - `/test` - 執行測試
 - `/run` - 執行桌面應用程式
 - `/publish` - 發布單一執行檔
+- `/commit` - 建立 Git commit（繁體中文訊息）
 
 ## Build & Run Commands
 

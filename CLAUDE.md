@@ -29,6 +29,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `/run` - 執行桌面應用程式
 - `/publish` - 發布單一執行檔
 - `/commit` - 建立 Git commit（繁體中文訊息）
+- `/push` - 推送程式碼並建立版本 tag
 
 ## Build & Run Commands
 

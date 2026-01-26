@@ -55,6 +55,8 @@ dotnet test --filter "FullyQualifiedName~TestMethodName"
 dotnet publish src/TableSpec.Desktop -c Release -r win-x64 --self-contained -p:PublishSingleFile=true
 # macOS (Apple Silicon)
 dotnet publish src/TableSpec.Desktop -c Release -r osx-arm64 --self-contained -p:PublishSingleFile=true
+# macOS (Intel)
+dotnet publish src/TableSpec.Desktop -c Release -r osx-x64 --self-contained -p:PublishSingleFile=true
 # Linux x64
 dotnet publish src/TableSpec.Desktop -c Release -r linux-x64 --self-contained -p:PublishSingleFile=true
 ```

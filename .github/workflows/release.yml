@@ -52,6 +52,14 @@ jobs:
   build-macos:
     name: 建置 macOS 安裝包
     runs-on: macos-latest
+    strategy:
+      matrix:
+        runtime: [osx-arm64, osx-x64]
+        include:
+          - runtime: osx-arm64
+            arch: arm64
+          - runtime: osx-x64
+            arch: x64
     steps:
       - name: 檢出程式碼
         uses: actions/checkout@v4
@@ -73,20 +81,20 @@ jobs:
         run: dotnet test --configuration Release --verbosity normal
 
       - name: 發布應用程式
-        run: dotnet publish src/TableSpec.Desktop -c Release -r osx-arm64 --self-contained -o publish
+        run: dotnet publish src/TableSpec.Desktop -c Release -r ${{ matrix.runtime }} --self-contained -o publish
 
       - name: 建立 macOS 壓縮包
         run: |
           mkdir -p Releases
           cd publish
-          zip -r ../Releases/TableSpec-${{ steps.get-version.outputs.version }}-osx-arm64.zip .
+          zip -r ../Releases/TableSpec-${{ steps.get-version.outputs.version }}-${{ matrix.runtime }}.zip .
           cd ..
           ls -la Releases/
 
       - name: 上傳安裝包
         uses: actions/upload-artifact@v4
         with:
-          name: macos-installer
+          name: macos-installer-${{ matrix.arch }}
           path: Releases/*
           retention-days: 30
 
@@ -145,7 +153,8 @@ jobs:
         run: |
           mkdir -p release-files
           cp artifacts/windows-installer/* release-files/ 2>/dev/null || true
-          cp artifacts/macos-installer/* release-files/ 2>/dev/null || true
+          cp artifacts/macos-installer-arm64/* release-files/ 2>/dev/null || true
+          cp artifacts/macos-installer-x64/* release-files/ 2>/dev/null || true
           cp artifacts/linux-installer/* release-files/ 2>/dev/null || true
           ls -la release-files/
 

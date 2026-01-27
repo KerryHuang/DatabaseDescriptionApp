@@ -84,6 +84,14 @@ sealed class Program
         // Application - Performance Diagnostics Service
         services.AddSingleton<IPerformanceDiagnosticsService, PerformanceDiagnosticsService>();
 
+        // Infrastructure - Column Usage
+        services.AddSingleton<IColumnUsageRepository>(sp =>
+            new ColumnUsageRepository(() => sp.GetRequiredService<IConnectionManager>().GetCurrentConnectionString()));
+        services.AddSingleton<ColumnUsageExcelExporter>();
+
+        // Application - Column Usage Service
+        services.AddSingleton<IColumnUsageService, ColumnUsageService>();
+
         // ViewModels
         services.AddTransient<MainWindowViewModel>(sp =>
             new MainWindowViewModel(
@@ -111,6 +119,10 @@ sealed class Program
         services.AddTransient<PerformanceDiagnosticsDocumentViewModel>(sp =>
             new PerformanceDiagnosticsDocumentViewModel(
                 sp.GetRequiredService<IPerformanceDiagnosticsService>()));
+        services.AddTransient<ColumnUsageDocumentViewModel>(sp =>
+            new ColumnUsageDocumentViewModel(
+                sp.GetRequiredService<IColumnUsageService>(),
+                sp.GetRequiredService<ColumnUsageExcelExporter>()));
 
         return services.BuildServiceProvider();
     }

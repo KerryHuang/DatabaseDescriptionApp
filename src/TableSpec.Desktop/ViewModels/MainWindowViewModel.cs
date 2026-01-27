@@ -371,6 +371,19 @@ public partial class MainWindowViewModel : ViewModelBase
     }
 
     [RelayCommand]
+    private async Task OpenColumnUsageAsync()
+    {
+        var doc = App.Services?.GetRequiredService<ColumnUsageDocumentViewModel>()
+            ?? new ColumnUsageDocumentViewModel();
+        doc.CloseRequested += OnDocumentCloseRequested;
+        Documents.Add(doc);
+        SelectedDocument = doc;
+
+        // 初始化載入資料
+        await doc.LoadCommand.ExecuteAsync(null);
+    }
+
+    [RelayCommand]
     private void CloseDocument(DocumentViewModel? doc)
     {
         if (doc == null || !doc.CanClose) return;

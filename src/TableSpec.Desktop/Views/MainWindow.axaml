@@ -101,6 +101,12 @@
                             <TextBlock Text="⚡" FontSize="14"/>
                         </MenuItem.Icon>
                     </MenuItem>
+                    <MenuItem Header="欄位統計(_U)" Command="{Binding OpenColumnUsageCommand}" InputGesture="Ctrl+U" IsEnabled="{Binding IsConnected}"
+                              ToolTip.Tip="統計欄位使用情況，分析型態一致性">
+                        <MenuItem.Icon>
+                            <TextBlock Text="📊" FontSize="14"/>
+                        </MenuItem.Icon>
+                    </MenuItem>
                 </MenuItem>
                 <MenuItem Header="說明(_H)">
                     <MenuItem Header="關於 TableSpec(_A)" Command="{Binding ShowAboutCommand}"
@@ -279,6 +285,9 @@
                                         </DataTemplate>
                                         <DataTemplate DataType="{x:Type vm:AboutDocumentViewModel}">
                                             <views:AboutDocumentView/>
+                                        </DataTemplate>
+                                        <DataTemplate DataType="{x:Type vm:ColumnUsageDocumentViewModel}">
+                                            <views:ColumnUsageDocumentView/>
                                         </DataTemplate>
                                     </ContentControl.DataTemplates>
                                 </ContentControl>

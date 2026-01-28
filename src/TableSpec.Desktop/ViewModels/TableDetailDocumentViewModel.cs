@@ -5,7 +5,9 @@ using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.Messaging;
 using TableSpec.Application.Services;
+using TableSpec.Desktop.ViewModels.Messages;
 using TableSpec.Domain.Entities;
 
 namespace TableSpec.Desktop.ViewModels;
@@ -19,6 +21,11 @@ public partial class TableDetailDocumentViewModel : DocumentViewModel
 
     [ObservableProperty]
     private TableInfo? _currentTable;
+
+    [ObservableProperty]
+    private string? _tableDescription;
+
+    private string? _originalTableDescription;
 
     [ObservableProperty]
     private bool _isLoading;
@@ -65,6 +72,10 @@ public partial class TableDetailDocumentViewModel : DocumentViewModel
         Title = table.Name;
         Icon = GetIconForType(table.Type);
         CanClose = true;
+
+        // 初始化表級說明
+        TableDescription = table.Description;
+        _originalTableDescription = table.Description;
 
         // 立即載入資料
         _ = LoadTableAsync();
@@ -151,6 +162,8 @@ public partial class TableDetailDocumentViewModel : DocumentViewModel
         Definition = null;
         HasUnsavedChanges = false;
         StatusMessage = string.Empty;
+        TableDescription = CurrentTable?.Description;
+        _originalTableDescription = CurrentTable?.Description;
     }
 
     /// <summary>
@@ -158,7 +171,10 @@ public partial class TableDetailDocumentViewModel : DocumentViewModel
     /// </summary>
     public void CheckForChanges()
     {
-        HasUnsavedChanges = Columns.Any(c => c.Description != c.OriginalDescription);
+        var hasColumnChanges = Columns.Any(c => c.Description != c.OriginalDescription);
+        var hasTableDescriptionChange = TableDescription != _originalTableDescription;
+        HasUnsavedChanges = hasColumnChanges || hasTableDescriptionChange;
+
         if (HasUnsavedChanges)
         {
             Title = $"{CurrentTable?.Name} *";
@@ -167,6 +183,14 @@ public partial class TableDetailDocumentViewModel : DocumentViewModel
         {
             Title = CurrentTable?.Name ?? "資料表";
         }
+    }
+
+    /// <summary>
+    /// 當表級說明變更時觸發
+    /// </summary>
+    partial void OnTableDescriptionChanged(string? value)
+    {
+        CheckForChanges();
     }
 
     /// <summary>
@@ -184,15 +208,24 @@ public partial class TableDetailDocumentViewModel : DocumentViewModel
             return;
 
         var changedColumns = GetChangedColumns().ToList();
-        if (!changedColumns.Any())
+        var hasTableDescriptionChange = TableDescription != _originalTableDescription;
+
+        if (!changedColumns.Any() && !hasTableDescriptionChange)
         {
             StatusMessage = "沒有需要儲存的變更";
             return;
         }
 
-        // 確認是否儲存
-        var message = $"確定要更新以下 {changedColumns.Count} 個欄位的說明嗎？\n\n" +
-                      string.Join("\n", changedColumns.Select(c => $"• {c.ColumnName}"));
+        // 建立確認訊息
+        var messageLines = new List<string>();
+        if (hasTableDescriptionChange)
+        {
+            messageLines.Add($"• 物件說明");
+        }
+        messageLines.AddRange(changedColumns.Select(c => $"• {c.ColumnName}"));
+
+        var message = $"確定要更新以下 {messageLines.Count} 項說明嗎？\n\n" +
+                      string.Join("\n", messageLines);
 
         if (ConfirmSaveCallback != null)
         {
@@ -209,6 +242,31 @@ public partial class TableDetailDocumentViewModel : DocumentViewModel
             IsLoading = true;
             StatusMessage = "正在儲存...";
 
+            var savedCount = 0;
+
+            // 儲存表級說明
+            if (hasTableDescriptionChange)
+            {
+                await _tableQueryService.UpdateTableDescriptionAsync(
+                    CurrentTable.Type,
+                    CurrentTable.Schema,
+                    CurrentTable.Name,
+                    TableDescription);
+
+                _originalTableDescription = TableDescription;
+                savedCount++;
+
+                // 通知物件樹更新說明
+                WeakReferenceMessenger.Default.Send(new TableDescriptionUpdatedMessage
+                {
+                    Type = CurrentTable.Type,
+                    Schema = CurrentTable.Schema,
+                    Name = CurrentTable.Name,
+                    NewDescription = TableDescription
+                });
+            }
+
+            // 儲存欄位說明
             foreach (var col in changedColumns)
             {
                 await _tableQueryService.UpdateColumnDescriptionAsync(
@@ -219,11 +277,12 @@ public partial class TableDetailDocumentViewModel : DocumentViewModel
 
                 // 更新原始值
                 col.OriginalDescription = col.Description;
+                savedCount++;
             }
 
             HasUnsavedChanges = false;
             Title = CurrentTable?.Name ?? "資料表";
-            StatusMessage = $"已成功更新 {changedColumns.Count} 個欄位的說明";
+            StatusMessage = $"已成功更新 {savedCount} 項說明";
         }
         catch (Exception ex)
         {
@@ -238,10 +297,15 @@ public partial class TableDetailDocumentViewModel : DocumentViewModel
     [RelayCommand]
     private void CancelChanges()
     {
+        // 還原表級說明
+        TableDescription = _originalTableDescription;
+
+        // 還原欄位說明
         foreach (var col in Columns)
         {
             col.Description = col.OriginalDescription;
         }
+
         HasUnsavedChanges = false;
         Title = CurrentTable?.Name ?? "資料表";
         StatusMessage = "已取消變更";

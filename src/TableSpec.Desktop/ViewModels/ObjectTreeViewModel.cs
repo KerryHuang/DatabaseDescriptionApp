@@ -4,7 +4,9 @@ using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.Messaging;
 using TableSpec.Application.Services;
+using TableSpec.Desktop.ViewModels.Messages;
 using TableSpec.Domain.Entities;
 
 namespace TableSpec.Desktop.ViewModels;
@@ -156,7 +158,7 @@ public partial class ObjectGroupViewModel : ViewModelBase
     }
 }
 
-public partial class ObjectItemViewModel : ViewModelBase
+public partial class ObjectItemViewModel : ViewModelBase, IRecipient<TableDescriptionUpdatedMessage>
 {
     public TableInfo Table { get; }
 
@@ -166,12 +168,34 @@ public partial class ObjectItemViewModel : ViewModelBase
     [ObservableProperty]
     private bool _isSelected;
 
-    public string DisplayName => !string.IsNullOrEmpty(Table.Description)
-        ? $"{Table.Name} ({Table.Description})"
-        : Table.Name;
+    [ObservableProperty]
+    private string _displayName = string.Empty;
 
     public ObjectItemViewModel(TableInfo table)
     {
         Table = table;
+        UpdateDisplayName();
+
+        // 註冊接收訊息
+        WeakReferenceMessenger.Default.Register(this);
+    }
+
+    private void UpdateDisplayName()
+    {
+        DisplayName = !string.IsNullOrEmpty(Table.Description)
+            ? $"{Table.Name} ({Table.Description})"
+            : Table.Name;
+    }
+
+    public void Receive(TableDescriptionUpdatedMessage message)
+    {
+        // 檢查是否為同一個物件
+        if (Table.Type == message.Type &&
+            Table.Schema == message.Schema &&
+            Table.Name == message.Name)
+        {
+            Table.Description = message.NewDescription;
+            UpdateDisplayName();
+        }
     }
 }

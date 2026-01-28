@@ -17,8 +17,9 @@
             <StackPanel>
                 <TextBlock Text="{Binding CurrentTable.Name, FallbackValue='請選擇物件'}"
                            FontSize="18" FontWeight="Bold"/>
-                <TextBlock Text="{Binding CurrentTable.Description}"
-                           Foreground="Gray" Margin="0,5,0,0"/>
+                <TextBox Text="{Binding TableDescription}"
+                         Watermark="輸入物件說明..."
+                         Margin="0,5,0,0"/>
             </StackPanel>
         </Border>
 

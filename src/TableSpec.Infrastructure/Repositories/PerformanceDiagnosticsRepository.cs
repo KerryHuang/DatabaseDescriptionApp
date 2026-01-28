@@ -18,7 +18,7 @@ public class PerformanceDiagnosticsRepository : IPerformanceDiagnosticsRepositor
     }
 
     /// <inheritdoc/>
-    public async Task<IReadOnlyList<WaitStatistic>> GetWaitStatisticsAsync(CancellationToken ct = default)
+    public async Task<IReadOnlyList<WaitStatistic>> GetWaitStatisticsAsync(int top = 20, decimal minPercentage = 0, CancellationToken ct = default)
     {
         var connectionString = _connectionStringProvider();
         if (string.IsNullOrEmpty(connectionString))
@@ -48,7 +48,7 @@ WHERE wait_type NOT IN (
     'WAITFOR',
     'XE_DISPATCHER_JOIN', 'XE_DISPATCHER_WAIT','XE_TIMER_EVENT')
 )
-SELECT
+SELECT TOP (@Top)
     W1.wait_type AS WaitType,
     CAST(W1.WaitS AS DECIMAL(14, 2)) AS WaitTimeSeconds,
     CAST(W1.ResourceS AS DECIMAL(14, 2)) AS ResourceWaitSeconds,
@@ -59,9 +59,10 @@ SELECT
     CAST((W1.ResourceS / CASE WHEN W1.WaitCount = 0 THEN 1 ELSE W1.WaitCount END) AS DECIMAL(14, 4)) AS AvgResourceWaitSeconds,
     CAST((W1.SignalS / CASE WHEN W1.WaitCount = 0 THEN 1 ELSE W1.WaitCount END) AS DECIMAL(14, 4)) AS AvgSignalWaitSeconds
 FROM Waits W1
+WHERE W1.Percentage >= @MinPercentage
 ORDER BY WaitTimeSeconds DESC;";
 
-        var result = await connection.QueryAsync<WaitStatistic>(sql);
+        var result = await connection.QueryAsync<WaitStatistic>(sql, new { Top = top, MinPercentage = minPercentage });
         return result.ToList();
     }
 
@@ -75,20 +76,46 @@ ORDER BY WaitTimeSeconds DESC;";
         await using var connection = new SqlConnection(connectionString);
 
         var sql = $@"
+;WITH XMLNAMESPACES (DEFAULT 'http://schemas.microsoft.com/sqlserver/2004/07/showplan'),
+TableExtract AS (
+    SELECT
+        deqs.sql_handle,
+        deqs.plan_handle,
+        deqs.execution_count,
+        deqs.total_elapsed_time,
+        deqs.max_elapsed_time,
+        deqs.total_worker_time,
+        dest.text,
+        dest.dbid,
+        dest.objectid,
+        deqp.query_plan,
+        COALESCE(
+            deqp.query_plan.value('(//Object/@Database)[1]', 'NVARCHAR(256)'),
+            DB_NAME(dest.dbid)
+        ) AS ExtractedDatabase,
+        STUFF((
+            SELECT DISTINCT ', ' + REPLACE(REPLACE(t.c.value('@Table', 'NVARCHAR(256)'), '[', ''), ']', '')
+            FROM deqp.query_plan.nodes('//Object[@Table]') AS t(c)
+            FOR XML PATH('')
+        ), 1, 2, '') AS TableNames
+    FROM sys.dm_exec_query_stats AS deqs
+    CROSS APPLY sys.dm_exec_sql_text(deqs.sql_handle) AS dest
+    OUTER APPLY sys.dm_exec_query_plan(deqs.plan_handle) AS deqp
+)
 SELECT TOP (@Top)
     'Query' AS QueryType,
-    dest.text AS QueryText,
-    NULL AS DatabaseName,
-    NULL AS ObjectName,
-    deqs.execution_count AS ExecutionCount,
-    deqs.total_elapsed_time / 1000 AS TotalElapsedTimeMs,
-    deqs.max_elapsed_time / 1000 AS MaxElapsedTimeMs,
-    deqs.total_worker_time / 1000 AS TotalWorkerTimeMs,
-    CAST(deqs.total_worker_time / 1000.0 / NULLIF(deqs.execution_count, 0) AS DECIMAL(18, 2)) AS AvgWorkerTimeMs,
+    text AS QueryText,
+    REPLACE(REPLACE(ExtractedDatabase, '[', ''), ']', '') AS DatabaseName,
+    OBJECT_NAME(objectid, dbid) AS ObjectName,
+    TableNames AS TableName,
+    execution_count AS ExecutionCount,
+    total_elapsed_time / 1000 AS TotalElapsedTimeMs,
+    max_elapsed_time / 1000 AS MaxElapsedTimeMs,
+    total_worker_time / 1000 AS TotalWorkerTimeMs,
+    CAST(total_worker_time / 1000.0 / NULLIF(execution_count, 0) AS DECIMAL(18, 2)) AS AvgWorkerTimeMs,
     NULL AS QueryPlan
-FROM sys.dm_exec_query_stats AS deqs
-CROSS APPLY sys.dm_exec_sql_text(deqs.sql_handle) AS dest
-ORDER BY deqs.max_elapsed_time DESC;";
+FROM TableExtract
+ORDER BY max_elapsed_time DESC;";
 
         var result = await connection.QueryAsync<ExpensiveQuery>(sql, new { Top = top });
         return result.ToList();
@@ -104,20 +131,39 @@ ORDER BY deqs.max_elapsed_time DESC;";
         await using var connection = new SqlConnection(connectionString);
 
         var sql = $@"
+;WITH XMLNAMESPACES (DEFAULT 'http://schemas.microsoft.com/sqlserver/2004/07/showplan'),
+TableExtract AS (
+    SELECT
+        deps.database_id,
+        deps.object_id,
+        deps.execution_count,
+        deps.total_elapsed_time,
+        deps.max_elapsed_time,
+        deps.total_worker_time,
+        dest.text,
+        STUFF((
+            SELECT DISTINCT ', ' + REPLACE(REPLACE(t.c.value('@Table', 'NVARCHAR(256)'), '[', ''), ']', '')
+            FROM deqp.query_plan.nodes('//Object[@Table]') AS t(c)
+            FOR XML PATH('')
+        ), 1, 2, '') AS TableNames
+    FROM sys.dm_exec_procedure_stats AS deps
+    OUTER APPLY sys.dm_exec_sql_text(deps.sql_handle) AS dest
+    OUTER APPLY sys.dm_exec_query_plan(deps.plan_handle) AS deqp
+)
 SELECT TOP (@Top)
     'Procedure' AS QueryType,
-    dest.text AS QueryText,
-    DB_NAME(deps.database_id) AS DatabaseName,
-    OBJECT_NAME(deps.object_id, deps.database_id) AS ObjectName,
-    deps.execution_count AS ExecutionCount,
-    deps.total_elapsed_time / 1000 AS TotalElapsedTimeMs,
-    deps.max_elapsed_time / 1000 AS MaxElapsedTimeMs,
-    deps.total_worker_time / 1000 AS TotalWorkerTimeMs,
-    CAST(deps.total_worker_time / 1000.0 / NULLIF(deps.execution_count, 0) AS DECIMAL(18, 2)) AS AvgWorkerTimeMs,
+    text AS QueryText,
+    DB_NAME(database_id) AS DatabaseName,
+    OBJECT_NAME(object_id, database_id) AS ObjectName,
+    TableNames AS TableName,
+    execution_count AS ExecutionCount,
+    total_elapsed_time / 1000 AS TotalElapsedTimeMs,
+    max_elapsed_time / 1000 AS MaxElapsedTimeMs,
+    total_worker_time / 1000 AS TotalWorkerTimeMs,
+    CAST(total_worker_time / 1000.0 / NULLIF(execution_count, 0) AS DECIMAL(18, 2)) AS AvgWorkerTimeMs,
     NULL AS QueryPlan
-FROM sys.dm_exec_procedure_stats AS deps
-OUTER APPLY sys.dm_exec_sql_text(deps.sql_handle) AS dest
-ORDER BY deps.max_elapsed_time DESC;";
+FROM TableExtract
+ORDER BY max_elapsed_time DESC;";
 
         var result = await connection.QueryAsync<ExpensiveQuery>(sql, new { Top = top });
         return result.ToList();
@@ -133,23 +179,48 @@ ORDER BY deps.max_elapsed_time DESC;";
         await using var connection = new SqlConnection(connectionString);
 
         var sql = $@"
+;WITH XMLNAMESPACES (DEFAULT 'http://schemas.microsoft.com/sqlserver/2004/07/showplan'),
+TableExtract AS (
+    SELECT
+        deqs.execution_count,
+        deqs.total_elapsed_time,
+        deqs.max_elapsed_time,
+        deqs.total_worker_time,
+        deqs.statement_start_offset,
+        deqs.statement_end_offset,
+        dest.text,
+        dest.dbid,
+        dest.objectid,
+        deqp.query_plan,
+        COALESCE(
+            deqp.query_plan.value('(//Object/@Database)[1]', 'NVARCHAR(256)'),
+            DB_NAME(dest.dbid)
+        ) AS ExtractedDatabase,
+        STUFF((
+            SELECT DISTINCT ', ' + REPLACE(REPLACE(t.c.value('@Table', 'NVARCHAR(256)'), '[', ''), ']', '')
+            FROM deqp.query_plan.nodes('//Object[@Table]') AS t(c)
+            FOR XML PATH('')
+        ), 1, 2, '') AS TableNames
+    FROM sys.dm_exec_query_stats AS deqs
+    CROSS APPLY sys.dm_exec_sql_text(deqs.sql_handle) AS dest
+    CROSS APPLY sys.dm_exec_query_plan(deqs.plan_handle) AS deqp
+)
 SELECT TOP (@Top)
     'Query' AS QueryType,
-    SUBSTRING(dest.text, (deqs.statement_start_offset/2)+1,
-        ((CASE deqs.statement_end_offset WHEN -1 THEN DATALENGTH(dest.text)
-          ELSE deqs.statement_end_offset END - deqs.statement_start_offset)/2) + 1) AS QueryText,
-    NULL AS DatabaseName,
-    NULL AS ObjectName,
-    deqs.execution_count AS ExecutionCount,
-    deqs.total_elapsed_time / 1000 AS TotalElapsedTimeMs,
-    deqs.max_elapsed_time / 1000 AS MaxElapsedTimeMs,
-    deqs.total_worker_time / 1000 AS TotalWorkerTimeMs,
-    CAST(deqs.total_worker_time / 1000.0 / NULLIF(deqs.execution_count, 0) AS DECIMAL(18, 2)) AS AvgWorkerTimeMs,
-    CAST(deqp.query_plan AS NVARCHAR(MAX)) AS QueryPlan
-FROM sys.dm_exec_query_stats AS deqs
-CROSS APPLY sys.dm_exec_sql_text(deqs.sql_handle) AS dest
-CROSS APPLY sys.dm_exec_query_plan(deqs.plan_handle) AS deqp
-ORDER BY deqs.total_worker_time / NULLIF(deqs.execution_count, 0) DESC;";
+    SUBSTRING(text, (statement_start_offset/2)+1,
+        ((CASE statement_end_offset WHEN -1 THEN DATALENGTH(text)
+          ELSE statement_end_offset END - statement_start_offset)/2) + 1) AS QueryText,
+    REPLACE(REPLACE(ExtractedDatabase, '[', ''), ']', '') AS DatabaseName,
+    OBJECT_NAME(objectid, dbid) AS ObjectName,
+    TableNames AS TableName,
+    execution_count AS ExecutionCount,
+    total_elapsed_time / 1000 AS TotalElapsedTimeMs,
+    max_elapsed_time / 1000 AS MaxElapsedTimeMs,
+    total_worker_time / 1000 AS TotalWorkerTimeMs,
+    CAST(total_worker_time / 1000.0 / NULLIF(execution_count, 0) AS DECIMAL(18, 2)) AS AvgWorkerTimeMs,
+    CAST(query_plan AS NVARCHAR(MAX)) AS QueryPlan
+FROM TableExtract
+ORDER BY total_worker_time / NULLIF(execution_count, 0) DESC;";
 
         var result = await connection.QueryAsync<ExpensiveQuery>(sql, new { Top = top });
         return result.ToList();
@@ -195,7 +266,7 @@ ORDER BY sp.last_updated DESC;";
     }
 
     /// <inheritdoc/>
-    public async Task<IReadOnlyList<ErrorLogEntry>> GetErrorLogAsync(CancellationToken ct = default)
+    public async Task<IReadOnlyList<ErrorLogEntry>> GetErrorLogAsync(int days = 7, CancellationToken ct = default)
     {
         var connectionString = _connectionStringProvider();
         if (string.IsNullOrEmpty(connectionString))
@@ -203,13 +274,22 @@ ORDER BY sp.last_updated DESC;";
 
         await using var connection = new SqlConnection(connectionString);
 
+        // xp_readerrorlog 參數：
+        // 1: 記錄檔編號 (0=目前)
+        // 2: 記錄類型 (1=SQL Server, 2=SQL Agent)
+        // 3: 搜尋字串1
+        // 4: 搜尋字串2
+        // 5: 開始日期
+        // 6: 結束日期
+        // 7: 排序方向 (N'asc' 或 N'desc')
         const string sql = @"
 CREATE TABLE #ErrorLog (LogDate DATETIME, ProcessInfo NVARCHAR(100), Text NVARCHAR(MAX));
-INSERT INTO #ErrorLog EXEC master.dbo.xp_readerrorlog;
+INSERT INTO #ErrorLog EXEC master.dbo.xp_readerrorlog 0, 1, NULL, NULL, @StartDate, NULL, N'desc';
 SELECT LogDate, ProcessInfo, Text FROM #ErrorLog ORDER BY LogDate DESC;
 DROP TABLE #ErrorLog;";
 
-        var result = await connection.QueryAsync<ErrorLogEntry>(sql, commandTimeout: 60);
+        var startDate = DateTime.Now.AddDays(-days);
+        var result = await connection.QueryAsync<ErrorLogEntry>(sql, new { StartDate = startDate }, commandTimeout: 60);
         return result.ToList();
     }
 

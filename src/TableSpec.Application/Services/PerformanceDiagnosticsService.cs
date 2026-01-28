@@ -16,8 +16,8 @@ public class PerformanceDiagnosticsService : IPerformanceDiagnosticsService
     }
 
     /// <inheritdoc/>
-    public Task<IReadOnlyList<WaitStatistic>> GetWaitStatisticsAsync(CancellationToken ct = default)
-        => _repository.GetWaitStatisticsAsync(ct);
+    public Task<IReadOnlyList<WaitStatistic>> GetWaitStatisticsAsync(int top = 20, decimal minPercentage = 0, CancellationToken ct = default)
+        => _repository.GetWaitStatisticsAsync(top, minPercentage, ct);
 
     /// <inheritdoc/>
     public Task<IReadOnlyList<ExpensiveQuery>> GetTopExpensiveQueriesAsync(int top = 5, CancellationToken ct = default)
@@ -36,8 +36,8 @@ public class PerformanceDiagnosticsService : IPerformanceDiagnosticsService
         => _repository.GetStatisticsInfoAsync(ct);
 
     /// <inheritdoc/>
-    public Task<IReadOnlyList<ErrorLogEntry>> GetErrorLogAsync(CancellationToken ct = default)
-        => _repository.GetErrorLogAsync(ct);
+    public Task<IReadOnlyList<ErrorLogEntry>> GetErrorLogAsync(int days = 7, CancellationToken ct = default)
+        => _repository.GetErrorLogAsync(days, ct);
 
     /// <inheritdoc/>
     public Task<IReadOnlyList<IndexStatus>> GetIndexStatusAsync(IProgress<string>? progress = null, CancellationToken ct = default)

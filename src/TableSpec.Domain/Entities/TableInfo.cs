@@ -23,5 +23,10 @@ public class TableInfo
     /// <summary>
     /// 物件說明
     /// </summary>
-    public string? Description { get; init; }
+    public string? Description { get; set; }
+
+    /// <summary>
+    /// 原始物件說明（用於追蹤變更）
+    /// </summary>
+    public string? OriginalDescription { get; set; }
 }

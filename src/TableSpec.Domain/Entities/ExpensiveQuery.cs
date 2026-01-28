@@ -26,6 +26,11 @@ public class ExpensiveQuery
     public string? ObjectName { get; init; }
 
     /// <summary>
+    /// 資料表名稱（從查詢計畫擷取）
+    /// </summary>
+    public string? TableName { get; init; }
+
+    /// <summary>
     /// 執行次數
     /// </summary>
     public long ExecutionCount { get; init; }

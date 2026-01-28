@@ -17,6 +17,19 @@
         <vm:MainWindowViewModel/>
     </Design.DataContext>
 
+    <!-- 快速鍵綁定 -->
+    <Window.KeyBindings>
+        <KeyBinding Gesture="Ctrl+L" Command="{Binding OpenConnectionSettingsCommand}"/>
+        <KeyBinding Gesture="Ctrl+W" Command="{Binding CloseCurrentDocumentCommand}"/>
+        <KeyBinding Gesture="Ctrl+Q" Command="{Binding OpenSqlQueryCommand}"/>
+        <KeyBinding Gesture="Ctrl+F" Command="{Binding OpenColumnSearchCommand}"/>
+        <KeyBinding Gesture="Ctrl+B" Command="{Binding OpenBackupRestoreCommand}"/>
+        <KeyBinding Gesture="Ctrl+M" Command="{Binding OpenSchemaCompareCommand}"/>
+        <KeyBinding Gesture="Ctrl+H" Command="{Binding OpenHealthMonitoringCommand}"/>
+        <KeyBinding Gesture="Ctrl+P" Command="{Binding OpenPerformanceDiagnosticsCommand}"/>
+        <KeyBinding Gesture="Ctrl+U" Command="{Binding OpenColumnUsageCommand}"/>
+    </Window.KeyBindings>
+
     <DockPanel>
         <!-- 功能表列 + 主題切換 -->
         <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto">

@@ -12,21 +12,54 @@
         <TabControl Grid.Row="0" SelectedIndex="{Binding SelectedTabIndex}">
             <!-- 等候事件分頁 -->
             <TabItem Header="等候事件">
-                <Grid RowDefinitions="Auto,Auto,*">
+                <Grid RowDefinitions="Auto,Auto,Auto,*">
+                    <!-- 說明區域 -->
                     <Border Grid.Row="0" Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
                             CornerRadius="5" Padding="10" Margin="10,10,10,0">
-                        <StackPanel Spacing="3">
-                            <TextBlock Text="等候事件分析" FontWeight="Bold" FontSize="12"/>
-                            <TextBlock Text="• 顯示 SQL Server 目前的等候統計，已排除系統內部等候類型" FontSize="11" Foreground="Gray"/>
-                            <TextBlock Text="• 高等待時間可能表示效能瓶頸所在，例如 I/O、鎖定、網路等問題" FontSize="11" Foreground="Gray"/>
-                            <TextBlock Text="• 「信號等候」時間過長表示 CPU 排程壓力" FontSize="11" Foreground="Gray"/>
-                        </StackPanel>
+                        <Expander Header="等候事件統計分析說明（點擊展開）" IsExpanded="False">
+                            <StackPanel Spacing="5" Margin="0,10,0,0">
+                                <TextBlock Text="欄位說明" FontWeight="Bold"/>
+                                <TextBlock Text="• WaitType（等候類型）：SQL Server 等待資源的分類" FontSize="11" TextWrapping="Wrap"/>
+                                <TextBlock Text="• WaitTimeSeconds（等候時間）：累計等候時間總和，高數值表示瓶頸" FontSize="11"/>
+                                <TextBlock Text="• ResourceWaitSeconds（資源等候）：等待取得資源（如磁碟 I/O、鎖定）的時間" FontSize="11"/>
+                                <TextBlock Text="• SignalWaitSeconds（信號等候）：取得資源後等待 CPU 排程的時間，過長表示 CPU 壓力" FontSize="11"/>
+
+                                <TextBlock Text="常見等候類型" FontWeight="Bold" Margin="0,10,0,0"/>
+                                <TextBlock Text="• CXPACKET：平行處理等候，表示查詢使用平行執行" FontSize="11"/>
+                                <TextBlock Text="• PAGEIOLATCH_*：磁碟 I/O 等候，可能需要優化索引或升級儲存設備" FontSize="11"/>
+                                <TextBlock Text="• LCK_M_*：鎖定等候，可能有阻塞問題" FontSize="11"/>
+                                <TextBlock Text="• WRITELOG：交易記錄寫入等候，可能需要優化 Log 磁碟" FontSize="11"/>
+                            </StackPanel>
+                        </Expander>
                     </Border>
-                    <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="10" Spacing="10">
+
+                    <!-- 執行按鈕 -->
+                    <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="10,10,10,0" Spacing="10">
                         <Button Content="執行查詢" Command="{Binding RunWaitStatisticsAnalysisCommand}"/>
                         <Button Content="取消" Command="{Binding CancelOperationCommand}" IsVisible="{Binding IsLoading}"/>
                     </StackPanel>
-                    <DataGrid Grid.Row="2" ItemsSource="{Binding WaitStatistics}" Margin="10,0,10,10"
+
+                    <!-- 篩選器 -->
+                    <WrapPanel Grid.Row="2" Orientation="Horizontal" Margin="10,5,10,5">
+                        <TextBlock Text="顯示筆數：" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                        <ComboBox MinWidth="70" ItemsSource="{Binding WaitStatisticsTopNOptions}"
+                                  SelectedItem="{Binding WaitStatisticsTopN}" Margin="0,0,15,0"/>
+
+                        <TextBlock Text="等候類型：" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                        <TextBox MinWidth="120" Text="{Binding WaitTypeFilter}" Watermark="輸入關鍵字" Margin="0,0,15,0"/>
+
+                        <TextBlock Text="百分比 ≥" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                        <ComboBox MinWidth="60" ItemsSource="{Binding MinPercentageOptions}"
+                                  SelectedItem="{Binding MinWaitPercentage}" PlaceholderText="0" Margin="0,0,5,0"/>
+                        <TextBlock Text="%" VerticalAlignment="Center" Margin="0,0,15,0"/>
+
+                        <CheckBox IsChecked="{Binding ShowHighSignalWaitOnly}" Content="僅高信號等候" Margin="0,0,15,0"/>
+
+                        <Button Content="清除篩選" Command="{Binding ClearWaitStatisticsFilterCommand}"/>
+                    </WrapPanel>
+
+                    <!-- 資料表格 -->
+                    <DataGrid Grid.Row="3" ItemsSource="{Binding WaitStatistics}" Margin="10,0,10,10"
                               AutoGenerateColumns="False" IsReadOnly="True" CanUserResizeColumns="True"
                               GridLinesVisibility="Horizontal">
                         <DataGrid.Columns>
@@ -39,7 +72,7 @@
                             <DataGridTextColumn Header="平均等候(秒)" Binding="{Binding AvgWaitTimeSeconds, StringFormat=N4}" Width="100"/>
                         </DataGrid.Columns>
                     </DataGrid>
-                    <TextBlock Grid.Row="2" Text="點擊「執行查詢」開始分析" HorizontalAlignment="Center" VerticalAlignment="Center"
+                    <TextBlock Grid.Row="3" Text="點擊「執行查詢」開始分析" HorizontalAlignment="Center" VerticalAlignment="Center"
                                IsVisible="{Binding !HasWaitStatistics}" Foreground="Gray"/>
                 </Grid>
             </TabItem>
@@ -47,65 +80,118 @@
             <!-- 耗時查詢分頁 -->
             <TabItem Header="耗時查詢">
                 <Grid RowDefinitions="Auto,Auto,*">
+                    <!-- 說明區域 -->
                     <Border Grid.Row="0" Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
                             CornerRadius="5" Padding="10" Margin="10,10,10,0">
-                        <StackPanel Spacing="3">
-                            <TextBlock Text="耗時查詢分析" FontWeight="Bold" FontSize="12"/>
-                            <TextBlock Text="• 顯示執行時間最長的查詢和預存程序" FontSize="11" Foreground="Gray"/>
-                            <TextBlock Text="• 「最大經過時間」表示單次執行的最長時間" FontSize="11" Foreground="Gray"/>
-                            <TextBlock Text="• 「平均 CPU 時間」可幫助識別 CPU 密集型查詢" FontSize="11" Foreground="Gray"/>
-                        </StackPanel>
+                        <Expander Header="耗時查詢分析說明（點擊展開）" IsExpanded="False">
+                            <StackPanel Spacing="5" Margin="0,10,0,0">
+                                <TextBlock Text="欄位說明" FontWeight="Bold"/>
+                                <TextBlock Text="• ExecutionCount（執行次數）：快取中的執行次數，高頻執行的慢查詢影響最大" FontSize="11"/>
+                                <TextBlock Text="• TotalElapsedTimeMs（總經過時間）：所有執行的累計時間，用於找出整體影響最大的查詢" FontSize="11"/>
+                                <TextBlock Text="• MaxElapsedTimeMs（最大經過時間）：單次執行的最長時間，用於找出最慢的執行案例" FontSize="11"/>
+                                <TextBlock Text="• AvgWorkerTimeMs（平均 CPU 時間）：每次執行的平均 CPU 時間，用於識別 CPU 密集型查詢" FontSize="11"/>
+
+                                <TextBlock Text="優化建議" FontWeight="Bold" Margin="0,10,0,0"/>
+                                <TextBlock Text="• 高「總經過時間」+ 高「執行次數」：優先優化，整體影響大" FontSize="11"/>
+                                <TextBlock Text="• 高「平均 CPU 時間」：考慮索引優化或重寫查詢" FontSize="11"/>
+                                <TextBlock Text="• 高「最大經過時間」：可能有參數嗅探問題或資料傾斜" FontSize="11"/>
+                            </StackPanel>
+                        </Expander>
                     </Border>
-                    <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="10" Spacing="10">
-                        <Button Content="執行查詢" Command="{Binding RunExpensiveQueryAnalysisCommand}"/>
+
+                    <!-- 篩選器 -->
+                    <WrapPanel Grid.Row="1" Orientation="Horizontal" Margin="10,10,10,5">
+                        <TextBlock Text="資料庫：" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                        <ComboBox MinWidth="120" ItemsSource="{Binding DatabaseOptions}"
+                                  SelectedItem="{Binding ExpensiveQueryDatabaseFilter}" PlaceholderText="全部" Margin="0,0,15,0"/>
+
+                        <TextBlock Text="資料表/關鍵字：" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                        <TextBox MinWidth="120" Text="{Binding ExpensiveQueryTableFilter}" Watermark="輸入關鍵字" Margin="0,0,15,0"/>
+
+                        <TextBlock Text="顯示筆數：" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                        <ComboBox MinWidth="80" ItemsSource="{Binding TopNOptions}"
+                                  SelectedItem="{Binding TopN}" Margin="0,0,15,0"/>
+
+                        <Button Content="查看 SQL" Command="{Binding ShowSelectedSqlCommand}" Margin="0,0,10,0"/>
+                        <Button Content="清除篩選" Command="{Binding ClearExpensiveQueriesFilterCommand}" Margin="0,0,15,0"/>
                         <Button Content="取消" Command="{Binding CancelOperationCommand}" IsVisible="{Binding IsLoading}"/>
-                    </StackPanel>
+                    </WrapPanel>
+
+                    <!-- 資料內容 -->
                     <ScrollViewer Grid.Row="2" Margin="10,0,10,10">
                         <StackPanel Spacing="10">
-                            <!-- Top 5 最耗時查詢 -->
-                            <TextBlock Text="Top 5 最耗時查詢" FontWeight="Bold" FontSize="14"/>
+                            <!-- 最耗時查詢 -->
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                <TextBlock FontWeight="Bold" FontSize="14" VerticalAlignment="Center">
+                                    <Run Text="Top "/>
+                                    <Run Text="{Binding TopN}"/>
+                                    <Run Text=" 最耗時查詢"/>
+                                </TextBlock>
+                                <Button Content="執行查詢" Command="{Binding RunExpensiveQueriesCommand}" Padding="10,3"/>
+                            </StackPanel>
                             <DataGrid ItemsSource="{Binding ExpensiveQueries}" Height="180"
+                                      SelectedItem="{Binding SelectedExpensiveQuery}"
                                       AutoGenerateColumns="False" IsReadOnly="True" CanUserResizeColumns="True"
                                       GridLinesVisibility="Horizontal">
                                 <DataGrid.Columns>
-                                    <DataGridTextColumn Header="查詢文字" Binding="{Binding QueryText}" Width="400"/>
-                                    <DataGridTextColumn Header="執行次數" Binding="{Binding ExecutionCount, StringFormat=N0}" Width="100"/>
-                                    <DataGridTextColumn Header="總經過時間(ms)" Binding="{Binding TotalElapsedTimeMs, StringFormat=N0}" Width="120"/>
-                                    <DataGridTextColumn Header="最大經過時間(ms)" Binding="{Binding MaxElapsedTimeMs, StringFormat=N0}" Width="130"/>
-                                    <DataGridTextColumn Header="平均CPU時間(ms)" Binding="{Binding AvgWorkerTimeMs, StringFormat=N2}" Width="120"/>
+                                    <DataGridTextColumn Header="資料庫" Binding="{Binding DatabaseName}" Width="100"/>
+                                    <DataGridTextColumn Header="資料表" Binding="{Binding TableName}" Width="150"/>
+                                    <DataGridTextColumn Header="查詢文字" Binding="{Binding QueryText}" Width="300"/>
+                                    <DataGridTextColumn Header="執行次數" Binding="{Binding ExecutionCount, StringFormat=N0}" Width="80"/>
+                                    <DataGridTextColumn Header="總經過時間(ms)" Binding="{Binding TotalElapsedTimeMs, StringFormat=N0}" Width="110"/>
+                                    <DataGridTextColumn Header="最大經過時間(ms)" Binding="{Binding MaxElapsedTimeMs, StringFormat=N0}" Width="120"/>
+                                    <DataGridTextColumn Header="平均CPU(ms)" Binding="{Binding AvgWorkerTimeMs, StringFormat=N2}" Width="100"/>
                                 </DataGrid.Columns>
                             </DataGrid>
                             <TextBlock Text="點擊「執行查詢」開始分析" HorizontalAlignment="Center"
                                        IsVisible="{Binding !HasExpensiveQueries}" Foreground="Gray"/>
 
-                            <!-- Top 5 最耗時預存程序 -->
-                            <TextBlock Text="Top 5 最耗時預存程序" FontWeight="Bold" FontSize="14" Margin="0,10,0,0"/>
+                            <!-- 最耗時預存程序 -->
+                            <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,10,0,0">
+                                <TextBlock FontWeight="Bold" FontSize="14" VerticalAlignment="Center">
+                                    <Run Text="Top "/>
+                                    <Run Text="{Binding TopN}"/>
+                                    <Run Text=" 最耗時預存程序"/>
+                                </TextBlock>
+                                <Button Content="執行查詢" Command="{Binding RunExpensiveProceduresCommand}" Padding="10,3"/>
+                            </StackPanel>
                             <DataGrid ItemsSource="{Binding ExpensiveProcedures}" Height="180"
+                                      SelectedItem="{Binding SelectedExpensiveProcedure}"
                                       AutoGenerateColumns="False" IsReadOnly="True" CanUserResizeColumns="True"
                                       GridLinesVisibility="Horizontal">
                                 <DataGrid.Columns>
                                     <DataGridTextColumn Header="資料庫" Binding="{Binding DatabaseName}" Width="100"/>
                                     <DataGridTextColumn Header="預存程序" Binding="{Binding ObjectName}" Width="150"/>
-                                    <DataGridTextColumn Header="執行次數" Binding="{Binding ExecutionCount, StringFormat=N0}" Width="100"/>
-                                    <DataGridTextColumn Header="總經過時間(ms)" Binding="{Binding TotalElapsedTimeMs, StringFormat=N0}" Width="120"/>
-                                    <DataGridTextColumn Header="最大經過時間(ms)" Binding="{Binding MaxElapsedTimeMs, StringFormat=N0}" Width="130"/>
-                                    <DataGridTextColumn Header="平均CPU時間(ms)" Binding="{Binding AvgWorkerTimeMs, StringFormat=N2}" Width="120"/>
+                                    <DataGridTextColumn Header="資料表" Binding="{Binding TableName}" Width="150"/>
+                                    <DataGridTextColumn Header="執行次數" Binding="{Binding ExecutionCount, StringFormat=N0}" Width="80"/>
+                                    <DataGridTextColumn Header="總經過時間(ms)" Binding="{Binding TotalElapsedTimeMs, StringFormat=N0}" Width="110"/>
+                                    <DataGridTextColumn Header="最大經過時間(ms)" Binding="{Binding MaxElapsedTimeMs, StringFormat=N0}" Width="120"/>
+                                    <DataGridTextColumn Header="平均CPU(ms)" Binding="{Binding AvgWorkerTimeMs, StringFormat=N2}" Width="100"/>
                                 </DataGrid.Columns>
                             </DataGrid>
                             <TextBlock Text="點擊「執行查詢」開始分析" HorizontalAlignment="Center"
                                        IsVisible="{Binding !HasExpensiveProcedures}" Foreground="Gray"/>
 
-                            <!-- Top 5 耗 CPU 查詢 -->
-                            <TextBlock Text="Top 5 耗 CPU 查詢（含執行計畫）" FontWeight="Bold" FontSize="14" Margin="0,10,0,0"/>
+                            <!-- 耗 CPU 查詢 -->
+                            <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,10,0,0">
+                                <TextBlock FontWeight="Bold" FontSize="14" VerticalAlignment="Center">
+                                    <Run Text="Top "/>
+                                    <Run Text="{Binding TopN}"/>
+                                    <Run Text=" 耗 CPU 查詢（含執行計畫）"/>
+                                </TextBlock>
+                                <Button Content="執行查詢" Command="{Binding RunCpuIntensiveQueriesCommand}" Padding="10,3"/>
+                            </StackPanel>
                             <DataGrid ItemsSource="{Binding CpuIntensiveQueries}" Height="180"
                                       SelectedItem="{Binding SelectedCpuIntensiveQuery}"
                                       AutoGenerateColumns="False" IsReadOnly="True" CanUserResizeColumns="True"
                                       GridLinesVisibility="Horizontal">
                                 <DataGrid.Columns>
-                                    <DataGridTextColumn Header="查詢文字" Binding="{Binding QueryText}" Width="400"/>
-                                    <DataGridTextColumn Header="執行次數" Binding="{Binding ExecutionCount, StringFormat=N0}" Width="100"/>
-                                    <DataGridTextColumn Header="平均CPU時間(ms)" Binding="{Binding AvgWorkerTimeMs, StringFormat=N2}" Width="120"/>
-                                    <DataGridTextColumn Header="總CPU時間(ms)" Binding="{Binding TotalWorkerTimeMs, StringFormat=N0}" Width="120"/>
+                                    <DataGridTextColumn Header="資料庫" Binding="{Binding DatabaseName}" Width="100"/>
+                                    <DataGridTextColumn Header="資料表" Binding="{Binding TableName}" Width="150"/>
+                                    <DataGridTextColumn Header="查詢文字" Binding="{Binding QueryText}" Width="250"/>
+                                    <DataGridTextColumn Header="執行次數" Binding="{Binding ExecutionCount, StringFormat=N0}" Width="80"/>
+                                    <DataGridTextColumn Header="平均CPU(ms)" Binding="{Binding AvgWorkerTimeMs, StringFormat=N2}" Width="100"/>
+                                    <DataGridTextColumn Header="總CPU(ms)" Binding="{Binding TotalWorkerTimeMs, StringFormat=N0}" Width="100"/>
                                 </DataGrid.Columns>
                             </DataGrid>
                             <StackPanel Orientation="Horizontal" Spacing="10">
@@ -122,23 +208,64 @@
 
             <!-- 索引分析分頁 -->
             <TabItem Header="索引分析">
-                <Grid RowDefinitions="Auto,Auto,*">
+                <Grid RowDefinitions="Auto,Auto,Auto,*">
+                    <!-- 說明區域 -->
                     <Border Grid.Row="0" Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
                             CornerRadius="5" Padding="10" Margin="10,10,10,0">
-                        <StackPanel Spacing="3">
-                            <TextBlock Text="索引狀態分析" FontWeight="Bold" FontSize="12"/>
-                            <TextBlock Text="• 此查詢會遍歷所有使用者資料庫，執行時間較長" FontSize="11" Foreground="Orange"/>
-                            <TextBlock Text="• 顯示索引使用率、碎片化程度、頁面空間使用率" FontSize="11" Foreground="Gray"/>
-                            <TextBlock Text="• 碎片化超過 30% 建議重建索引，10-30% 建議重組" FontSize="11" Foreground="Gray"/>
-                        </StackPanel>
+                        <Expander Header="索引狀態分析說明（點擊展開）" IsExpanded="False">
+                            <StackPanel Spacing="5" Margin="0,10,0,0">
+                                <TextBlock Text="欄位說明" FontWeight="Bold"/>
+                                <TextBlock Text="• IndexType（索引類型）：CLUSTERED（叢集索引）、NONCLUSTERED（非叢集索引）、HEAP（堆積）" FontSize="11"/>
+                                <TextBlock Text="• UserSeeks（Seek 次數）：透過索引搜尋的次數，高數值表示索引被有效使用" FontSize="11"/>
+                                <TextBlock Text="• UserScans（Scan 次數）：完整掃描索引的次數，高數值可能表示索引未完全優化" FontSize="11"/>
+                                <TextBlock Text="• FragmentationPercent（碎片化）：索引的邏輯碎片程度" FontSize="11"/>
+
+                                <TextBlock Text="Seek vs Scan 的差異" FontWeight="Bold" Margin="0,10,0,0"/>
+                                <TextBlock Text="• Seek（搜尋）：使用索引直接定位資料，效率高 O(log n)" FontSize="11"/>
+                                <TextBlock Text="• Scan（掃描）：遍歷整個索引或表格，效率低 O(n)" FontSize="11"/>
+                                <TextBlock Text="• 理想情況：Seek 次數 >> Scan 次數" FontSize="11"/>
+
+                                <TextBlock Text="碎片化處理建議" FontWeight="Bold" Margin="0,10,0,0"/>
+                                <TextBlock Text="• 5-30%：重組索引（ALTER INDEX REORGANIZE）" FontSize="11"/>
+                                <TextBlock Text="• >30%：重建索引（ALTER INDEX REBUILD）" FontSize="11"/>
+                                <TextBlock Text="• &lt;5%：無需處理" FontSize="11"/>
+
+                                <TextBlock Text="未使用索引判斷" FontWeight="Bold" Margin="0,10,0,0"/>
+                                <TextBlock Text="• Seek + Scan + Lookup = 0 且 Updates > 0：索引未被查詢使用但持續維護，考慮刪除" FontSize="11" TextWrapping="Wrap"/>
+                            </StackPanel>
+                        </Expander>
                     </Border>
-                    <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="10" Spacing="10">
+
+                    <!-- 執行按鈕 -->
+                    <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="10,10,10,0" Spacing="10">
                         <Button Content="執行索引分析" Command="{Binding RunIndexAnalysisCommand}"/>
                         <Button Content="取消" Command="{Binding CancelOperationCommand}" IsVisible="{Binding IsLoading}"/>
                         <TextBlock Text="{Binding ProgressMessage}" VerticalAlignment="Center"
                                    IsVisible="{Binding IsLoading}" Foreground="Orange"/>
                     </StackPanel>
-                    <DataGrid Grid.Row="2" ItemsSource="{Binding IndexStatuses}" Margin="10,0,10,10"
+
+                    <!-- 篩選器 -->
+                    <WrapPanel Grid.Row="2" Orientation="Horizontal" Margin="10,5,10,5">
+                        <TextBlock Text="資料表：" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                        <TextBox MinWidth="120" Text="{Binding IndexTableFilter}" Watermark="關鍵字" Margin="0,0,15,0"/>
+
+                        <TextBlock Text="索引類型：" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                        <ComboBox MinWidth="120" ItemsSource="{Binding IndexTypeOptions}"
+                                  SelectedItem="{Binding IndexTypeFilter}" PlaceholderText="全部" Margin="0,0,15,0"/>
+
+                        <TextBlock Text="碎片化 ≥" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                        <ComboBox MinWidth="80" ItemsSource="{Binding FragmentationOptions}"
+                                  SelectedItem="{Binding MinFragmentationPercent}" Margin="0,0,5,0"/>
+                        <TextBlock Text="%" VerticalAlignment="Center" Margin="0,0,15,0"/>
+
+                        <CheckBox IsChecked="{Binding ShowUnusedOnly}" Content="僅未使用索引" Margin="0,0,15,0"/>
+                        <CheckBox IsChecked="{Binding ShowFragmentedOnly}" Content="僅需重建 (>30%)" Margin="0,0,15,0"/>
+
+                        <Button Content="清除篩選" Command="{Binding ClearIndexStatusesFilterCommand}"/>
+                    </WrapPanel>
+
+                    <!-- 資料表格 -->
+                    <DataGrid Grid.Row="3" ItemsSource="{Binding IndexStatuses}" Margin="10,0,10,10"
                               AutoGenerateColumns="False" IsReadOnly="True" CanUserResizeColumns="True"
                               GridLinesVisibility="Horizontal">
                         <DataGrid.Columns>
@@ -154,30 +281,60 @@
                             <DataGridTextColumn Header="頁面使用(%)" Binding="{Binding PageSpaceUsedPercent, StringFormat=N2}" Width="90"/>
                         </DataGrid.Columns>
                     </DataGrid>
-                    <TextBlock Grid.Row="2" Text="點擊「執行索引分析」開始分析" HorizontalAlignment="Center" VerticalAlignment="Center"
+                    <TextBlock Grid.Row="3" Text="點擊「執行索引分析」開始分析" HorizontalAlignment="Center" VerticalAlignment="Center"
                                IsVisible="{Binding !HasIndexStatuses}" Foreground="Gray"/>
                 </Grid>
             </TabItem>
 
             <!-- 缺少索引分頁 -->
             <TabItem Header="缺少索引">
-                <Grid RowDefinitions="Auto,Auto,*">
+                <Grid RowDefinitions="Auto,Auto,Auto,*">
+                    <!-- 說明區域 -->
                     <Border Grid.Row="0" Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
                             CornerRadius="5" Padding="10" Margin="10,10,10,0">
-                        <StackPanel Spacing="3">
-                            <TextBlock Text="缺少索引建議" FontWeight="Bold" FontSize="12"/>
-                            <TextBlock Text="• 根據查詢執行計畫分析，建議可能有助於效能的索引" FontSize="11" Foreground="Gray"/>
-                            <TextBlock Text="• 「改善指標」越高表示建立該索引可能帶來越大的效能提升" FontSize="11" Foreground="Gray"/>
-                            <TextBlock Text="• 建議在測試環境驗證後再於正式環境建立索引" FontSize="11" Foreground="Orange"/>
-                        </StackPanel>
+                        <Expander Header="缺少索引建議說明（點擊展開）" IsExpanded="False">
+                            <StackPanel Spacing="5" Margin="0,10,0,0">
+                                <TextBlock Text="欄位說明" FontWeight="Bold"/>
+                                <TextBlock Text="• ImprovementMeasure（改善指標）：綜合指標 = (UserSeeks + UserScans) * AvgTotalUserCost * AvgUserImpact" FontSize="11" TextWrapping="Wrap"/>
+                                <TextBlock Text="  數值越高表示建立索引的效益越大" FontSize="11"/>
+                                <TextBlock Text="• UserSeeks（Seek 次數）：若有此索引可執行 Seek 的查詢次數" FontSize="11"/>
+                                <TextBlock Text="• AvgUserImpact（預估改善）：建立索引後預估的效能改善百分比" FontSize="11"/>
+
+                                <TextBlock Text="建立索引的優先順序建議" FontWeight="Bold" Margin="0,10,0,0"/>
+                                <TextBlock Text="• ImprovementMeasure > 1,000,000：高優先" FontSize="11" Foreground="Red"/>
+                                <TextBlock Text="• ImprovementMeasure 100,000 - 1,000,000：中優先" FontSize="11" Foreground="Orange"/>
+                                <TextBlock Text="• ImprovementMeasure &lt; 100,000：低優先" FontSize="11"/>
+
+                                <TextBlock Text="注意事項" FontWeight="Bold" Margin="0,10,0,0" Foreground="Orange"/>
+                                <TextBlock Text="• 這是 SQL Server 根據查詢執行計畫的建議，非絕對需要" FontSize="11"/>
+                                <TextBlock Text="• 建立過多索引會增加寫入負擔" FontSize="11"/>
+                                <TextBlock Text="• 建議在測試環境驗證效果後再套用至正式環境" FontSize="11"/>
+                            </StackPanel>
+                        </Expander>
                     </Border>
-                    <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="10" Spacing="10">
+
+                    <!-- 執行按鈕 -->
+                    <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="10,10,10,0" Spacing="10">
                         <Button Content="執行缺少索引分析" Command="{Binding RunMissingIndexAnalysisCommand}"/>
                         <Button Content="取消" Command="{Binding CancelOperationCommand}" IsVisible="{Binding IsLoading}"/>
                         <Button Content="複製建立索引語法" Command="{Binding CopyCreateIndexStatementCommand}"
                                 IsEnabled="{Binding SelectedMissingIndex, Converter={x:Static ObjectConverters.IsNotNull}}"/>
                     </StackPanel>
-                    <DataGrid Grid.Row="2" ItemsSource="{Binding MissingIndexes}" Margin="10,0,10,10"
+
+                    <!-- 篩選器 -->
+                    <WrapPanel Grid.Row="2" Orientation="Horizontal" Margin="10,5,10,5">
+                        <TextBlock Text="資料表：" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                        <TextBox MinWidth="150" Text="{Binding MissingIndexTableFilter}" Watermark="關鍵字" Margin="0,0,15,0"/>
+
+                        <TextBlock Text="改善指標 ≥" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                        <ComboBox MinWidth="120" ItemsSource="{Binding ImprovementMeasureOptions}"
+                                  SelectedItem="{Binding MinImprovementMeasure}" PlaceholderText="0" Margin="0,0,15,0"/>
+
+                        <Button Content="清除篩選" Command="{Binding ClearMissingIndexesFilterCommand}"/>
+                    </WrapPanel>
+
+                    <!-- 資料表格 -->
+                    <DataGrid Grid.Row="3" ItemsSource="{Binding MissingIndexes}" Margin="10,0,10,10"
                               SelectedItem="{Binding SelectedMissingIndex}"
                               AutoGenerateColumns="False" IsReadOnly="True" CanUserResizeColumns="True"
                               GridLinesVisibility="Horizontal">
@@ -191,28 +348,67 @@
                             <DataGridTextColumn Header="建立語法" Binding="{Binding CreateIndexStatement}" Width="400"/>
                         </DataGrid.Columns>
                     </DataGrid>
-                    <TextBlock Grid.Row="2" Text="點擊「執行缺少索引分析」開始分析" HorizontalAlignment="Center" VerticalAlignment="Center"
+                    <TextBlock Grid.Row="3" Text="點擊「執行缺少索引分析」開始分析" HorizontalAlignment="Center" VerticalAlignment="Center"
                                IsVisible="{Binding !HasMissingIndexes}" Foreground="Gray"/>
                 </Grid>
             </TabItem>
 
             <!-- 統計資訊分頁 -->
             <TabItem Header="統計資訊">
-                <Grid RowDefinitions="Auto,Auto,*">
+                <Grid RowDefinitions="Auto,Auto,Auto,*">
+                    <!-- 說明區域 -->
                     <Border Grid.Row="0" Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
                             CornerRadius="5" Padding="10" Margin="10,10,10,0">
-                        <StackPanel Spacing="3">
-                            <TextBlock Text="統計更新狀況" FontWeight="Bold" FontSize="12"/>
-                            <TextBlock Text="• 顯示當前資料庫中所有資料表的統計資訊" FontSize="11" Foreground="Gray"/>
-                            <TextBlock Text="• 「修改計數」過高表示統計可能需要更新" FontSize="11" Foreground="Gray"/>
-                            <TextBlock Text="• 統計過時可能導致查詢最佳化器選擇較差的執行計畫" FontSize="11" Foreground="Gray"/>
-                        </StackPanel>
+                        <Expander Header="統計資訊狀態說明（點擊展開）" IsExpanded="False">
+                            <StackPanel Spacing="5" Margin="0,10,0,0">
+                                <TextBlock Text="欄位說明" FontWeight="Bold"/>
+                                <TextBlock Text="• StatisticType（統計類型）：Index Statistic（索引自動建立）、Auto Created（自動建立）、User Created（使用者手動建立）" FontSize="11" TextWrapping="Wrap"/>
+                                <TextBlock Text="• LastUpdated（最後更新）：統計資訊的最後更新時間" FontSize="11"/>
+                                <TextBlock Text="• Rows（資料列數）：統計取樣時的表格列數" FontSize="11"/>
+                                <TextBlock Text="• RowsSampled（取樣數）：實際取樣的列數" FontSize="11"/>
+                                <TextBlock Text="• ModificationCounter（修改計數）：自上次更新後的資料變更次數" FontSize="11"/>
+
+                                <TextBlock Text="統計過時判斷" FontWeight="Bold" Margin="0,10,0,0"/>
+                                <TextBlock Text="• ModificationCounter > 表格列數 20%：強烈建議更新" FontSize="11" Foreground="Red"/>
+                                <TextBlock Text="• 最後更新超過 7 天且有大量修改：建議更新" FontSize="11" Foreground="Orange"/>
+                                <TextBlock Text="• RowsSampled &lt;&lt; Rows：取樣率過低，考慮 FULLSCAN 更新" FontSize="11"/>
+
+                                <TextBlock Text="更新統計語法" FontWeight="Bold" Margin="0,10,0,0"/>
+                                <TextBlock Text="UPDATE STATISTICS [SchemaName].[TableName] [StatisticName] WITH FULLSCAN" FontSize="11" FontFamily="Consolas"/>
+                            </StackPanel>
+                        </Expander>
                     </Border>
-                    <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="10" Spacing="10">
+
+                    <!-- 執行按鈕 -->
+                    <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="10,10,10,0" Spacing="10">
                         <Button Content="執行查詢" Command="{Binding RunStatisticsAnalysisCommand}"/>
                         <Button Content="取消" Command="{Binding CancelOperationCommand}" IsVisible="{Binding IsLoading}"/>
                     </StackPanel>
-                    <DataGrid Grid.Row="2" ItemsSource="{Binding Statistics}" Margin="10,0,10,10"
+
+                    <!-- 篩選器 -->
+                    <WrapPanel Grid.Row="2" Orientation="Horizontal" Margin="10,5,10,5">
+                        <TextBlock Text="資料表：" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                        <TextBox MinWidth="120" Text="{Binding StatisticsTableFilter}" Watermark="關鍵字" Margin="0,0,15,0"/>
+
+                        <TextBlock Text="統計類型：" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                        <ComboBox MinWidth="130" ItemsSource="{Binding StatisticsTypeOptions}"
+                                  SelectedItem="{Binding StatisticsTypeFilter}" PlaceholderText="全部" Margin="0,0,15,0"/>
+
+                        <TextBlock Text="修改計數 ≥" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                        <NumericUpDown MinWidth="100" Value="{Binding MinModificationCounter}" Minimum="0"
+                                       FormatString="N0" Watermark="0" Margin="0,0,15,0"/>
+
+                        <CheckBox IsChecked="{Binding ShowOutdatedOnly}" Content="僅過時統計" Margin="0,0,5,0"/>
+                        <TextBlock Text="（超過" VerticalAlignment="Center" Margin="0,0,2,0"/>
+                        <ComboBox MinWidth="60" ItemsSource="{Binding OutdatedDaysOptions}"
+                                  SelectedItem="{Binding OutdatedDays}" Margin="0,0,2,0"/>
+                        <TextBlock Text="天）" VerticalAlignment="Center" Margin="0,0,15,0"/>
+
+                        <Button Content="清除篩選" Command="{Binding ClearStatisticsFilterCommand}"/>
+                    </WrapPanel>
+
+                    <!-- 資料表格 -->
+                    <DataGrid Grid.Row="3" ItemsSource="{Binding Statistics}" Margin="10,0,10,10"
                               AutoGenerateColumns="False" IsReadOnly="True" CanUserResizeColumns="True"
                               GridLinesVisibility="Horizontal">
                         <DataGrid.Columns>
@@ -226,30 +422,66 @@
                             <DataGridTextColumn Header="直方圖步驟" Binding="{Binding HistogramSteps}" Width="80"/>
                         </DataGrid.Columns>
                     </DataGrid>
-                    <TextBlock Grid.Row="2" Text="點擊「執行查詢」開始分析" HorizontalAlignment="Center" VerticalAlignment="Center"
+                    <TextBlock Grid.Row="3" Text="點擊「執行查詢」開始分析" HorizontalAlignment="Center" VerticalAlignment="Center"
                                IsVisible="{Binding !HasStatistics}" Foreground="Gray"/>
                 </Grid>
             </TabItem>
 
             <!-- 錯誤記錄分頁 -->
             <TabItem Header="錯誤記錄">
-                <Grid RowDefinitions="Auto,Auto,*">
+                <Grid RowDefinitions="Auto,Auto,Auto,*">
+                    <!-- 說明區域 -->
                     <Border Grid.Row="0" Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
                             CornerRadius="5" Padding="10" Margin="10,10,10,0">
-                        <StackPanel Spacing="3">
-                            <TextBlock Text="SQL Server 錯誤記錄" FontWeight="Bold" FontSize="12"/>
-                            <TextBlock Text="• 顯示 SQL Server 錯誤記錄檔的內容" FontSize="11" Foreground="Gray"/>
-                            <TextBlock Text="• 包含啟動訊息、錯誤、警告等系統事件" FontSize="11" Foreground="Gray"/>
-                            <TextBlock Text="• 可用於診斷伺服器問題和追蹤系統活動" FontSize="11" Foreground="Gray"/>
-                        </StackPanel>
+                        <Expander Header="SQL Server 錯誤記錄說明（點擊展開）" IsExpanded="False">
+                            <StackPanel Spacing="5" Margin="0,10,0,0">
+                                <TextBlock Text="欄位說明" FontWeight="Bold"/>
+                                <TextBlock Text="• LogDate（記錄時間）：錯誤發生的日期時間" FontSize="11"/>
+                                <TextBlock Text="• ProcessInfo（程序資訊）：記錄來源，如 spid（連線 ID）、Logon、Server 等" FontSize="11"/>
+                                <TextBlock Text="• Text（訊息文字）：錯誤或事件的詳細描述" FontSize="11"/>
+
+                                <TextBlock Text="常見錯誤類型" FontWeight="Bold" Margin="0,10,0,0"/>
+                                <TextBlock Text="• Error: 905/906：資料庫無法啟動" FontSize="11"/>
+                                <TextBlock Text="• Error: 1105：檔案空間不足" FontSize="11"/>
+                                <TextBlock Text="• Error: 9002：交易記錄已滿" FontSize="11"/>
+                                <TextBlock Text="• Error: 823/824/825：磁碟 I/O 錯誤，可能有硬體問題" FontSize="11" Foreground="Red"/>
+                                <TextBlock Text="• Deadlock：死結事件" FontSize="11"/>
+
+                                <TextBlock Text="快速篩選建議關鍵字" FontWeight="Bold" Margin="0,10,0,0"/>
+                                <TextBlock Text="Error、fail、deadlock、I/O、Login failed" FontSize="11" FontFamily="Consolas"/>
+                            </StackPanel>
+                        </Expander>
                     </Border>
-                    <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="10" Spacing="10">
+
+                    <!-- 執行按鈕 -->
+                    <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="10,10,10,0" Spacing="10">
+                        <TextBlock Text="查詢天數：" VerticalAlignment="Center"/>
+                        <ComboBox MinWidth="60" ItemsSource="{Binding ErrorLogDaysOptions}"
+                                  SelectedItem="{Binding ErrorLogQueryDays}"/>
                         <Button Content="執行查詢" Command="{Binding RunErrorLogAnalysisCommand}"/>
                         <Button Content="取消" Command="{Binding CancelOperationCommand}" IsVisible="{Binding IsLoading}"/>
                         <Button Content="複製錯誤訊息" Command="{Binding CopyErrorLogCommand}"
                                 IsEnabled="{Binding SelectedErrorLog, Converter={x:Static ObjectConverters.IsNotNull}}"/>
                     </StackPanel>
-                    <DataGrid Grid.Row="2" ItemsSource="{Binding ErrorLogs}" Margin="10,0,10,10"
+
+                    <!-- 篩選器 -->
+                    <WrapPanel Grid.Row="2" Orientation="Horizontal" Margin="10,5,10,5">
+                        <TextBlock Text="開始日期：" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                        <DatePicker MinWidth="130" SelectedDate="{Binding ErrorLogStartDate}" Margin="0,0,15,0"/>
+
+                        <TextBlock Text="結束日期：" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                        <DatePicker MinWidth="130" SelectedDate="{Binding ErrorLogEndDate}" Margin="0,0,15,0"/>
+
+                        <TextBlock Text="關鍵字：" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                        <TextBox MinWidth="150" Text="{Binding ErrorLogKeyword}" Watermark="Error、fail..." Margin="0,0,15,0"/>
+
+                        <CheckBox IsChecked="{Binding ShowErrorsOnly}" Content="僅錯誤訊息" Margin="0,0,15,0"/>
+
+                        <Button Content="清除篩選" Command="{Binding ClearErrorLogsFilterCommand}"/>
+                    </WrapPanel>
+
+                    <!-- 資料表格 -->
+                    <DataGrid Grid.Row="3" ItemsSource="{Binding ErrorLogs}" Margin="10,0,10,10"
                               SelectedItem="{Binding SelectedErrorLog}"
                               AutoGenerateColumns="False" IsReadOnly="True" CanUserResizeColumns="True"
                               GridLinesVisibility="Horizontal">
@@ -259,7 +491,7 @@
                             <DataGridTextColumn Header="訊息" Binding="{Binding Text}" Width="*"/>
                         </DataGrid.Columns>
                     </DataGrid>
-                    <TextBlock Grid.Row="2" Text="點擊「執行查詢」開始分析" HorizontalAlignment="Center" VerticalAlignment="Center"
+                    <TextBlock Grid.Row="3" Text="點擊「執行查詢」開始分析" HorizontalAlignment="Center" VerticalAlignment="Center"
                                IsVisible="{Binding !HasErrorLogs}" Foreground="Gray"/>
                 </Grid>
             </TabItem>

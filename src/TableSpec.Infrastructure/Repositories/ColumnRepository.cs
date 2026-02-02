@@ -62,7 +62,19 @@ SELECT
     a.TABLE_SCHEMA AS [Schema],
     a.TABLE_NAME AS TableName,
     b.COLUMN_NAME AS ColumnName,
-    b.DATA_TYPE AS DataType,
+    CASE
+        WHEN b.DATA_TYPE IN ('char', 'varchar', 'binary', 'varbinary')
+            THEN b.DATA_TYPE + '(' + CASE WHEN b.CHARACTER_MAXIMUM_LENGTH = -1 THEN 'MAX'
+                 ELSE CAST(b.CHARACTER_MAXIMUM_LENGTH AS VARCHAR) END + ')'
+        WHEN b.DATA_TYPE IN ('nchar', 'nvarchar')
+            THEN b.DATA_TYPE + '(' + CASE WHEN b.CHARACTER_MAXIMUM_LENGTH = -1 THEN 'MAX'
+                 ELSE CAST(b.CHARACTER_MAXIMUM_LENGTH AS VARCHAR) END + ')'
+        WHEN b.DATA_TYPE IN ('decimal', 'numeric')
+            THEN b.DATA_TYPE + '(' + CAST(b.NUMERIC_PRECISION AS VARCHAR) + ',' + CAST(b.NUMERIC_SCALE AS VARCHAR) + ')'
+        WHEN b.DATA_TYPE IN ('datetime2', 'datetimeoffset', 'time')
+            THEN b.DATA_TYPE + '(' + CAST(b.DATETIME_PRECISION AS VARCHAR) + ')'
+        ELSE b.DATA_TYPE
+    END AS DataType,
     CASE
         WHEN ISNULL(b.CHARACTER_MAXIMUM_LENGTH, 0) > 0 THEN b.CHARACTER_MAXIMUM_LENGTH
         WHEN ISNULL(b.CHARACTER_MAXIMUM_LENGTH, 0) = -1 THEN -1
@@ -131,7 +143,19 @@ SELECT
     s.name AS [Schema],
     v.name AS TableName,
     c.name AS ColumnName,
-    t.name AS DataType,
+    CASE
+        WHEN t.name IN ('char', 'varchar', 'binary', 'varbinary')
+            THEN t.name + '(' + CASE WHEN c.max_length = -1 THEN 'MAX'
+                 ELSE CAST(c.max_length AS VARCHAR) END + ')'
+        WHEN t.name IN ('nchar', 'nvarchar')
+            THEN t.name + '(' + CASE WHEN c.max_length = -1 THEN 'MAX'
+                 ELSE CAST(c.max_length / 2 AS VARCHAR) END + ')'
+        WHEN t.name IN ('decimal', 'numeric')
+            THEN t.name + '(' + CAST(c.precision AS VARCHAR) + ',' + CAST(c.scale AS VARCHAR) + ')'
+        WHEN t.name IN ('datetime2', 'datetimeoffset', 'time')
+            THEN t.name + '(' + CAST(c.scale AS VARCHAR) + ')'
+        ELSE t.name
+    END AS DataType,
     CASE
         WHEN c.max_length > 0 THEN c.max_length
         WHEN c.max_length = -1 THEN -1
@@ -163,7 +187,19 @@ SELECT
     a.SPECIFIC_SCHEMA AS [Schema],
     a.SPECIFIC_NAME AS TableName,
     a.PARAMETER_NAME AS ColumnName,
-    a.DATA_TYPE AS DataType,
+    CASE
+        WHEN a.DATA_TYPE IN ('char', 'varchar', 'binary', 'varbinary')
+            THEN a.DATA_TYPE + '(' + CASE WHEN a.CHARACTER_MAXIMUM_LENGTH = -1 THEN 'MAX'
+                 ELSE CAST(a.CHARACTER_MAXIMUM_LENGTH AS VARCHAR) END + ')'
+        WHEN a.DATA_TYPE IN ('nchar', 'nvarchar')
+            THEN a.DATA_TYPE + '(' + CASE WHEN a.CHARACTER_MAXIMUM_LENGTH = -1 THEN 'MAX'
+                 ELSE CAST(a.CHARACTER_MAXIMUM_LENGTH AS VARCHAR) END + ')'
+        WHEN a.DATA_TYPE IN ('decimal', 'numeric')
+            THEN a.DATA_TYPE + '(' + CAST(a.NUMERIC_PRECISION AS VARCHAR) + ',' + CAST(a.NUMERIC_SCALE AS VARCHAR) + ')'
+        WHEN a.DATA_TYPE IN ('datetime2', 'datetimeoffset', 'time')
+            THEN a.DATA_TYPE + '(' + CAST(a.DATETIME_PRECISION AS VARCHAR) + ')'
+        ELSE a.DATA_TYPE
+    END AS DataType,
     CASE
         WHEN ISNULL(a.CHARACTER_MAXIMUM_LENGTH, 0) > 0 THEN a.CHARACTER_MAXIMUM_LENGTH
         WHEN ISNULL(a.CHARACTER_MAXIMUM_LENGTH, 0) = -1 THEN -1

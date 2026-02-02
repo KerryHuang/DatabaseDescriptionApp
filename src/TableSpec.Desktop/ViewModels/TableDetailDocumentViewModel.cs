@@ -42,7 +42,11 @@ public partial class TableDetailDocumentViewModel : DocumentViewModel
     [ObservableProperty]
     private string _statusMessage = string.Empty;
 
+    [ObservableProperty]
+    private string _columnSearchText = string.Empty;
+
     public ObservableCollection<ColumnInfo> Columns { get; } = [];
+    public ObservableCollection<ColumnInfo> FilteredColumns { get; } = [];
     public ObservableCollection<IndexInfo> Indexes { get; } = [];
     public ObservableCollection<RelationInfo> Relations { get; } = [];
     public ObservableCollection<ParameterInfo> Parameters { get; } = [];
@@ -124,6 +128,9 @@ public partial class TableDetailDocumentViewModel : DocumentViewModel
                     Columns.Add(col);
                 }
 
+                // 套用篩選（顯示所有欄位或保持現有搜尋條件）
+                ApplyColumnFilter();
+
                 // 載入索引 (僅 Table)
                 if (CurrentTable.Type == "BASE TABLE")
                 {
@@ -156,12 +163,14 @@ public partial class TableDetailDocumentViewModel : DocumentViewModel
     private void ClearAll()
     {
         Columns.Clear();
+        FilteredColumns.Clear();
         Indexes.Clear();
         Relations.Clear();
         Parameters.Clear();
         Definition = null;
         HasUnsavedChanges = false;
         StatusMessage = string.Empty;
+        ColumnSearchText = string.Empty;
         TableDescription = CurrentTable?.Description;
         _originalTableDescription = CurrentTable?.Description;
     }
@@ -191,6 +200,45 @@ public partial class TableDetailDocumentViewModel : DocumentViewModel
     partial void OnTableDescriptionChanged(string? value)
     {
         CheckForChanges();
+    }
+
+    /// <summary>
+    /// 當搜尋文字變更時觸發
+    /// </summary>
+    partial void OnColumnSearchTextChanged(string value)
+    {
+        ApplyColumnFilter();
+    }
+
+    /// <summary>
+    /// 套用欄位篩選
+    /// </summary>
+    private void ApplyColumnFilter()
+    {
+        FilteredColumns.Clear();
+
+        var searchText = ColumnSearchText?.Trim() ?? string.Empty;
+
+        if (string.IsNullOrEmpty(searchText))
+        {
+            // 無搜尋文字，顯示全部欄位
+            foreach (var col in Columns)
+            {
+                FilteredColumns.Add(col);
+            }
+        }
+        else
+        {
+            // 篩選欄位名稱或說明包含搜尋文字的項目（不分大小寫）
+            var filtered = Columns.Where(c =>
+                (c.ColumnName?.Contains(searchText, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                (c.Description?.Contains(searchText, StringComparison.OrdinalIgnoreCase) ?? false));
+
+            foreach (var col in filtered)
+            {
+                FilteredColumns.Add(col);
+            }
+        }
     }
 
     /// <summary>
@@ -309,5 +357,11 @@ public partial class TableDetailDocumentViewModel : DocumentViewModel
         HasUnsavedChanges = false;
         Title = CurrentTable?.Name ?? "資料表";
         StatusMessage = "已取消變更";
+    }
+
+    [RelayCommand]
+    private void ClearColumnSearch()
+    {
+        ColumnSearchText = string.Empty;
     }
 }

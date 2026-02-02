@@ -33,13 +33,25 @@
                 <DockPanel>
                     <!-- 工具列 -->
                     <Border DockPanel.Dock="Top" Padding="5" Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}">
-                        <Grid ColumnDefinitions="*,Auto">
-                            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10">
-                                <TextBlock Text="{Binding StatusMessage}"
-                                           VerticalAlignment="Center"
-                                           Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"/>
+                        <Grid ColumnDefinitions="Auto,*,Auto">
+                            <!-- 搜尋框 -->
+                            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="5">
+                                <TextBox Text="{Binding ColumnSearchText}"
+                                         Watermark="搜尋欄位名稱或說明..."
+                                         Width="250"/>
+                                <Button Content="✕"
+                                        Command="{Binding ClearColumnSearchCommand}"
+                                        IsVisible="{Binding ColumnSearchText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                        ToolTip.Tip="清除搜尋"/>
                             </StackPanel>
-                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="5">
+                            <!-- 狀態訊息 -->
+                            <TextBlock Grid.Column="1"
+                                       Text="{Binding StatusMessage}"
+                                       VerticalAlignment="Center"
+                                       Margin="10,0"
+                                       Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"/>
+                            <!-- 儲存/取消按鈕 -->
+                            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="5">
                                 <Button Content="儲存變更"
                                         Command="{Binding SaveColumnDescriptionsCommand}"
                                         IsVisible="{Binding HasUnsavedChanges}"/>
@@ -51,7 +63,7 @@
                     </Border>
                     <!-- 欄位表格 -->
                     <DataGrid x:Name="ColumnsGrid"
-                              ItemsSource="{Binding Columns}"
+                              ItemsSource="{Binding FilteredColumns}"
                               AutoGenerateColumns="False"
                               IsReadOnly="False"
                               GridLinesVisibility="All"

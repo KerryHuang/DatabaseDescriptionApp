@@ -92,6 +92,13 @@ sealed class Program
         // Application - Column Usage Service
         services.AddSingleton<IColumnUsageService, ColumnUsageService>();
 
+        // Infrastructure - Table Statistics
+        services.AddSingleton<ITableStatisticsRepository>(sp =>
+            new TableStatisticsRepository(() => sp.GetRequiredService<IConnectionManager>().GetCurrentConnectionString()));
+
+        // Application - Table Statistics Service
+        services.AddSingleton<ITableStatisticsService, TableStatisticsService>();
+
         // ViewModels
         services.AddTransient<MainWindowViewModel>(sp =>
             new MainWindowViewModel(
@@ -123,6 +130,9 @@ sealed class Program
             new ColumnUsageDocumentViewModel(
                 sp.GetRequiredService<IColumnUsageService>(),
                 sp.GetRequiredService<ColumnUsageExcelExporter>()));
+        services.AddTransient<TableStatisticsDocumentViewModel>(sp =>
+            new TableStatisticsDocumentViewModel(
+                sp.GetRequiredService<ITableStatisticsService>()));
 
         return services.BuildServiceProvider();
     }

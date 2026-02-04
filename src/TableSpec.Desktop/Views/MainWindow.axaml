@@ -28,6 +28,7 @@
         <KeyBinding Gesture="Ctrl+H" Command="{Binding OpenHealthMonitoringCommand}"/>
         <KeyBinding Gesture="Ctrl+P" Command="{Binding OpenPerformanceDiagnosticsCommand}"/>
         <KeyBinding Gesture="Ctrl+U" Command="{Binding OpenColumnUsageCommand}"/>
+        <KeyBinding Gesture="Ctrl+T" Command="{Binding OpenTableStatisticsCommand}"/>
     </Window.KeyBindings>
 
     <DockPanel>
@@ -118,6 +119,12 @@
                               ToolTip.Tip="統計欄位使用情況，分析型態一致性">
                         <MenuItem.Icon>
                             <TextBlock Text="📊" FontSize="14"/>
+                        </MenuItem.Icon>
+                    </MenuItem>
+                    <MenuItem Header="資料表統計(_T)" Command="{Binding OpenTableStatisticsCommand}" InputGesture="Ctrl+T" IsEnabled="{Binding IsConnected}"
+                              ToolTip.Tip="檢視資料庫中所有資料表的統計資訊，包含資料列數、空間使用等">
+                        <MenuItem.Icon>
+                            <TextBlock Text="📈" FontSize="14"/>
                         </MenuItem.Icon>
                     </MenuItem>
                 </MenuItem>
@@ -301,6 +308,9 @@
                                         </DataTemplate>
                                         <DataTemplate DataType="{x:Type vm:ColumnUsageDocumentViewModel}">
                                             <views:ColumnUsageDocumentView/>
+                                        </DataTemplate>
+                                        <DataTemplate DataType="{x:Type vm:TableStatisticsDocumentViewModel}">
+                                            <views:TableStatisticsDocumentView/>
                                         </DataTemplate>
                                     </ContentControl.DataTemplates>
                                 </ContentControl>

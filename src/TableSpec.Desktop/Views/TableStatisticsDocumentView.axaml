@@ -1,0 +1,185 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:TableSpec.Desktop.ViewModels"
+             xmlns:lvc="using:LiveChartsCore.SkiaSharpView.Avalonia"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="900" d:DesignHeight="600"
+             x:Class="TableSpec.Desktop.Views.TableStatisticsDocumentView"
+             x:DataType="vm:TableStatisticsDocumentViewModel">
+
+    <Design.DataContext>
+        <vm:TableStatisticsDocumentViewModel/>
+    </Design.DataContext>
+
+    <Grid RowDefinitions="Auto,*,Auto">
+
+        <!-- 工具列 -->
+        <Border Grid.Row="0" Padding="10,8"
+                Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}">
+            <StackPanel Spacing="8">
+                <!-- 第一行：操作按鈕 -->
+                <WrapPanel Orientation="Horizontal">
+                    <Button Content="載入統計" Command="{Binding LoadStatisticsCommand}"
+                            Margin="0,0,8,0"
+                            ToolTip.Tip="從系統檢視取得概估統計資訊（快速）"/>
+                    <Button Content="精確計數" Command="{Binding LoadExactRowCountsCommand}"
+                            Margin="0,0,8,0"
+                            ToolTip.Tip="逐一對可見的資料表執行 COUNT(*)（慢速但精確）"/>
+                    <Button Content="取消" Command="{Binding CancelCommand}"
+                            IsVisible="{Binding IsLoading}"
+                            Margin="0,0,8,0"/>
+                    <ProgressBar IsIndeterminate="True" Width="100" Height="16"
+                                 VerticalAlignment="Center"
+                                 IsVisible="{Binding IsLoading}"
+                                 Margin="8,0,0,0"/>
+                </WrapPanel>
+
+                <!-- 第二行：篩選控制項 -->
+                <WrapPanel Orientation="Horizontal">
+                    <TextBlock Text="Schema：" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                    <ComboBox ItemsSource="{Binding SchemaOptions}"
+                              SelectedItem="{Binding SchemaFilter}"
+                              MinWidth="100" Margin="0,0,12,0"/>
+
+                    <TextBlock Text="類型：" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                    <ComboBox ItemsSource="{Binding ObjectTypeOptions}"
+                              SelectedItem="{Binding ObjectTypeFilter}"
+                              MinWidth="80" Margin="0,0,12,0"/>
+
+                    <TextBlock Text="名稱：" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                    <TextBox Text="{Binding TableNameFilter, Mode=TwoWay}"
+                             Watermark="搜尋資料表名稱..."
+                             Width="150" Margin="0,0,12,0"/>
+
+                    <TextBlock Text="資料列 ≥" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                    <ComboBox ItemsSource="{Binding MinRowCountOptions}"
+                              SelectedItem="{Binding MinRowCount}"
+                              MinWidth="100" Margin="0,0,12,0"/>
+
+                    <TextBlock Text="欄位 ≥" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                    <ComboBox ItemsSource="{Binding MinColumnCountOptions}"
+                              SelectedItem="{Binding MinColumnCount}"
+                              MinWidth="60" Margin="0,0,12,0"/>
+
+                    <Button Content="清除篩選" Command="{Binding ClearFilterCommand}"
+                            ToolTip.Tip="重置所有篩選條件"/>
+                </WrapPanel>
+            </StackPanel>
+        </Border>
+
+        <!-- 主內容：分頁 -->
+        <TabControl Grid.Row="1" Margin="5">
+
+            <!-- 資料表格 -->
+            <TabItem Header="資料表格">
+                <Panel>
+                    <DataGrid ItemsSource="{Binding Statistics}"
+                              AutoGenerateColumns="False"
+                              CanUserResizeColumns="True"
+                              CanUserSortColumns="True"
+                              IsReadOnly="True"
+                              IsVisible="{Binding HasData}"
+                              Margin="0,5,0,0">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Schema" Binding="{Binding SchemaName}" Width="80"/>
+                            <DataGridTextColumn Header="名稱" Binding="{Binding TableName}" Width="200"/>
+                            <DataGridTextColumn Header="類型" Binding="{Binding ObjectType}" Width="60"/>
+                            <DataGridTextColumn Header="資料列數" Binding="{Binding DisplayRowCount, StringFormat={}{0:N0}}" Width="110"/>
+                            <DataGridTextColumn Header="欄位數" Binding="{Binding ColumnCount}" Width="70"/>
+                            <DataGridTextColumn Header="索引數" Binding="{Binding IndexCount}" Width="70"/>
+                            <DataGridTextColumn Header="關聯數" Binding="{Binding ForeignKeyCount}" Width="70"/>
+                            <DataGridTextColumn Header="資料大小(MB)" Binding="{Binding DataSizeMB, StringFormat={}{0:N2}}" Width="100"/>
+                            <DataGridTextColumn Header="索引大小(MB)" Binding="{Binding IndexSizeMB, StringFormat={}{0:N2}}" Width="100"/>
+                            <DataGridTextColumn Header="總大小(MB)" Binding="{Binding TotalSizeMB, StringFormat={}{0:N2}}" Width="100"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+
+                    <TextBlock Text="尚無資料，請點擊「載入統計」"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"
+                               FontSize="16"
+                               Foreground="Gray"
+                               IsVisible="{Binding !HasData}"/>
+                </Panel>
+            </TabItem>
+
+            <!-- 資料列數排行 -->
+            <TabItem Header="資料列數排行">
+                <Grid RowDefinitions="Auto,*">
+                    <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="10,8">
+                        <TextBlock Text="顯示前" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                        <ComboBox ItemsSource="{Binding ChartTopNOptions}"
+                                  SelectedItem="{Binding ChartTopN}"
+                                  MinWidth="60"/>
+                        <TextBlock Text="名" VerticalAlignment="Center" Margin="4,0,0,0"/>
+                    </StackPanel>
+
+                    <Panel Grid.Row="1">
+                        <lvc:CartesianChart Series="{Binding RowCountChartSeries}"
+                                            XAxes="{Binding RowCountXAxes}"
+                                            YAxes="{Binding RowCountYAxes}"
+                                            Margin="10"
+                                            IsVisible="{Binding HasData}"/>
+                        <TextBlock Text="尚無資料"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   FontSize="16"
+                                   Foreground="Gray"
+                                   IsVisible="{Binding !HasData}"/>
+                    </Panel>
+                </Grid>
+            </TabItem>
+
+            <!-- Schema 分佈 -->
+            <TabItem Header="Schema 分佈">
+                <Panel>
+                    <lvc:PieChart Series="{Binding SchemaDistributionSeries}"
+                                  Margin="10"
+                                  IsVisible="{Binding HasData}"/>
+                    <TextBlock Text="尚無資料"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"
+                               FontSize="16"
+                               Foreground="Gray"
+                               IsVisible="{Binding !HasData}"/>
+                </Panel>
+            </TabItem>
+        </TabControl>
+
+        <!-- 狀態列 -->
+        <Border Grid.Row="2"
+                Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}"
+                Padding="10,5">
+            <Grid ColumnDefinitions="*,Auto">
+                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
+                    <TextBlock Text="{Binding StatusMessage}" VerticalAlignment="Center"/>
+                    <TextBlock Text="{Binding ProgressMessage}" VerticalAlignment="Center"
+                               Foreground="Gray" FontSize="12"
+                               IsVisible="{Binding IsLoading}"/>
+                </StackPanel>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="15">
+                    <TextBlock VerticalAlignment="Center">
+                        <TextBlock.Text>
+                            <MultiBinding StringFormat="篩選 {0} 個">
+                                <Binding Path="FilteredCount"/>
+                            </MultiBinding>
+                        </TextBlock.Text>
+                    </TextBlock>
+                    <TextBlock VerticalAlignment="Center">
+                        <TextBlock.Text>
+                            <MultiBinding StringFormat="資料表 {0} / 檢視表 {1}">
+                                <Binding Path="TotalTableCount"/>
+                                <Binding Path="TotalViewCount"/>
+                            </MultiBinding>
+                        </TextBlock.Text>
+                    </TextBlock>
+                    <TextBlock VerticalAlignment="Center"
+                               Text="{Binding TotalRowCount, StringFormat=總列數 {0:N0}}"/>
+                    <TextBlock VerticalAlignment="Center"
+                               Text="{Binding TotalSizeMB, StringFormat=總大小 {0:N2} MB}"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>

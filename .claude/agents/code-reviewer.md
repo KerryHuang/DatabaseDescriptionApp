@@ -1,3 +1,7 @@
+---
+name: code-reviewer
+---
+
 # Code Reviewer 代理
 
 專門負責程式碼審查的代理，整合 Codex CLI 進行深度審查。

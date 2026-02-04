@@ -1,3 +1,7 @@
+---
+name: documentation-writer
+---
+
 # Documentation Writer 代理
 
 專門負責撰寫和維護文件的代理。

@@ -58,4 +58,17 @@ public interface IPerformanceDiagnosticsService
     /// <param name="createIndexStatement">CREATE INDEX 語法</param>
     /// <param name="ct">取消權杖</param>
     Task ExecuteCreateIndexAsync(string createIndexStatement, CancellationToken ct = default);
+
+    /// <summary>
+    /// 取得未使用索引清單
+    /// </summary>
+    Task<IReadOnlyList<UnusedIndex>> GetUnusedIndexesAsync(CancellationToken ct = default);
+
+    /// <summary>
+    /// 執行刪除索引語法
+    /// </summary>
+    /// <param name="dropIndexStatement">DROP INDEX 語法</param>
+    /// <param name="databaseName">目標資料庫名稱</param>
+    /// <param name="ct">取消權杖</param>
+    Task ExecuteDropIndexAsync(string dropIndexStatement, string databaseName, CancellationToken ct = default);
 }

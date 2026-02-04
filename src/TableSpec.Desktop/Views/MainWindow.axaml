@@ -115,6 +115,12 @@
                             <TextBlock Text="⚡" FontSize="14"/>
                         </MenuItem.Icon>
                     </MenuItem>
+                    <MenuItem Header="缺少索引報表(_I)" Command="{Binding OpenMissingIndexReportCommand}" InputGesture="Ctrl+I" IsEnabled="{Binding IsConnected}"
+                              ToolTip.Tip="分析缺少的索引建議，可直接執行建立索引">
+                        <MenuItem.Icon>
+                            <TextBlock Text="📋" FontSize="14"/>
+                        </MenuItem.Icon>
+                    </MenuItem>
                     <MenuItem Header="欄位統計(_U)" Command="{Binding OpenColumnUsageCommand}" InputGesture="Ctrl+U" IsEnabled="{Binding IsConnected}"
                               ToolTip.Tip="統計欄位使用情況，分析型態一致性">
                         <MenuItem.Icon>
@@ -311,6 +317,9 @@
                                         </DataTemplate>
                                         <DataTemplate DataType="{x:Type vm:TableStatisticsDocumentViewModel}">
                                             <views:TableStatisticsDocumentView/>
+                                        </DataTemplate>
+                                        <DataTemplate DataType="{x:Type vm:MissingIndexReportDocumentViewModel}">
+                                            <views:MissingIndexReportDocumentView/>
                                         </DataTemplate>
                                     </ContentControl.DataTemplates>
                                 </ContentControl>

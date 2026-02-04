@@ -59,6 +59,15 @@ public interface ITableQueryService
         CancellationToken ct = default);
 
     /// <summary>
+    /// 刪除指定索引
+    /// </summary>
+    Task DropIndexAsync(
+        string schema,
+        string tableName,
+        string indexName,
+        CancellationToken ct = default);
+
+    /// <summary>
     /// 更新欄位說明
     /// </summary>
     /// <param name="schema">Schema 名稱</param>

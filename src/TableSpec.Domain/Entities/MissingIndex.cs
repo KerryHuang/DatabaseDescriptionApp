@@ -6,6 +6,16 @@ namespace TableSpec.Domain.Entities;
 public class MissingIndex
 {
     /// <summary>
+    /// 資料庫名稱
+    /// </summary>
+    public string DatabaseName { get; init; } = string.Empty;
+
+    /// <summary>
+    /// 結構描述名稱
+    /// </summary>
+    public string SchemaName { get; init; } = string.Empty;
+
+    /// <summary>
     /// 資料表名稱（含結構描述）
     /// </summary>
     public required string TableName { get; init; }
@@ -84,4 +94,32 @@ public class MissingIndex
     /// 系統查詢改善百分比
     /// </summary>
     public decimal AvgSystemImpact { get; init; }
+
+    /// <summary>
+    /// 純資料表名稱（不含資料庫和結構描述）
+    /// </summary>
+    public string ShortTableName
+    {
+        get
+        {
+            // TableName 格式：[Database].[Schema].[Table]
+            var parts = TableName.Split('.');
+            if (parts.Length >= 3)
+                return parts[2].Trim('[', ']');
+            if (parts.Length >= 1)
+                return parts[^1].Trim('[', ']');
+            return TableName;
+        }
+    }
+
+    /// <summary>
+    /// 嚴重度等級（依改善指標分級）
+    /// </summary>
+    public string SeverityLevel => ImprovementMeasure switch
+    {
+        >= 1_000_000m => "Critical",
+        >= 100_000m => "High",
+        >= 10_000m => "Medium",
+        _ => "Low"
+    };
 }

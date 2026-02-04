@@ -1,0 +1,272 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:TableSpec.Desktop.ViewModels"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="1200" d:DesignHeight="700"
+             x:Class="TableSpec.Desktop.Views.MissingIndexReportDocumentView"
+             x:DataType="vm:MissingIndexReportDocumentViewModel">
+
+    <Design.DataContext>
+        <vm:MissingIndexReportDocumentViewModel/>
+    </Design.DataContext>
+
+    <Grid RowDefinitions="Auto,*,Auto">
+
+        <!-- 工具列 -->
+        <Border Grid.Row="0" Padding="10,8"
+                Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}">
+            <StackPanel Spacing="8">
+                <!-- 第一行：操作按鈕 -->
+                <WrapPanel Orientation="Horizontal">
+                    <Button Content="載入報表" Command="{Binding LoadMissingIndexesCommand}"
+                            Margin="0,0,8,0"
+                            ToolTip.Tip="從 SQL Server DMV 載入缺少索引建議"/>
+                    <Button Content="取消" Command="{Binding CancelCommand}"
+                            IsVisible="{Binding IsLoading}"
+                            Margin="0,0,8,0"/>
+                    <ProgressBar IsIndeterminate="True" Width="100" Height="16"
+                                 VerticalAlignment="Center"
+                                 IsVisible="{Binding IsLoading}"
+                                 Margin="8,0,0,0"/>
+                </WrapPanel>
+
+                <!-- 第二行：篩選控制項 -->
+                <WrapPanel Orientation="Horizontal">
+                    <TextBlock Text="資料庫：" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                    <ComboBox ItemsSource="{Binding DatabaseOptions}"
+                              SelectedItem="{Binding DatabaseFilter}"
+                              MinWidth="120" Margin="0,0,12,0"/>
+
+                    <TextBlock Text="資料表：" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                    <TextBox Text="{Binding TableFilter, Mode=TwoWay}"
+                             Watermark="搜尋資料表名稱..."
+                             Width="180" Margin="0,0,12,0"/>
+
+                    <TextBlock Text="改善指標 ≥" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                    <ComboBox ItemsSource="{Binding MinScoreOptions}"
+                              SelectedItem="{Binding MinScore}"
+                              MinWidth="120" Margin="0,0,12,0"/>
+
+                    <Button Content="清除篩選" Command="{Binding ClearFilterCommand}"
+                            ToolTip.Tip="重置所有篩選條件"/>
+                </WrapPanel>
+
+                <!-- 圖例 -->
+                <WrapPanel Orientation="Horizontal" Margin="0,2,0,0">
+                    <TextBlock Text="嚴重度：" VerticalAlignment="Center" Margin="0,0,8,0" FontSize="12" Foreground="Gray"/>
+                    <Border Background="#44FF0000" CornerRadius="2" Padding="6,1" Margin="0,0,6,0">
+                        <TextBlock Text="嚴重 (≥1M)" FontSize="11"/>
+                    </Border>
+                    <Border Background="#44FF8C00" CornerRadius="2" Padding="6,1" Margin="0,0,6,0">
+                        <TextBlock Text="高 (≥100K)" FontSize="11"/>
+                    </Border>
+                    <Border Background="#44FFD700" CornerRadius="2" Padding="6,1" Margin="0,0,6,0">
+                        <TextBlock Text="中 (≥10K)" FontSize="11"/>
+                    </Border>
+                    <Border Background="Transparent" CornerRadius="2" Padding="6,1" Margin="0,0,6,0">
+                        <TextBlock Text="低 (&lt;10K)" FontSize="11" Foreground="Gray"/>
+                    </Border>
+                </WrapPanel>
+            </StackPanel>
+        </Border>
+
+        <!-- 主內容：DataGrid -->
+        <Panel Grid.Row="1" Margin="5">
+            <DataGrid x:Name="MissingIndexDataGrid"
+                      ItemsSource="{Binding MissingIndexes}"
+                      SelectedItem="{Binding SelectedMissingIndex}"
+                      AutoGenerateColumns="False"
+                      CanUserResizeColumns="True"
+                      CanUserSortColumns="True"
+                      IsReadOnly="True"
+                      IsVisible="{Binding HasData}"
+                      GridLinesVisibility="Horizontal"
+                      Margin="0,5,0,0">
+                <DataGrid.Columns>
+                    <!-- 操作按鈕欄 -->
+                    <DataGridTemplateColumn Header="操作" Width="120" CanUserResize="False">
+                        <DataGridTemplateColumn.HeaderTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="操作"
+                                           ToolTip.Tip="執行：在資料庫上建立索引；複製：複製 CREATE INDEX 語法到剪貼簿"/>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.HeaderTemplate>
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate x:DataType="vm:MissingIndexReportDocumentViewModel">
+                                <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center" HorizontalAlignment="Center">
+                                    <Button Content="執行" FontSize="11" Padding="6,2"
+                                            Command="{Binding #MissingIndexDataGrid.((vm:MissingIndexReportDocumentViewModel)DataContext).ExecuteCreateIndexCommand}"
+                                            CommandParameter="{Binding}"
+                                            ToolTip.Tip="在資料庫上執行此 CREATE INDEX 語法"/>
+                                    <Button Content="複製" FontSize="11" Padding="6,2"
+                                            Command="{Binding #MissingIndexDataGrid.((vm:MissingIndexReportDocumentViewModel)DataContext).CopyCreateIndexStatementCommand}"
+                                            CommandParameter="{Binding}"
+                                            ToolTip.Tip="複製 CREATE INDEX 語法到剪貼簿"/>
+                                </StackPanel>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+
+                    <!-- 嚴重度指示欄 -->
+                    <DataGridTemplateColumn Header="等級" Width="50" CanUserResize="False">
+                        <DataGridTemplateColumn.HeaderTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="等級"
+                                           ToolTip.Tip="嚴重度等級：依改善指標分數自動分級（嚴重/高/中/低）"/>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.HeaderTemplate>
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding SeverityLevel}" HorizontalAlignment="Center" FontSize="11"
+                                           ToolTip.Tip="{Binding SeverityLevel}"/>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+
+                    <!-- 資料庫名稱 -->
+                    <DataGridTextColumn Width="120">
+                        <DataGridTextColumn.Header>
+                            <TextBlock Text="資料庫"
+                                       ToolTip.Tip="此缺少索引所屬的資料庫名稱"/>
+                        </DataGridTextColumn.Header>
+                        <DataGridTextColumn.Binding>
+                            <Binding Path="DatabaseName"/>
+                        </DataGridTextColumn.Binding>
+                    </DataGridTextColumn>
+
+                    <!-- Schema -->
+                    <DataGridTextColumn Width="80">
+                        <DataGridTextColumn.Header>
+                            <TextBlock Text="Schema"
+                                       ToolTip.Tip="資料表所屬的結構描述名稱"/>
+                        </DataGridTextColumn.Header>
+                        <DataGridTextColumn.Binding>
+                            <Binding Path="SchemaName"/>
+                        </DataGridTextColumn.Binding>
+                    </DataGridTextColumn>
+
+                    <!-- 資料表名稱 -->
+                    <DataGridTextColumn Width="160">
+                        <DataGridTextColumn.Header>
+                            <TextBlock Text="資料表"
+                                       ToolTip.Tip="需要建立索引的資料表名稱"/>
+                        </DataGridTextColumn.Header>
+                        <DataGridTextColumn.Binding>
+                            <Binding Path="ShortTableName"/>
+                        </DataGridTextColumn.Binding>
+                    </DataGridTextColumn>
+
+                    <!-- 改善指標 -->
+                    <DataGridTextColumn Width="120">
+                        <DataGridTextColumn.Header>
+                            <TextBlock Text="改善指標"
+                                       ToolTip.Tip="效能改善指標分數 = 平均使用者費用 × (平均影響% / 100) × (搜尋次數 + 掃描次數)。數值越高表示建立此索引能帶來越大的效能改善。"/>
+                        </DataGridTextColumn.Header>
+                        <DataGridTextColumn.Binding>
+                            <Binding Path="ImprovementMeasure" StringFormat="N2"/>
+                        </DataGridTextColumn.Binding>
+                    </DataGridTextColumn>
+
+                    <!-- 預估改善百分比 -->
+                    <DataGridTextColumn Width="100">
+                        <DataGridTextColumn.Header>
+                            <TextBlock Text="平均影響(%)"
+                                       ToolTip.Tip="預估建立此索引後，查詢效能的平均改善百分比（0~100%）"/>
+                        </DataGridTextColumn.Header>
+                        <DataGridTextColumn.Binding>
+                            <Binding Path="AvgUserImpact" StringFormat="N2"/>
+                        </DataGridTextColumn.Binding>
+                    </DataGridTextColumn>
+
+                    <!-- 使用者搜尋次數 -->
+                    <DataGridTextColumn Width="100">
+                        <DataGridTextColumn.Header>
+                            <TextBlock Text="搜尋次數"
+                                       ToolTip.Tip="使用者查詢中執行 Seek 操作的次數，表示有多少次查詢會因為此索引而受益"/>
+                        </DataGridTextColumn.Header>
+                        <DataGridTextColumn.Binding>
+                            <Binding Path="UserSeeks" StringFormat="N0"/>
+                        </DataGridTextColumn.Binding>
+                    </DataGridTextColumn>
+
+                    <!-- 使用者掃描次數 -->
+                    <DataGridTextColumn Width="100">
+                        <DataGridTextColumn.Header>
+                            <TextBlock Text="掃描次數"
+                                       ToolTip.Tip="使用者查詢中執行 Scan 操作的次數"/>
+                        </DataGridTextColumn.Header>
+                        <DataGridTextColumn.Binding>
+                            <Binding Path="UserScans" StringFormat="N0"/>
+                        </DataGridTextColumn.Binding>
+                    </DataGridTextColumn>
+
+                    <!-- 平均使用者費用 -->
+                    <DataGridTextColumn Width="110">
+                        <DataGridTextColumn.Header>
+                            <TextBlock Text="平均費用"
+                                       ToolTip.Tip="缺少此索引時，使用者查詢的平均查詢成本"/>
+                        </DataGridTextColumn.Header>
+                        <DataGridTextColumn.Binding>
+                            <Binding Path="AvgTotalUserCost" StringFormat="N2"/>
+                        </DataGridTextColumn.Binding>
+                    </DataGridTextColumn>
+
+                    <!-- 唯一的編譯次數 -->
+                    <DataGridTextColumn Width="100">
+                        <DataGridTextColumn.Header>
+                            <TextBlock Text="編譯次數"
+                                       ToolTip.Tip="因為缺少此索引而觸發的唯一查詢編譯次數"/>
+                        </DataGridTextColumn.Header>
+                        <DataGridTextColumn.Binding>
+                            <Binding Path="UniqueCompiles" StringFormat="N0"/>
+                        </DataGridTextColumn.Binding>
+                    </DataGridTextColumn>
+
+                    <!-- 建立索引語法 -->
+                    <DataGridTextColumn Width="500">
+                        <DataGridTextColumn.Header>
+                            <TextBlock Text="建立索引語法"
+                                       ToolTip.Tip="建議的 CREATE INDEX 語法，可直接執行或複製到 SSMS"/>
+                        </DataGridTextColumn.Header>
+                        <DataGridTextColumn.Binding>
+                            <Binding Path="CreateIndexStatement"/>
+                        </DataGridTextColumn.Binding>
+                    </DataGridTextColumn>
+                </DataGrid.Columns>
+            </DataGrid>
+
+            <TextBlock Text="尚無資料，請點擊「載入報表」開始分析"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center"
+                       FontSize="16"
+                       Foreground="Gray"
+                       IsVisible="{Binding !HasData}"/>
+        </Panel>
+
+        <!-- 狀態列 -->
+        <Border Grid.Row="2"
+                Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}"
+                Padding="10,5">
+            <Grid ColumnDefinitions="*,Auto">
+                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
+                    <TextBlock Text="{Binding StatusMessage}" VerticalAlignment="Center"/>
+                    <TextBlock Text="{Binding ProgressMessage}" VerticalAlignment="Center"
+                               Foreground="Gray" FontSize="12"
+                               IsVisible="{Binding IsLoading}"/>
+                </StackPanel>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="15">
+                    <TextBlock VerticalAlignment="Center"
+                               Text="{Binding FilteredCount, StringFormat=篩選 {0} 個}"/>
+                    <TextBlock VerticalAlignment="Center"
+                               Text="{Binding TotalCount, StringFormat=共 {0} 個}"
+                               Foreground="Gray"/>
+                    <TextBlock VerticalAlignment="Center" Foreground="Red"
+                               Text="{Binding CriticalCount, StringFormat=嚴重 {0}}"/>
+                    <TextBlock VerticalAlignment="Center" Foreground="OrangeRed"
+                               Text="{Binding HighCount, StringFormat=高 {0}}"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>

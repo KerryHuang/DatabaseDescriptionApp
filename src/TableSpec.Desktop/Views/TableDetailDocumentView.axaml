@@ -83,16 +83,31 @@
             </TabItem>
             <!-- 索引頁籤 (Table only) -->
             <TabItem Header="索引">
-                <DataGrid ItemsSource="{Binding Indexes}"
+                <DataGrid x:Name="IndexDataGrid"
+                          ItemsSource="{Binding Indexes}"
+                          SelectedItem="{Binding SelectedIndex}"
                           AutoGenerateColumns="False"
                           IsReadOnly="True"
                           GridLinesVisibility="All">
                     <DataGrid.Columns>
+                        <DataGridTemplateColumn Header="操作" Width="60" CanUserResize="False">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Button Content="刪除" FontSize="11" Padding="6,2"
+                                            HorizontalAlignment="Center"
+                                            Command="{Binding #IndexDataGrid.((vm:TableDetailDocumentViewModel)DataContext).DropIndexCommand}"
+                                            CommandParameter="{Binding}"
+                                            IsVisible="{Binding !IsPrimaryKey}"
+                                            ToolTip.Tip="刪除此索引（DROP INDEX）"/>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
                         <DataGridTextColumn Header="索引名稱" Binding="{Binding Name}" Width="200"/>
                         <DataGridTextColumn Header="類型" Binding="{Binding Type}" Width="120"/>
                         <DataGridCheckBoxColumn Header="唯一" Binding="{Binding IsUnique}" Width="60"/>
                         <DataGridCheckBoxColumn Header="主鍵" Binding="{Binding IsPrimaryKey}" Width="60"/>
-                        <DataGridTextColumn Header="欄位" Binding="{Binding Columns}" Width="*"/>
+                        <DataGridTextColumn Header="建立時間" Binding="{Binding CreateDate, StringFormat={}{0:yyyy-MM-dd HH:mm:ss}}" Width="150"/>
+                        <DataGridTextColumn Header="欄位" Binding="{Binding ColumnsDisplay}" Width="*"/>
                     </DataGrid.Columns>
                 </DataGrid>
             </TabItem>

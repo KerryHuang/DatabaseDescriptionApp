@@ -48,6 +48,10 @@ public partial class TableDetailDocumentViewModel : DocumentViewModel
     public ObservableCollection<ColumnInfo> Columns { get; } = [];
     public ObservableCollection<ColumnInfo> FilteredColumns { get; } = [];
     public ObservableCollection<IndexInfo> Indexes { get; } = [];
+
+    [ObservableProperty]
+    private IndexInfo? _selectedIndex;
+
     public ObservableCollection<RelationInfo> Relations { get; } = [];
     public ObservableCollection<ParameterInfo> Parameters { get; } = [];
 
@@ -363,5 +367,59 @@ public partial class TableDetailDocumentViewModel : DocumentViewModel
     private void ClearColumnSearch()
     {
         ColumnSearchText = string.Empty;
+    }
+
+    [RelayCommand]
+    private async Task DropIndexAsync(IndexInfo? index)
+    {
+        if (_tableQueryService == null || CurrentTable == null || index == null) return;
+
+        // 主鍵和叢集索引不允許直接刪除
+        if (index.IsPrimaryKey)
+        {
+            StatusMessage = "無法刪除主鍵索引，請先移除主鍵約束";
+            return;
+        }
+
+        var message = $"確定要刪除索引嗎？\n\n索引名稱：{index.Name}\n類型：{index.Type}\n欄位：{string.Join(", ", index.Columns)}\n\n此操作無法復原！";
+
+        if (ConfirmSaveCallback != null)
+        {
+            var confirmed = await ConfirmSaveCallback(message);
+            if (!confirmed)
+            {
+                StatusMessage = "已取消刪除";
+                return;
+            }
+        }
+
+        try
+        {
+            IsLoading = true;
+            StatusMessage = $"正在刪除索引 {index.Name}...";
+
+            await _tableQueryService.DropIndexAsync(
+                CurrentTable.Schema,
+                CurrentTable.Name,
+                index.Name);
+
+            StatusMessage = $"索引 {index.Name} 已刪除";
+
+            // 重新載入索引清單
+            Indexes.Clear();
+            var indexes = await _tableQueryService.GetIndexesAsync(CurrentTable.Schema, CurrentTable.Name);
+            foreach (var idx in indexes)
+            {
+                Indexes.Add(idx);
+            }
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"刪除索引失敗: {ex.Message}";
+        }
+        finally
+        {
+            IsLoading = false;
+        }
     }
 }

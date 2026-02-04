@@ -133,6 +133,9 @@ sealed class Program
         services.AddTransient<TableStatisticsDocumentViewModel>(sp =>
             new TableStatisticsDocumentViewModel(
                 sp.GetRequiredService<ITableStatisticsService>()));
+        services.AddTransient<MissingIndexReportDocumentViewModel>(sp =>
+            new MissingIndexReportDocumentViewModel(
+                sp.GetRequiredService<IPerformanceDiagnosticsService>()));
 
         return services.BuildServiceProvider();
     }

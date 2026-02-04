@@ -50,4 +50,12 @@ public class PerformanceDiagnosticsService : IPerformanceDiagnosticsService
     /// <inheritdoc/>
     public Task ExecuteCreateIndexAsync(string createIndexStatement, CancellationToken ct = default)
         => _repository.ExecuteCreateIndexAsync(createIndexStatement, ct);
+
+    /// <inheritdoc/>
+    public Task<IReadOnlyList<UnusedIndex>> GetUnusedIndexesAsync(CancellationToken ct = default)
+        => _repository.GetUnusedIndexesAsync(ct);
+
+    /// <inheritdoc/>
+    public Task ExecuteDropIndexAsync(string dropIndexStatement, string databaseName, CancellationToken ct = default)
+        => _repository.ExecuteDropIndexAsync(dropIndexStatement, databaseName, ct);
 }

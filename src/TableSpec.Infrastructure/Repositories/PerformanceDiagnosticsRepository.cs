@@ -438,4 +438,105 @@ ORDER BY migs.avg_total_user_cost * migs.avg_user_impact * (migs.user_seeks + mi
         await using var connection = new SqlConnection(connectionString);
         await connection.ExecuteAsync(createIndexStatement, commandTimeout: 600);
     }
+
+    /// <inheritdoc/>
+    public async Task<IReadOnlyList<UnusedIndex>> GetUnusedIndexesAsync(CancellationToken ct = default)
+    {
+        var connectionString = _connectionStringProvider();
+        if (string.IsNullOrEmpty(connectionString))
+            return Array.Empty<UnusedIndex>();
+
+        var results = new List<UnusedIndex>();
+        var databases = await GetUserDatabasesAsync(connectionString, ct);
+
+        foreach (var database in databases)
+        {
+            ct.ThrowIfCancellationRequested();
+            var dbResults = await GetUnusedIndexesForDatabaseAsync(connectionString, database, ct);
+            results.AddRange(dbResults);
+        }
+
+        return results.OrderByDescending(x => x.UserUpdates).ToList();
+    }
+
+    private async Task<IReadOnlyList<UnusedIndex>> GetUnusedIndexesForDatabaseAsync(
+        string connectionString, string databaseName, CancellationToken ct)
+    {
+        try
+        {
+            var builder = new SqlConnectionStringBuilder(connectionString)
+            {
+                InitialCatalog = databaseName
+            };
+
+            await using var connection = new SqlConnection(builder.ConnectionString);
+
+            const string sql = @"
+SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+
+SELECT
+    @DatabaseName AS DatabaseName,
+    s.name AS SchemaName,
+    t.name AS TableName,
+    i.name AS IndexName,
+    i.type_desc AS IndexType,
+    i.is_unique AS IsUnique,
+    ISNULL(ddius.user_updates, 0) AS UserUpdates,
+    ISNULL(ddius.user_seeks, 0) AS UserSeeks,
+    ISNULL(ddius.user_scans, 0) AS UserScans,
+    ddius.last_user_update AS LastUserUpdate,
+    STUFF((
+        SELECT ', ' + c.name
+        FROM sys.index_columns ic
+        INNER JOIN sys.columns c ON c.object_id = ic.object_id AND c.column_id = ic.column_id
+        WHERE ic.object_id = i.object_id AND ic.index_id = i.index_id
+        ORDER BY ic.key_ordinal
+        FOR XML PATH('')
+    ), 1, 2, '') AS IndexColumns,
+    CAST(ISNULL(SUM(ps.used_page_count) * 8.0 / 1024, 0) AS DECIMAL(18, 2)) AS IndexSizeMB,
+    ISNULL(MAX(ps.row_count), 0) AS RowCount
+FROM sys.dm_db_index_usage_stats AS ddius
+INNER JOIN sys.tables AS t ON ddius.object_id = t.object_id
+INNER JOIN sys.schemas AS s ON t.schema_id = s.schema_id
+INNER JOIN sys.indexes AS i ON ddius.index_id = i.index_id AND ddius.object_id = i.object_id
+LEFT JOIN sys.dm_db_partition_stats AS ps ON ps.object_id = i.object_id AND ps.index_id = i.index_id
+WHERE ddius.database_id = DB_ID()
+  AND i.index_id > 1
+  AND i.is_primary_key = 0
+  AND i.is_unique_constraint = 0
+  AND i.name IS NOT NULL
+  AND ISNULL(ddius.user_seeks, 0) + ISNULL(ddius.user_scans, 0) = 0
+  AND ISNULL(ddius.user_updates, 0) > 0
+  AND OBJECTPROPERTY(ddius.object_id, 'IsUserTable') = 1
+GROUP BY s.name, t.name, i.name, i.type_desc, i.is_unique,
+         ddius.user_updates, ddius.user_seeks, ddius.user_scans,
+         ddius.last_user_update, i.object_id, i.index_id
+ORDER BY ddius.user_updates DESC;";
+
+            var result = await connection.QueryAsync<UnusedIndex>(
+                sql, new { DatabaseName = databaseName }, commandTimeout: 300);
+            return result.ToList();
+        }
+        catch
+        {
+            // 若某資料庫無法存取，略過
+            return Array.Empty<UnusedIndex>();
+        }
+    }
+
+    /// <inheritdoc/>
+    public async Task ExecuteDropIndexAsync(string dropIndexStatement, string databaseName, CancellationToken ct = default)
+    {
+        var connectionString = _connectionStringProvider();
+        if (string.IsNullOrEmpty(connectionString))
+            throw new InvalidOperationException("尚未建立資料庫連線");
+
+        var builder = new SqlConnectionStringBuilder(connectionString)
+        {
+            InitialCatalog = databaseName
+        };
+
+        await using var connection = new SqlConnection(builder.ConnectionString);
+        await connection.ExecuteAsync(dropIndexStatement, commandTimeout: 600);
+    }
 }

@@ -29,6 +29,7 @@
         <KeyBinding Gesture="Ctrl+P" Command="{Binding OpenPerformanceDiagnosticsCommand}"/>
         <KeyBinding Gesture="Ctrl+U" Command="{Binding OpenColumnUsageCommand}"/>
         <KeyBinding Gesture="Ctrl+T" Command="{Binding OpenTableStatisticsCommand}"/>
+        <KeyBinding Gesture="Ctrl+J" Command="{Binding OpenUnusedIndexReportCommand}"/>
     </Window.KeyBindings>
 
     <DockPanel>
@@ -119,6 +120,12 @@
                               ToolTip.Tip="分析缺少的索引建議，可直接執行建立索引">
                         <MenuItem.Icon>
                             <TextBlock Text="📋" FontSize="14"/>
+                        </MenuItem.Icon>
+                    </MenuItem>
+                    <MenuItem Header="未使用索引報表(_J)" Command="{Binding OpenUnusedIndexReportCommand}" InputGesture="Ctrl+J" IsEnabled="{Binding IsConnected}"
+                              ToolTip.Tip="分析未使用但持續維護的索引，可直接刪除以節省資源">
+                        <MenuItem.Icon>
+                            <TextBlock Text="🗑️" FontSize="14"/>
                         </MenuItem.Icon>
                     </MenuItem>
                     <MenuItem Header="欄位統計(_U)" Command="{Binding OpenColumnUsageCommand}" InputGesture="Ctrl+U" IsEnabled="{Binding IsConnected}"
@@ -320,6 +327,9 @@
                                         </DataTemplate>
                                         <DataTemplate DataType="{x:Type vm:MissingIndexReportDocumentViewModel}">
                                             <views:MissingIndexReportDocumentView/>
+                                        </DataTemplate>
+                                        <DataTemplate DataType="{x:Type vm:UnusedIndexReportDocumentViewModel}">
+                                            <views:UnusedIndexReportDocumentView/>
                                         </DataTemplate>
                                     </ContentControl.DataTemplates>
                                 </ContentControl>

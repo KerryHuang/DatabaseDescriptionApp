@@ -315,6 +315,25 @@ public partial class MainWindowViewModel : ViewModelBase
     }
 
     [RelayCommand]
+    private void OpenUnusedIndexReport()
+    {
+        // 檢查是否已開啟
+        var existing = Documents.OfType<UnusedIndexReportDocumentViewModel>().FirstOrDefault();
+        if (existing != null)
+        {
+            SelectedDocument = existing;
+            return;
+        }
+
+        var doc = App.Services?.GetRequiredService<UnusedIndexReportDocumentViewModel>()
+            ?? new UnusedIndexReportDocumentViewModel();
+        doc.ConfirmExecuteCallback = ConfirmSaveCallback;
+        doc.CloseRequested += OnDocumentCloseRequested;
+        Documents.Add(doc);
+        SelectedDocument = doc;
+    }
+
+    [RelayCommand]
     private void OpenBackupRestore()
     {
         // 檢查是否已開啟

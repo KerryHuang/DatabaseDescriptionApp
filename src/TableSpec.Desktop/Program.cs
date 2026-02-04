@@ -136,6 +136,9 @@ sealed class Program
         services.AddTransient<MissingIndexReportDocumentViewModel>(sp =>
             new MissingIndexReportDocumentViewModel(
                 sp.GetRequiredService<IPerformanceDiagnosticsService>()));
+        services.AddTransient<UnusedIndexReportDocumentViewModel>(sp =>
+            new UnusedIndexReportDocumentViewModel(
+                sp.GetRequiredService<IPerformanceDiagnosticsService>()));
 
         return services.BuildServiceProvider();
     }

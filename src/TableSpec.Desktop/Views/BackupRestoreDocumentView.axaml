@@ -149,11 +149,15 @@
                                 <TextBlock Text="備份檔案" FontWeight="Bold" FontSize="14"/>
                                 <Grid ColumnDefinitions="Auto,*,Auto,Auto">
                                     <TextBlock Grid.Column="0" Text="檔案路徑：" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                                    <TextBox Grid.Column="1" Text="{Binding RestoreFilePath}" Margin="0,0,10,0"/>
-                                    <Button Grid.Column="2" Content="瀏覽..." Command="{Binding BrowseRestoreFileCommand}" Margin="0,0,10,0"/>
+                                    <TextBox Grid.Column="1" Text="{Binding RestoreFilePath}" Margin="0,0,10,0"
+                                             Watermark="SQL Server 伺服器上的路徑，例如：C:\Backup\MyDB.bak"/>
+                                    <Button Grid.Column="2" Content="瀏覽..." Command="{Binding BrowseRestoreFileCommand}" Margin="0,0,10,0"
+                                            ToolTip.Tip="從本機選擇檔案（僅適用於 SQL Server 在本機的情況）"/>
                                     <Button Grid.Column="3" Content="驗證備份" Command="{Binding VerifyRestoreBackupCommand}"/>
                                 </Grid>
 
+                                <TextBlock Text="* 此路徑為 SQL Server 伺服器端路徑；「瀏覽」僅適用於 SQL Server 安裝在本機的情況"
+                                           FontSize="11" Foreground="Gray" Margin="0,0,0,5"/>
                                 <TextBlock Text="{Binding BackupValidationMessage}"/>
                             </StackPanel>
                         </Border>

@@ -42,13 +42,6 @@ public class MssqlBackupService : IBackupService
         IProgress<BackupProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
-        // 確保備份目錄存在
-        var directory = Path.GetDirectoryName(backupPath);
-        if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
-        {
-            Directory.CreateDirectory(directory);
-        }
-
         await using var connection = new SqlConnection(connectionString);
         await connection.OpenAsync(cancellationToken);
 
@@ -97,9 +90,8 @@ public class MssqlBackupService : IBackupService
             Message = "備份完成"
         });
 
-        // 取得檔案大小
-        var fileInfo = new FileInfo(backupPath);
-        var fileSize = fileInfo.Exists ? fileInfo.Length : 0;
+        // 從 SQL Server 取得備份檔案大小
+        var fileSize = await GetBackupFileSizeAsync(connection, databaseName, cancellationToken);
 
         // 取得 SQL Server 版本
         var sqlVersion = await GetSqlServerVersionAsync(connection, cancellationToken);
@@ -163,8 +155,11 @@ public class MssqlBackupService : IBackupService
 
         try
         {
+            // 查詢 SQL Server 預設資料檔目錄（用於 MOVE 子句）
+            var serverDefaultDataPath = await GetServerDefaultDataPathAsync(connection, cancellationToken);
+
             // 建立還原 SQL
-            var restoreSql = BuildRestoreSql(targetDatabaseName, fileInfo, options);
+            var restoreSql = BuildRestoreSql(targetDatabaseName, fileInfo, options, serverDefaultDataPath);
 
             // 註冊進度事件
             connection.InfoMessage += (_, e) =>
@@ -384,7 +379,8 @@ public class MssqlBackupService : IBackupService
     private string BuildRestoreSql(
         string targetDatabaseName,
         BackupFileInfo fileInfo,
-        RestoreOptions options)
+        RestoreOptions options,
+        string? serverDefaultDataPath)
     {
         var sql = new StringBuilder();
         sql.AppendLine($"RESTORE DATABASE [{targetDatabaseName}]");
@@ -404,8 +400,8 @@ public class MssqlBackupService : IBackupService
             foreach (var file in fileInfo.LogicalFiles)
             {
                 var newPhysicalPath = file.Type == "D"
-                    ? options.DataFilePath ?? GetDefaultFilePath(targetDatabaseName, file.LogicalName, ".mdf")
-                    : options.LogFilePath ?? GetDefaultFilePath(targetDatabaseName, file.LogicalName, ".ldf");
+                    ? options.DataFilePath ?? GetDefaultFilePath(serverDefaultDataPath, targetDatabaseName, file.LogicalName, ".mdf")
+                    : options.LogFilePath ?? GetDefaultFilePath(serverDefaultDataPath, targetDatabaseName, file.LogicalName, ".ldf");
 
                 withClauses.Add($"    MOVE '{file.LogicalName}' TO '{newPhysicalPath}'");
             }
@@ -419,19 +415,14 @@ public class MssqlBackupService : IBackupService
         return sql.ToString();
     }
 
-    private static string GetDefaultFilePath(string databaseName, string logicalName, string extension)
+    private static string GetDefaultFilePath(string? serverDefaultDataPath, string databaseName, string logicalName, string extension)
     {
-        // 使用 SQL Server 預設資料目錄
-        var dataPath = Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData);
-        var sqlDataPath = Path.Combine(dataPath, "Microsoft", "Microsoft SQL Server", "MSSQL16.MSSQLSERVER", "MSSQL", "DATA");
+        // 使用從 SQL Server 查詢到的預設資料目錄
+        var basePath = !string.IsNullOrEmpty(serverDefaultDataPath)
+            ? serverDefaultDataPath
+            : @"C:\Program Files\Microsoft SQL Server\MSSQL16.MSSQLSERVER\MSSQL\DATA";
 
-        // 如果預設路徑不存在，使用臨時目錄
-        if (!Directory.Exists(sqlDataPath))
-        {
-            sqlDataPath = Path.GetTempPath();
-        }
-
-        return Path.Combine(sqlDataPath, $"{databaseName}_{logicalName}{extension}");
+        return Path.Combine(basePath, $"{databaseName}_{logicalName}{extension}");
     }
 
     private static async Task SetDatabaseSingleUserModeAsync(
@@ -481,6 +472,54 @@ public class MssqlBackupService : IBackupService
         await using var command = new SqlCommand("SELECT @@VERSION", connection);
         var result = await command.ExecuteScalarAsync(cancellationToken);
         return result?.ToString()?.Split('\n').FirstOrDefault() ?? "";
+    }
+
+    /// <summary>
+    /// 從 msdb 取得最近一次備份的檔案大小（伺服器端）
+    /// </summary>
+    private static async Task<long> GetBackupFileSizeAsync(
+        SqlConnection connection,
+        string databaseName,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            const string sql = @"
+                SELECT TOP 1 ISNULL(compressed_backup_size, backup_size)
+                FROM msdb.dbo.backupset
+                WHERE database_name = @DatabaseName
+                ORDER BY backup_finish_date DESC";
+
+            await using var command = new SqlCommand(sql, connection);
+            command.Parameters.AddWithValue("@DatabaseName", databaseName);
+            var result = await command.ExecuteScalarAsync(cancellationToken);
+            return result is decimal size ? (long)size : 0;
+        }
+        catch
+        {
+            // msdb 查詢失敗時回傳 0
+            return 0;
+        }
+    }
+
+    /// <summary>
+    /// 查詢 SQL Server 伺服器端的預設資料檔目錄
+    /// </summary>
+    private static async Task<string?> GetServerDefaultDataPathAsync(
+        SqlConnection connection,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            const string sql = "SELECT SERVERPROPERTY('InstanceDefaultDataPath')";
+            await using var command = new SqlCommand(sql, connection);
+            var result = await command.ExecuteScalarAsync(cancellationToken);
+            return result?.ToString();
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     #endregion

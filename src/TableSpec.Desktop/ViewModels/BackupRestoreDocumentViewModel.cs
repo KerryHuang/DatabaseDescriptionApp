@@ -171,6 +171,26 @@ public partial class BackupRestoreDocumentViewModel : DocumentViewModel
     [ObservableProperty]
     private int _selectedTabIndex;
 
+    /// <summary>
+    /// 切換到還原分頁時，自動帶入上一次備份路徑
+    /// </summary>
+    partial void OnSelectedTabIndexChanged(int value)
+    {
+        if (value == 1 && string.IsNullOrWhiteSpace(RestoreFilePath))
+        {
+            var connectionId = SelectedProfile?.Id ?? RestoreTargetProfile?.Id;
+            if (connectionId.HasValue)
+            {
+                var history = _backupService?.GetBackupHistory();
+                var lastBackup = history?.GetLatestBackup(connectionId.Value);
+                if (lastBackup != null)
+                {
+                    RestoreFilePath = lastBackup.BackupFilePath;
+                }
+            }
+        }
+    }
+
     #endregion
 
     /// <summary>
@@ -396,6 +416,9 @@ public partial class BackupRestoreDocumentViewModel : DocumentViewModel
             StatusMessage = $"備份完成：{backupInfo.FormattedFileSize}";
             UpdateLastBackupInfo(SelectedProfile.Id);
             LoadBackupHistory();
+
+            // 將備份路徑帶入還原路徑，方便後續還原操作
+            RestoreFilePath = BackupPath;
 
             // 重新產生預設路徑
             GenerateDefaultBackupPath();

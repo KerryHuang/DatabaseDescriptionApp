@@ -29,4 +29,14 @@ public class IndexInfo
     /// 是否為主鍵索引
     /// </summary>
     public bool IsPrimaryKey { get; init; }
+
+    /// <summary>
+    /// 統計資訊建立/更新時間（近似索引建立時間）
+    /// </summary>
+    public DateTime? CreateDate { get; init; }
+
+    /// <summary>
+    /// 欄位名稱的顯示文字（逗號分隔）
+    /// </summary>
+    public string ColumnsDisplay => string.Join(", ", Columns);
 }

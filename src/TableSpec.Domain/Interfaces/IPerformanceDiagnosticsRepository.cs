@@ -51,4 +51,11 @@ public interface IPerformanceDiagnosticsRepository
     /// 取得缺少索引建議（耗時較長，需手動觸發）
     /// </summary>
     Task<IReadOnlyList<MissingIndex>> GetMissingIndexesAsync(CancellationToken ct = default);
+
+    /// <summary>
+    /// 執行建立索引語法
+    /// </summary>
+    /// <param name="createIndexStatement">CREATE INDEX 語法</param>
+    /// <param name="ct">取消權杖</param>
+    Task ExecuteCreateIndexAsync(string createIndexStatement, CancellationToken ct = default);
 }

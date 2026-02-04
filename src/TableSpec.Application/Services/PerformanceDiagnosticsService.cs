@@ -46,4 +46,8 @@ public class PerformanceDiagnosticsService : IPerformanceDiagnosticsService
     /// <inheritdoc/>
     public Task<IReadOnlyList<MissingIndex>> GetMissingIndexesAsync(CancellationToken ct = default)
         => _repository.GetMissingIndexesAsync(ct);
+
+    /// <inheritdoc/>
+    public Task ExecuteCreateIndexAsync(string createIndexStatement, CancellationToken ct = default)
+        => _repository.ExecuteCreateIndexAsync(createIndexStatement, ct);
 }

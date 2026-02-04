@@ -47,6 +47,13 @@ public class TableQueryService : ITableQueryService
         CancellationToken ct = default)
         => _indexRepository.GetIndexesAsync(schema, tableName, ct);
 
+    public Task DropIndexAsync(
+        string schema,
+        string tableName,
+        string indexName,
+        CancellationToken ct = default)
+        => _indexRepository.DropIndexAsync(schema, tableName, indexName, ct);
+
     public Task<IReadOnlyList<RelationInfo>> GetRelationsAsync(
         string schema,
         string tableName,

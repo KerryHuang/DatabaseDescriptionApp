@@ -296,6 +296,25 @@ public partial class MainWindowViewModel : ViewModelBase
     }
 
     [RelayCommand]
+    private void OpenMissingIndexReport()
+    {
+        // 檢查是否已開啟
+        var existing = Documents.OfType<MissingIndexReportDocumentViewModel>().FirstOrDefault();
+        if (existing != null)
+        {
+            SelectedDocument = existing;
+            return;
+        }
+
+        var doc = App.Services?.GetRequiredService<MissingIndexReportDocumentViewModel>()
+            ?? new MissingIndexReportDocumentViewModel();
+        doc.ConfirmExecuteCallback = ConfirmSaveCallback;
+        doc.CloseRequested += OnDocumentCloseRequested;
+        Documents.Add(doc);
+        SelectedDocument = doc;
+    }
+
+    [RelayCommand]
     private void OpenBackupRestore()
     {
         // 檢查是否已開啟

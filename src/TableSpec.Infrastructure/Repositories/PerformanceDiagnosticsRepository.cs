@@ -394,6 +394,8 @@ ORDER BY IndexSizeMB DESC;";
 
         const string sql = @"
 SELECT
+    DB_NAME(mid.database_id) AS DatabaseName,
+    ISNULL(OBJECT_SCHEMA_NAME(mid.object_id, mid.database_id), '') AS SchemaName,
     mid.statement AS TableName,
     migs.avg_total_user_cost * (migs.avg_user_impact / 100.0) * (migs.user_seeks + migs.user_scans) AS ImprovementMeasure,
     'CREATE INDEX [missing_index_' + CONVERT(VARCHAR, mig.index_group_handle) + '_' + CONVERT(VARCHAR, mid.index_handle)
@@ -424,5 +426,16 @@ ORDER BY migs.avg_total_user_cost * migs.avg_user_impact * (migs.user_seeks + mi
 
         var result = await connection.QueryAsync<MissingIndex>(sql, commandTimeout: 300);
         return result.ToList();
+    }
+
+    /// <inheritdoc/>
+    public async Task ExecuteCreateIndexAsync(string createIndexStatement, CancellationToken ct = default)
+    {
+        var connectionString = _connectionStringProvider();
+        if (string.IsNullOrEmpty(connectionString))
+            throw new InvalidOperationException("尚未建立資料庫連線");
+
+        await using var connection = new SqlConnection(connectionString);
+        await connection.ExecuteAsync(createIndexStatement, commandTimeout: 600);
     }
 }

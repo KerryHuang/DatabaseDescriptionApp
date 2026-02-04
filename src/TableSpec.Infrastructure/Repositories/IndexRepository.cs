@@ -41,6 +41,7 @@ SELECT
     END AS Type,
     i.is_unique AS IsUnique,
     i.is_primary_key AS IsPrimaryKey,
+    STATS_DATE(i.object_id, i.index_id) AS CreateDate,
     STUFF((
         SELECT ', ' + c.name
         FROM sys.index_columns ic
@@ -76,8 +77,27 @@ ORDER BY
             Type = r.Type,
             IsUnique = r.IsUnique,
             IsPrimaryKey = r.IsPrimaryKey,
+            CreateDate = r.CreateDate,
             Columns = r.ColumnsString?.Split(", ", StringSplitOptions.RemoveEmptyEntries) ?? Array.Empty<string>()
         }).ToList();
+    }
+
+    /// <inheritdoc/>
+    public async Task DropIndexAsync(
+        string schema,
+        string tableName,
+        string indexName,
+        CancellationToken ct = default)
+    {
+        var connectionString = _connectionStringProvider();
+        if (string.IsNullOrEmpty(connectionString))
+            throw new InvalidOperationException("尚未建立資料庫連線");
+
+        // 使用參數化的方式組合 DROP INDEX 語法（索引名稱和資料表名稱不能用參數化，但來源為系統資料）
+        var sql = $"DROP INDEX [{indexName}] ON [{schema}].[{tableName}]";
+
+        await using var connection = new SqlConnection(connectionString);
+        await connection.ExecuteAsync(sql, commandTimeout: 120);
     }
 
     private class IndexRawDto
@@ -86,6 +106,7 @@ ORDER BY
         public required string Type { get; init; }
         public bool IsUnique { get; init; }
         public bool IsPrimaryKey { get; init; }
+        public DateTime? CreateDate { get; init; }
         public string? ColumnsString { get; init; }
     }
 }

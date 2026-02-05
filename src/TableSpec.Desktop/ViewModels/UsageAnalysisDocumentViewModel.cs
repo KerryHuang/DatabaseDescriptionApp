@@ -27,6 +27,10 @@ public partial class UsageAnalysisDocumentViewModel : DocumentViewModel
 
     // === 模式切換 ===
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowSingleTableGrid))]
+    [NotifyPropertyChangedFor(nameof(ShowSingleColumnGrid))]
+    [NotifyPropertyChangedFor(nameof(ShowCompareTableGrid))]
+    [NotifyPropertyChangedFor(nameof(ShowCompareColumnGrid))]
     private bool _isCompareMode;
 
     // === 操作參數 ===
@@ -44,10 +48,18 @@ public partial class UsageAnalysisDocumentViewModel : DocumentViewModel
     private string _progressMessage = string.Empty;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowSingleTableGrid))]
+    [NotifyPropertyChangedFor(nameof(ShowSingleColumnGrid))]
+    [NotifyPropertyChangedFor(nameof(ShowCompareTableGrid))]
+    [NotifyPropertyChangedFor(nameof(ShowCompareColumnGrid))]
     private bool _hasData;
 
     // === 維度切換 ===
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowSingleTableGrid))]
+    [NotifyPropertyChangedFor(nameof(ShowSingleColumnGrid))]
+    [NotifyPropertyChangedFor(nameof(ShowCompareTableGrid))]
+    [NotifyPropertyChangedFor(nameof(ShowCompareColumnGrid))]
     private bool _isColumnDimension;
 
     // === 篩選 ===
@@ -69,6 +81,19 @@ public partial class UsageAnalysisDocumentViewModel : DocumentViewModel
 
     [ObservableProperty]
     private int _unusedColumnCount;
+
+    // === 可見性計算屬性 ===
+    /// <summary>顯示單環境資料表 DataGrid</summary>
+    public bool ShowSingleTableGrid => !IsCompareMode && !IsColumnDimension && HasData;
+
+    /// <summary>顯示單環境欄位 DataGrid</summary>
+    public bool ShowSingleColumnGrid => !IsCompareMode && IsColumnDimension && HasData;
+
+    /// <summary>顯示多環境比對資料表 DataGrid</summary>
+    public bool ShowCompareTableGrid => IsCompareMode && !IsColumnDimension && HasData;
+
+    /// <summary>顯示多環境比對欄位 DataGrid</summary>
+    public bool ShowCompareColumnGrid => IsCompareMode && IsColumnDimension && HasData;
 
     // === 單環境結果 ===
     public ObservableCollection<TableUsageInfo> TableResults { get; } = [];

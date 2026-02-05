@@ -140,6 +140,13 @@
                             <TextBlock Text="📈" FontSize="14"/>
                         </MenuItem.Icon>
                     </MenuItem>
+                    <Separator/>
+                    <MenuItem Header="使用狀態分析(_A)" Command="{Binding OpenUsageAnalysisCommand}" IsEnabled="{Binding IsConnected}"
+                              ToolTip.Tip="分析資料表與欄位的使用狀態，支援多環境比對，可刪除未使用項目">
+                        <MenuItem.Icon>
+                            <TextBlock Text="🔬" FontSize="14"/>
+                        </MenuItem.Icon>
+                    </MenuItem>
                 </MenuItem>
                 <MenuItem Header="說明(_H)">
                     <MenuItem Header="關於 TableSpec(_A)" Command="{Binding ShowAboutCommand}"

@@ -60,6 +60,13 @@ public interface IConnectionManager
     string? GetConnectionString(Guid profileId);
 
     /// <summary>
+    /// 取得指定連線設定的名稱
+    /// </summary>
+    /// <param name="profileId">連線設定檔 ID</param>
+    /// <returns>連線設定名稱，若找不到則回傳 ID 字串</returns>
+    string GetProfileName(Guid profileId);
+
+    /// <summary>
     /// 連線變更事件
     /// </summary>
     event EventHandler<ConnectionProfile?>? CurrentProfileChanged;

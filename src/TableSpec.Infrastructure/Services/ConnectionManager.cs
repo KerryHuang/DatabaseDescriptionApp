@@ -158,6 +158,12 @@ public class ConnectionManager : IConnectionManager
         return profile != null ? BuildConnectionString(profile) : null;
     }
 
+    public string GetProfileName(Guid profileId)
+    {
+        var profile = _profiles.FirstOrDefault(p => p.Id == profileId);
+        return profile?.Name ?? profileId.ToString();
+    }
+
     private static string GetConfigPath()
     {
         var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);

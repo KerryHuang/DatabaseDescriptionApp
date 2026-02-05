@@ -86,6 +86,25 @@ public class TableUsageInfoTests
     }
 
     [Fact]
+    public void HasQueryActivity_僅有Scans無Seeks和Lookups_應為False()
+    {
+        var info = new TableUsageInfo
+        {
+            SchemaName = "dbo",
+            TableName = "ScannedOnly",
+            UserSeeks = 0,
+            UserScans = 5,
+            UserLookups = 0,
+            UserUpdates = 0,
+            LastUserSeek = null,
+            LastUserScan = DateTime.Now.AddDays(-1),
+            LastUserUpdate = null
+        };
+
+        info.HasQueryActivity.Should().BeFalse();
+    }
+
+    [Fact]
     public void FullTableName_應回傳Schema加表名()
     {
         var info = new TableUsageInfo

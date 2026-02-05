@@ -30,7 +30,7 @@
                     <TextBlock Text="近" VerticalAlignment="Center" Margin="0,0,4,0"/>
                     <NumericUpDown Value="{Binding YearsThreshold}"
                                    Minimum="1" Maximum="10"
-                                   Width="80" Margin="0,0,4,0"
+                                   Width="120" Margin="0,0,4,0"
                                    FormatString="0"/>
                     <TextBlock Text="年未使用" VerticalAlignment="Center" Margin="0,0,16,0"/>
 
@@ -147,15 +147,50 @@
                       GridLinesVisibility="Horizontal"
                       IsVisible="{Binding ShowSingleTableGrid}">
                 <DataGrid.Columns>
-                    <DataGridTextColumn Header="Schema" Binding="{Binding SchemaName}" Width="80"/>
-                    <DataGridTextColumn Header="資料表" Binding="{Binding TableName}" Width="200"/>
-                    <DataGridTextColumn Header="Seeks" Binding="{Binding UserSeeks, StringFormat=N0}" Width="100"/>
-                    <DataGridTextColumn Header="Scans" Binding="{Binding UserScans, StringFormat=N0}" Width="100"/>
-                    <DataGridTextColumn Header="Lookups" Binding="{Binding UserLookups, StringFormat=N0}" Width="100"/>
-                    <DataGridTextColumn Header="更新次數" Binding="{Binding UserUpdates, StringFormat=N0}" Width="100"/>
-                    <DataGridTextColumn Header="最後查詢" Binding="{Binding LastUserSeek, StringFormat=yyyy-MM-dd HH:mm}" Width="140"/>
-                    <DataGridTextColumn Header="最後更新" Binding="{Binding LastUserUpdate, StringFormat=yyyy-MM-dd HH:mm}" Width="140"/>
-                    <DataGridTemplateColumn Header="狀態" Width="80">
+                    <DataGridTextColumn Binding="{Binding SchemaName}" Width="80">
+                        <DataGridTextColumn.Header>
+                            <TextBlock Text="Schema" ToolTip.Tip="資料表所屬的結構描述（Schema）"/>
+                        </DataGridTextColumn.Header>
+                    </DataGridTextColumn>
+                    <DataGridTextColumn Binding="{Binding TableName}" Width="200">
+                        <DataGridTextColumn.Header>
+                            <TextBlock Text="資料表" ToolTip.Tip="資料表名稱"/>
+                        </DataGridTextColumn.Header>
+                    </DataGridTextColumn>
+                    <DataGridTextColumn Binding="{Binding UserSeeks, StringFormat=N0}" Width="100">
+                        <DataGridTextColumn.Header>
+                            <TextBlock Text="Seeks" ToolTip.Tip="索引搜尋次數：透過索引精確查找資料的次數，數值越高代表該表越常被查詢"/>
+                        </DataGridTextColumn.Header>
+                    </DataGridTextColumn>
+                    <DataGridTextColumn Binding="{Binding UserScans, StringFormat=N0}" Width="100">
+                        <DataGridTextColumn.Header>
+                            <TextBlock Text="Scans" ToolTip.Tip="索引掃描次數：完整掃描索引的次數（僅供參考，不列入使用判斷，因分析工具本身也會產生掃描）"/>
+                        </DataGridTextColumn.Header>
+                    </DataGridTextColumn>
+                    <DataGridTextColumn Binding="{Binding UserLookups, StringFormat=N0}" Width="100">
+                        <DataGridTextColumn.Header>
+                            <TextBlock Text="Lookups" ToolTip.Tip="書籤查閱次數：透過索引查找後回到資料表取得其他欄位的次數"/>
+                        </DataGridTextColumn.Header>
+                    </DataGridTextColumn>
+                    <DataGridTextColumn Binding="{Binding UserUpdates, StringFormat=N0}" Width="100">
+                        <DataGridTextColumn.Header>
+                            <TextBlock Text="更新次數" ToolTip.Tip="透過 INSERT、UPDATE、DELETE 等操作更新索引的次數"/>
+                        </DataGridTextColumn.Header>
+                    </DataGridTextColumn>
+                    <DataGridTextColumn Binding="{Binding LastUserSeek, StringFormat=yyyy-MM-dd HH:mm}" Width="140">
+                        <DataGridTextColumn.Header>
+                            <TextBlock Text="最後查詢" ToolTip.Tip="最後一次使用索引搜尋或掃描資料的時間"/>
+                        </DataGridTextColumn.Header>
+                    </DataGridTextColumn>
+                    <DataGridTextColumn Binding="{Binding LastUserUpdate, StringFormat=yyyy-MM-dd HH:mm}" Width="140">
+                        <DataGridTextColumn.Header>
+                            <TextBlock Text="最後更新" ToolTip.Tip="最後一次透過 INSERT、UPDATE、DELETE 更新資料的時間"/>
+                        </DataGridTextColumn.Header>
+                    </DataGridTextColumn>
+                    <DataGridTemplateColumn Width="80">
+                        <DataGridTemplateColumn.Header>
+                            <TextBlock Text="狀態" ToolTip.Tip="是否有查詢活動：依 Seeks + Lookups 判斷（排除 Scans，避免工具掃描干擾）"/>
+                        </DataGridTemplateColumn.Header>
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate x:DataType="domain:TableUsageInfo">
                                 <TextBlock Text="{Binding HasQueryActivity}"
@@ -164,7 +199,10 @@
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
-                    <DataGridTemplateColumn Header="操作" Width="80">
+                    <DataGridTemplateColumn Width="80">
+                        <DataGridTemplateColumn.Header>
+                            <TextBlock Text="操作" ToolTip.Tip="對未使用的資料表執行刪除操作（會先預覽 SQL 並確認）"/>
+                        </DataGridTemplateColumn.Header>
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate x:DataType="domain:TableUsageInfo">
                                 <Button Content="刪除"
@@ -189,17 +227,60 @@
                       GridLinesVisibility="Horizontal"
                       IsVisible="{Binding ShowSingleColumnGrid}">
                 <DataGrid.Columns>
-                    <DataGridTextColumn Header="Schema" Binding="{Binding SchemaName}" Width="80"/>
-                    <DataGridTextColumn Header="資料表" Binding="{Binding TableName}" Width="160"/>
-                    <DataGridTextColumn Header="欄位" Binding="{Binding ColumnName}" Width="160"/>
-                    <DataGridTextColumn Header="資料型別" Binding="{Binding DataType}" Width="120"/>
-                    <DataGridCheckBoxColumn Header="查詢引用" Binding="{Binding IsReferencedInQueries}" Width="80"/>
-                    <DataGridCheckBoxColumn Header="全為NULL" Binding="{Binding IsAllNull}" Width="80"/>
-                    <DataGridCheckBoxColumn Header="全為預設值" Binding="{Binding IsAllDefault}" Width="90"/>
-                    <DataGridCheckBoxColumn Header="PK" Binding="{Binding IsPrimaryKey}" Width="50"/>
-                    <DataGridCheckBoxColumn Header="FK" Binding="{Binding IsForeignKey}" Width="50"/>
-                    <DataGridCheckBoxColumn Header="Identity" Binding="{Binding IsIdentity}" Width="70"/>
-                    <DataGridTemplateColumn Header="狀態" Width="80">
+                    <DataGridTextColumn Binding="{Binding SchemaName}" Width="80">
+                        <DataGridTextColumn.Header>
+                            <TextBlock Text="Schema" ToolTip.Tip="資料表所屬的結構描述（Schema）"/>
+                        </DataGridTextColumn.Header>
+                    </DataGridTextColumn>
+                    <DataGridTextColumn Binding="{Binding TableName}" Width="160">
+                        <DataGridTextColumn.Header>
+                            <TextBlock Text="資料表" ToolTip.Tip="欄位所屬的資料表名稱"/>
+                        </DataGridTextColumn.Header>
+                    </DataGridTextColumn>
+                    <DataGridTextColumn Binding="{Binding ColumnName}" Width="160">
+                        <DataGridTextColumn.Header>
+                            <TextBlock Text="欄位" ToolTip.Tip="欄位名稱"/>
+                        </DataGridTextColumn.Header>
+                    </DataGridTextColumn>
+                    <DataGridTextColumn Binding="{Binding DataType}" Width="120">
+                        <DataGridTextColumn.Header>
+                            <TextBlock Text="資料型別" ToolTip.Tip="欄位的 SQL Server 資料類型"/>
+                        </DataGridTextColumn.Header>
+                    </DataGridTextColumn>
+                    <DataGridCheckBoxColumn Binding="{Binding IsReferencedInQueries}" Width="80">
+                        <DataGridCheckBoxColumn.Header>
+                            <TextBlock Text="查詢引用" ToolTip.Tip="該欄位是否在快取的查詢計畫中被引用（SELECT、WHERE、JOIN 等）"/>
+                        </DataGridCheckBoxColumn.Header>
+                    </DataGridCheckBoxColumn>
+                    <DataGridCheckBoxColumn Binding="{Binding IsAllNull}" Width="80">
+                        <DataGridCheckBoxColumn.Header>
+                            <TextBlock Text="全為NULL" ToolTip.Tip="該欄位所有資料列的值是否皆為 NULL"/>
+                        </DataGridCheckBoxColumn.Header>
+                    </DataGridCheckBoxColumn>
+                    <DataGridCheckBoxColumn Binding="{Binding IsAllDefault}" Width="90">
+                        <DataGridCheckBoxColumn.Header>
+                            <TextBlock Text="全為預設值" ToolTip.Tip="該欄位所有資料列的值是否皆等於預設值（代表可能從未被有效寫入）"/>
+                        </DataGridCheckBoxColumn.Header>
+                    </DataGridCheckBoxColumn>
+                    <DataGridCheckBoxColumn Binding="{Binding IsPrimaryKey}" Width="50">
+                        <DataGridCheckBoxColumn.Header>
+                            <TextBlock Text="PK" ToolTip.Tip="是否為主鍵（Primary Key），主鍵欄位一律視為使用中"/>
+                        </DataGridCheckBoxColumn.Header>
+                    </DataGridCheckBoxColumn>
+                    <DataGridCheckBoxColumn Binding="{Binding IsForeignKey}" Width="50">
+                        <DataGridCheckBoxColumn.Header>
+                            <TextBlock Text="FK" ToolTip.Tip="是否為外鍵（Foreign Key），外鍵欄位一律視為使用中"/>
+                        </DataGridCheckBoxColumn.Header>
+                    </DataGridCheckBoxColumn>
+                    <DataGridCheckBoxColumn Binding="{Binding IsIdentity}" Width="70">
+                        <DataGridCheckBoxColumn.Header>
+                            <TextBlock Text="Identity" ToolTip.Tip="是否為自動編號欄位（Identity），Identity 欄位一律視為使用中"/>
+                        </DataGridCheckBoxColumn.Header>
+                    </DataGridCheckBoxColumn>
+                    <DataGridTemplateColumn Width="80">
+                        <DataGridTemplateColumn.Header>
+                            <TextBlock Text="狀態" ToolTip.Tip="綜合判斷：PK/FK/Identity 一律使用中；否則依查詢引用、NULL、預設值判斷"/>
+                        </DataGridTemplateColumn.Header>
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate x:DataType="domain:ColumnUsageStatus">
                                 <TextBlock HorizontalAlignment="Center"
@@ -209,7 +290,10 @@
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
-                    <DataGridTemplateColumn Header="操作" Width="80">
+                    <DataGridTemplateColumn Width="80">
+                        <DataGridTemplateColumn.Header>
+                            <TextBlock Text="操作" ToolTip.Tip="對未使用的欄位執行刪除操作（會先預覽 SQL 並確認）"/>
+                        </DataGridTemplateColumn.Header>
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate x:DataType="domain:ColumnUsageStatus">
                                 <Button Content="刪除"

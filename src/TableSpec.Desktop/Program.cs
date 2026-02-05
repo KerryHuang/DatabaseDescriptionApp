@@ -150,6 +150,10 @@ sealed class Program
         services.AddTransient<UnusedIndexReportDocumentViewModel>(sp =>
             new UnusedIndexReportDocumentViewModel(
                 sp.GetRequiredService<IPerformanceDiagnosticsService>()));
+        services.AddTransient<UsageAnalysisDocumentViewModel>(sp =>
+            new UsageAnalysisDocumentViewModel(
+                sp.GetRequiredService<IUsageAnalysisService>(),
+                sp.GetRequiredService<IConnectionManager>()));
 
         return services.BuildServiceProvider();
     }

@@ -99,6 +99,17 @@ sealed class Program
         // Application - Table Statistics Service
         services.AddSingleton<ITableStatisticsService, TableStatisticsService>();
 
+        // Infrastructure - Usage Analysis
+        services.AddSingleton<IUsageAnalysisRepository>(sp =>
+            new UsageAnalysisRepository(() => sp.GetRequiredService<IConnectionManager>().GetCurrentConnectionString()));
+
+        // Application - Usage Analysis Service
+        services.AddSingleton<IUsageAnalysisService>(sp =>
+            new UsageAnalysisService(
+                sp.GetRequiredService<IUsageAnalysisRepository>(),
+                sp.GetRequiredService<IConnectionManager>(),
+                connStr => new UsageAnalysisRepository(() => connStr)));
+
         // ViewModels
         services.AddTransient<MainWindowViewModel>(sp =>
             new MainWindowViewModel(

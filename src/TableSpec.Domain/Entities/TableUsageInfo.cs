@@ -32,8 +32,8 @@ public class TableUsageInfo
     /// <summary>最後更新時間</summary>
     public DateTime? LastUserUpdate { get; init; }
 
-    /// <summary>是否有查詢活動（seek/scan/lookup > 0）</summary>
-    public bool HasQueryActivity => UserSeeks + UserScans + UserLookups > 0;
+    /// <summary>是否有查詢活動（seek/lookup > 0，排除 scan 因工具掃描會產生干擾）</summary>
+    public bool HasQueryActivity => UserSeeks + UserLookups > 0;
 
     /// <summary>近 N 年是否有更新</summary>
     public bool HasRecentUpdate(int years)

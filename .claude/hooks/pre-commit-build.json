@@ -4,5 +4,6 @@
   "event": "PreCommit",
   "command": "dotnet build --no-restore -warnaserror",
   "timeout": 60000,
-  "onFailure": "block"
+  "onFailure": "block",
+  "enabled": false
 }

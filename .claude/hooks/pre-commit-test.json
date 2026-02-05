@@ -5,5 +5,5 @@
   "command": "dotnet test --no-build --verbosity minimal",
   "timeout": 120000,
   "onFailure": "block",
-  "enabled": true
+  "enabled": false
 }

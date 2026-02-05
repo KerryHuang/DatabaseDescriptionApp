@@ -334,6 +334,25 @@ public partial class MainWindowViewModel : ViewModelBase
     }
 
     [RelayCommand]
+    private void OpenUsageAnalysis()
+    {
+        // 檢查是否已開啟
+        var existing = Documents.OfType<UsageAnalysisDocumentViewModel>().FirstOrDefault();
+        if (existing != null)
+        {
+            SelectedDocument = existing;
+            return;
+        }
+
+        var doc = App.Services?.GetRequiredService<UsageAnalysisDocumentViewModel>()
+            ?? new UsageAnalysisDocumentViewModel();
+        doc.ConfirmExecuteCallback = ConfirmSaveCallback;
+        doc.CloseRequested += OnDocumentCloseRequested;
+        Documents.Add(doc);
+        SelectedDocument = doc;
+    }
+
+    [RelayCommand]
     private void OpenBackupRestore()
     {
         // 檢查是否已開啟

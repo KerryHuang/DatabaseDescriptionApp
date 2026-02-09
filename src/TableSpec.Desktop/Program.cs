@@ -110,6 +110,12 @@ sealed class Program
                 sp.GetRequiredService<IConnectionManager>(),
                 connStr => new UsageAnalysisRepository(() => connStr)));
 
+        // Application - Column Search Service（多資料庫搜尋）
+        services.AddSingleton<IColumnSearchService>(sp =>
+            new ColumnSearchService(
+                sp.GetRequiredService<IConnectionManager>(),
+                connStr => new SqlQueryRepository(() => connStr)));
+
         // ViewModels
         services.AddTransient<MainWindowViewModel>(sp =>
             new MainWindowViewModel(
@@ -154,6 +160,13 @@ sealed class Program
             new UsageAnalysisDocumentViewModel(
                 sp.GetRequiredService<IUsageAnalysisService>(),
                 sp.GetRequiredService<IConnectionManager>()));
+        services.AddTransient<ColumnSearchDocumentViewModel>(sp =>
+            new ColumnSearchDocumentViewModel(
+                sp.GetRequiredService<ISqlQueryRepository>(),
+                sp.GetRequiredService<IColumnTypeRepository>(),
+                sp.GetRequiredService<IConnectionManager>(),
+                sp.GetRequiredService<ITableQueryService>(),
+                sp.GetRequiredService<IColumnSearchService>()));
 
         return services.BuildServiceProvider();
     }

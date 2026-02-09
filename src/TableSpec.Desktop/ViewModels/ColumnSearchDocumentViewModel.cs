@@ -20,6 +20,7 @@ public partial class ColumnSearchDocumentViewModel : DocumentViewModel
     private readonly IColumnTypeRepository? _columnTypeRepository;
     private readonly IConnectionManager? _connectionManager;
     private readonly ITableQueryService? _tableQueryService;
+    private readonly IColumnSearchService? _columnSearchService;
     private static int _instanceCount;
 
     [ObservableProperty]
@@ -59,6 +60,9 @@ public partial class ColumnSearchDocumentViewModel : DocumentViewModel
     private string _batchUpdateProgress = string.Empty;
 
     [ObservableProperty]
+    private bool _isExactMatch;
+
+    [ObservableProperty]
     private ColumnSearchResult? _selectedSearchResult;
 
     [ObservableProperty]
@@ -74,6 +78,11 @@ public partial class ColumnSearchDocumentViewModel : DocumentViewModel
     public ObservableCollection<ColumnSearchResult> ColumnSearchResults { get; } = [];
     public ObservableCollection<ColumnTypeGroupViewModel> ColumnGroups { get; } = [];
     public ObservableCollection<ColumnTypeInfo> FilteredColumns { get; } = [];
+
+    /// <summary>
+    /// 可勾選的連線設定清單（用於多資料庫搜尋）
+    /// </summary>
+    public ObservableCollection<SelectableProfile> SelectableProfiles { get; } = [];
 
     /// <summary>
     /// 篩選選項
@@ -98,12 +107,14 @@ public partial class ColumnSearchDocumentViewModel : DocumentViewModel
         ISqlQueryRepository sqlQueryRepository,
         IColumnTypeRepository columnTypeRepository,
         IConnectionManager connectionManager,
-        ITableQueryService tableQueryService)
+        ITableQueryService tableQueryService,
+        IColumnSearchService columnSearchService)
     {
         _sqlQueryRepository = sqlQueryRepository;
         _columnTypeRepository = columnTypeRepository;
         _connectionManager = connectionManager;
         _tableQueryService = tableQueryService;
+        _columnSearchService = columnSearchService;
         _instanceId = ++_instanceCount;
         Title = $"欄位搜尋 {_instanceId}";
         Icon = "🔍";
@@ -115,26 +126,30 @@ public partial class ColumnSearchDocumentViewModel : DocumentViewModel
     private void LoadConnectionProfiles()
     {
         ConnectionProfiles.Clear();
+        SelectableProfiles.Clear();
         var profiles = _connectionManager?.GetAllProfiles() ?? [];
         foreach (var profile in profiles)
         {
             ConnectionProfiles.Add(profile);
+            SelectableProfiles.Add(new SelectableProfile { Profile = profile });
         }
 
-        // 選擇目前的連線
+        // 選擇目前的連線（用於操作連線），並預設勾選
         var currentProfile = _connectionManager?.GetCurrentProfile();
         if (currentProfile != null)
         {
             SelectedProfile = ConnectionProfiles.FirstOrDefault(p => p.Id == currentProfile.Id);
+            var selectable = SelectableProfiles.FirstOrDefault(sp => sp.Profile.Id == currentProfile.Id);
+            if (selectable != null) selectable.IsSelected = true;
         }
     }
 
     partial void OnSelectedProfileChanged(ConnectionProfile? value)
     {
+        // SelectedProfile 用於型態分析和套用說明等寫入操作
         if (value != null && _connectionManager != null)
         {
             _connectionManager.SetCurrentProfile(value.Id);
-            StatusMessage = $"已切換至：{value.Name}";
         }
     }
 
@@ -194,8 +209,19 @@ public partial class ColumnSearchDocumentViewModel : DocumentViewModel
     [RelayCommand]
     private async Task SearchColumnsAsync()
     {
-        if (_sqlQueryRepository == null || string.IsNullOrWhiteSpace(ColumnSearchText))
+        if (string.IsNullOrWhiteSpace(ColumnSearchText))
             return;
+
+        var selectedProfileIds = SelectableProfiles
+            .Where(sp => sp.IsSelected)
+            .Select(sp => sp.Profile.Id)
+            .ToList();
+
+        if (selectedProfileIds.Count == 0)
+        {
+            StatusMessage = "請至少勾選一個資料庫連線";
+            return;
+        }
 
         try
         {
@@ -205,14 +231,51 @@ public partial class ColumnSearchDocumentViewModel : DocumentViewModel
             ColumnGroups.Clear();
             ShowTypeAnalysis = false;
 
-            var results = await _sqlQueryRepository.SearchColumnsAsync(ColumnSearchText.Trim());
+            // 自動設定操作連線為第一個勾選的連線
+            var firstSelected = SelectableProfiles.FirstOrDefault(sp => sp.IsSelected);
+            if (firstSelected != null)
+            {
+                SelectedProfile = ConnectionProfiles.FirstOrDefault(p => p.Id == firstSelected.Profile.Id);
+            }
+
+            List<ColumnSearchResult> results;
+            var searchText = ColumnSearchText.Trim();
+
+            if (selectedProfileIds.Count == 1 && _sqlQueryRepository != null)
+            {
+                // 單一資料庫：使用原有邏輯
+                var profile = SelectableProfiles.First(sp => sp.IsSelected).Profile;
+                _connectionManager?.SetCurrentProfile(profile.Id);
+                results = await _sqlQueryRepository.SearchColumnsAsync(searchText, IsExactMatch);
+                foreach (var r in results)
+                    r.DatabaseName = profile.Database;
+            }
+            else if (_columnSearchService != null)
+            {
+                // 多資料庫：使用欄位搜尋服務
+                var progress = new Progress<string>(msg => StatusMessage = msg);
+                results = await _columnSearchService.SearchColumnsMultiAsync(
+                    searchText, selectedProfileIds, IsExactMatch, progress);
+            }
+            else
+            {
+                StatusMessage = "多資料庫搜尋服務未初始化";
+                return;
+            }
+
+            // 計算同名欄位出現次數最多的資料型別
+            ComputePrimaryDataTypes(results);
 
             foreach (var result in results)
             {
                 ColumnSearchResults.Add(result);
             }
 
-            StatusMessage = $"找到 {ColumnSearchResults.Count} 個符合的欄位/參數";
+            var dbCount = results.Select(r => r.DatabaseName).Distinct().Count();
+            var matchMode = IsExactMatch ? "完整比對" : "模糊搜尋";
+            StatusMessage = dbCount > 1
+                ? $"在 {dbCount} 個資料庫中找到 {ColumnSearchResults.Count} 個符合的欄位/參數（{matchMode}）"
+                : $"找到 {ColumnSearchResults.Count} 個符合的欄位/參數（{matchMode}）";
         }
         catch (Exception ex)
         {
@@ -623,5 +686,49 @@ public partial class ColumnSearchDocumentViewModel : DocumentViewModel
     private void CancelApplyDescription()
     {
         ShowApplyDescriptionConfirm = false;
+    }
+
+    /// <summary>
+    /// 全選搜尋連線
+    /// </summary>
+    [RelayCommand]
+    private void SelectAllProfiles()
+    {
+        foreach (var sp in SelectableProfiles)
+            sp.IsSelected = true;
+    }
+
+    /// <summary>
+    /// 取消全選搜尋連線
+    /// </summary>
+    [RelayCommand]
+    private void DeselectAllProfiles()
+    {
+        foreach (var sp in SelectableProfiles)
+            sp.IsSelected = false;
+    }
+
+    /// <summary>
+    /// 計算同名欄位中出現次數最多的資料型別，並填入 PrimaryDataType
+    /// </summary>
+    private static void ComputePrimaryDataTypes(List<ColumnSearchResult> results)
+    {
+        // 依欄位名稱分組（不區分大小寫），計算每個名稱中出現最多的資料型別
+        var primaryTypes = results
+            .GroupBy(r => r.ColumnName, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(
+                g => g.Key,
+                g => g.GroupBy(r => r.DataType, StringComparer.OrdinalIgnoreCase)
+                      .OrderByDescending(tg => tg.Count())
+                      .First().Key,
+                StringComparer.OrdinalIgnoreCase);
+
+        foreach (var result in results)
+        {
+            if (primaryTypes.TryGetValue(result.ColumnName, out var primaryType))
+            {
+                result.PrimaryDataType = primaryType;
+            }
+        }
     }
 }

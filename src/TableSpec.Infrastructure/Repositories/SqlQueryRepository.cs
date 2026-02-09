@@ -90,13 +90,21 @@ public class SqlQueryRepository : ISqlQueryRepository
         return result;
     }
 
-    public async Task<List<ColumnSearchResult>> SearchColumnsAsync(string columnName, CancellationToken ct = default)
+    public async Task<List<ColumnSearchResult>> SearchColumnsAsync(string columnName, bool exactMatch = false, CancellationToken ct = default)
     {
         var connectionString = _connectionStringProvider();
         if (string.IsNullOrEmpty(connectionString))
             return [];
 
-        const string sql = @"
+        // 依搜尋模式決定 WHERE 條件：精確比對用 =，模糊搜尋用 LIKE
+        var columnCondition = exactMatch
+            ? "c.name = @ColumnName"
+            : "c.name LIKE '%' + @ColumnName + '%'";
+        var paramCondition = exactMatch
+            ? "p.name = @ColumnName"
+            : "p.name LIKE '%' + @ColumnName + '%'";
+
+        var sql = $@"
             -- 搜尋 Tables 的欄位
             SELECT
                 c.name AS ColumnName,
@@ -119,7 +127,7 @@ public class SqlQueryRepository : ISqlQueryRepository
                 AND ep.minor_id = c.column_id
                 AND ep.name = 'MS_Description'
             WHERE o.type = 'U'
-                AND c.name LIKE '%' + @ColumnName + '%'
+                AND {columnCondition}
 
             UNION ALL
 
@@ -145,7 +153,7 @@ public class SqlQueryRepository : ISqlQueryRepository
                 AND ep.minor_id = c.column_id
                 AND ep.name = 'MS_Description'
             WHERE o.type = 'V'
-                AND c.name LIKE '%' + @ColumnName + '%'
+                AND {columnCondition}
 
             UNION ALL
 
@@ -167,7 +175,7 @@ public class SqlQueryRepository : ISqlQueryRepository
             FROM sys.parameters p
             INNER JOIN sys.objects o ON p.object_id = o.object_id
             WHERE o.type = 'P'
-                AND p.name LIKE '%' + @ColumnName + '%'
+                AND {paramCondition}
                 AND p.name <> ''
 
             UNION ALL
@@ -195,7 +203,7 @@ public class SqlQueryRepository : ISqlQueryRepository
             FROM sys.parameters p
             INNER JOIN sys.objects o ON p.object_id = o.object_id
             WHERE o.type IN ('FN', 'IF', 'TF')
-                AND p.name LIKE '%' + @ColumnName + '%'
+                AND {paramCondition}
                 AND p.name <> ''
 
             ORDER BY ObjectType, SchemaName, ObjectName, ColumnName";

@@ -2,6 +2,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:TableSpec.Desktop.ViewModels"
              xmlns:domain="using:TableSpec.Domain.Entities"
+             xmlns:iface="using:TableSpec.Domain.Interfaces"
              xmlns:converters="using:TableSpec.Desktop.Converters"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -26,18 +27,38 @@
         <!-- 工具列 -->
         <Border Grid.Row="0" Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}" Padding="10,8">
             <Grid ColumnDefinitions="Auto,*,Auto">
-                <!-- 左側：連線選擇 -->
-                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10">
-                    <TextBlock Text="連線：" VerticalAlignment="Center"/>
-                    <ComboBox MinWidth="180" VerticalAlignment="Center"
-                              ItemsSource="{Binding ConnectionProfiles}"
-                              SelectedItem="{Binding SelectedProfile}">
-                        <ComboBox.ItemTemplate>
-                            <DataTemplate x:DataType="domain:ConnectionProfile">
-                                <TextBlock Text="{Binding Name}"/>
-                            </DataTemplate>
-                        </ComboBox.ItemTemplate>
-                    </ComboBox>
+                <!-- 左側：搜尋連線選擇（多選） -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
+                    <TextBlock Text="搜尋連線：" VerticalAlignment="Center"/>
+                    <Button VerticalAlignment="Center"
+                            ToolTip.Tip="選擇要搜尋的資料庫連線（可多選）">
+                        <Button.Content>
+                            <StackPanel Orientation="Horizontal" Spacing="5">
+                                <TextBlock Text="🗄️" FontSize="14"/>
+                                <TextBlock Text="選擇資料庫..."/>
+                            </StackPanel>
+                        </Button.Content>
+                        <Button.Flyout>
+                            <Flyout Placement="BottomEdgeAlignedLeft">
+                                <StackPanel Spacing="5" MinWidth="220">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <Button Content="全選" Command="{Binding SelectAllProfilesCommand}" Padding="8,4"/>
+                                        <Button Content="取消全選" Command="{Binding DeselectAllProfilesCommand}" Padding="8,4"/>
+                                    </StackPanel>
+                                    <Separator/>
+                                    <ItemsControl ItemsSource="{Binding SelectableProfiles}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="vm:SelectableProfile">
+                                                <CheckBox IsChecked="{Binding IsSelected}"
+                                                          Content="{Binding Profile.Name}"
+                                                          Margin="0,2"/>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </Flyout>
+                        </Button.Flyout>
+                    </Button>
                 </StackPanel>
 
                 <!-- 中間：搜尋 -->
@@ -46,6 +67,10 @@
                     <TextBox Text="{Binding ColumnSearchText}"
                              Width="250"
                              Watermark="輸入欄位名稱關鍵字..."/>
+                    <CheckBox Content="完整比對"
+                              IsChecked="{Binding IsExactMatch}"
+                              VerticalAlignment="Center"
+                              ToolTip.Tip="勾選後使用精確比對（欄位名稱完全一致），取消勾選為模糊搜尋"/>
                     <Button Command="{Binding SearchColumnsCommand}"
                             IsEnabled="{Binding !IsSearching}">
                         <StackPanel Orientation="Horizontal" Spacing="5">
@@ -87,11 +112,31 @@
                           CanUserReorderColumns="True"
                           CanUserSortColumns="True">
                     <DataGrid.Columns>
+                        <DataGridTextColumn Header="資料庫" Binding="{Binding DatabaseName}" Width="120"/>
                         <DataGridTextColumn Header="欄位/參數名稱" Binding="{Binding ColumnName}" Width="150"/>
                         <DataGridTextColumn Header="物件類型" Binding="{Binding ObjectType}" Width="120"/>
                         <DataGridTextColumn Header="Schema" Binding="{Binding SchemaName}" Width="80"/>
                         <DataGridTextColumn Header="物件名稱" Binding="{Binding ObjectName}" Width="200"/>
                         <DataGridTextColumn Header="資料型別" Binding="{Binding DataType}" Width="120"/>
+                        <DataGridTemplateColumn Header="主要型別" Width="120">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate x:DataType="iface:ColumnSearchResult">
+                                    <Border CornerRadius="3" Padding="6,2" Margin="2"
+                                            HorizontalAlignment="Center">
+                                        <Border.Background>
+                                            <Binding Path="MatchesPrimaryDataType">
+                                                <Binding.Converter>
+                                                    <converters:ConsistentToColorConverter/>
+                                                </Binding.Converter>
+                                            </Binding>
+                                        </Border.Background>
+                                        <TextBlock Text="{Binding PrimaryDataType}"
+                                                   FontWeight="Bold" FontSize="11"
+                                                   Foreground="White"/>
+                                    </Border>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
                         <DataGridTextColumn Header="欄位說明" Binding="{Binding Description}" Width="*"/>
                     </DataGrid.Columns>
                 </DataGrid>

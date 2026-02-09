@@ -14,6 +14,23 @@ public class ColumnSearchResult
     public string DataType { get; set; } = string.Empty;
     public string? Description { get; set; }
 
+    /// <summary>
+    /// 來源資料庫名稱
+    /// </summary>
+    public string DatabaseName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// 同名欄位中出現次數最多的資料型別
+    /// </summary>
+    public string PrimaryDataType { get; set; } = string.Empty;
+
+    /// <summary>
+    /// 此欄位的資料型別是否與主要型別一致
+    /// </summary>
+    public bool MatchesPrimaryDataType =>
+        !string.IsNullOrEmpty(PrimaryDataType) &&
+        string.Equals(DataType, PrimaryDataType, System.StringComparison.OrdinalIgnoreCase);
+
     public string FullObjectName => $"{SchemaName}.{ObjectName}";
 }
 
@@ -35,5 +52,8 @@ public interface ISqlQueryRepository
     /// <summary>
     /// 搜尋欄位名稱
     /// </summary>
-    Task<List<ColumnSearchResult>> SearchColumnsAsync(string columnName, CancellationToken ct = default);
+    /// <param name="columnName">欄位名稱關鍵字</param>
+    /// <param name="exactMatch">是否精確比對（預設為模糊搜尋）</param>
+    /// <param name="ct">取消權杖</param>
+    Task<List<ColumnSearchResult>> SearchColumnsAsync(string columnName, bool exactMatch = false, CancellationToken ct = default);
 }

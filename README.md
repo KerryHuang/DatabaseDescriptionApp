@@ -83,6 +83,12 @@ TableSpec 是一個跨平台桌面應用程式，用於查詢和管理 SQL Serve
   - 分析索引維護成本
   - 支援直接刪除未使用索引
 
+### MCP Server（AI 整合）
+- **MCP 協定支援** - 透過 Model Context Protocol 讓 AI 助手直接存取資料庫結構
+- **27 個工具** - 涵蓋連線管理、資料表查詢、SQL 執行、效能診斷等完整功能
+- **stdio 傳輸** - 支援 Claude Code、Claude Desktop 等 MCP 客戶端
+- **共用連線設定** - 與桌面應用程式共用 `connections.json` 連線設定
+
 ## 快捷鍵
 
 | 快捷鍵 | 功能 |
@@ -113,6 +119,7 @@ TableSpec 是一個跨平台桌面應用程式，用於查詢和管理 SQL Serve
 |------|------|
 | UI Framework | Avalonia UI 11.x |
 | MVVM Toolkit | CommunityToolkit.Mvvm |
+| MCP Server | ModelContextProtocol (C# SDK) |
 | 資料庫存取 | Dapper + Microsoft.Data.SqlClient |
 | Excel 匯出 | ClosedXML |
 | 主題樣式 | Semi.Avalonia / Fluent Theme |
@@ -214,6 +221,17 @@ DatabaseDescriptionApp/
 │   │       ├── HealthMonitoringInstall.sql
 │   │       ├── HealthMonitoringUninstall.sql
 │   │       └── SyncScriptGenerator.cs
+│   │
+│   ├── TableSpec.McpServer/       # MCP Server：AI 整合
+│   │   ├── Program.cs
+│   │   └── Tools/
+│   │       ├── ConnectionTools.cs
+│   │       ├── TableTools.cs
+│   │       ├── SqlTools.cs
+│   │       ├── DescriptionTools.cs
+│   │       ├── PerformanceTools.cs
+│   │       ├── HealthTools.cs
+│   │       └── StatisticsTools.cs
 │   │
 │   └── TableSpec.Desktop/         # 桌面應用層：UI
 │       ├── Views/
@@ -418,6 +436,139 @@ dotnet publish src/TableSpec.Desktop -c Release -r linux-x64 --self-contained -p
 1. 按 Ctrl+J 或選單「工具 > 未使用索引報表」
 2. 檢視未被使用但持續維護的索引
 3. 可直接刪除不需要的索引以節省資源
+
+## MCP Server
+
+TableSpec MCP Server 讓 AI 助手（如 Claude Code、Claude Desktop）透過 [Model Context Protocol](https://modelcontextprotocol.io/) 直接存取資料庫結構資訊。
+
+### 架構
+
+```
+Domain → Application → Infrastructure
+                    ↘ Desktop (Avalonia UI)
+                    ↘ McpServer (stdio console app)
+```
+
+MCP Server 與桌面應用程式處於相同的架構層級，共用 Domain、Application、Infrastructure 三層的服務。
+
+### 建置 MCP Server
+
+```bash
+dotnet publish src/TableSpec.McpServer -c Release -o publish/McpServer
+```
+
+### 設定 MCP Server
+
+#### Claude Code（專案層級）
+
+```bash
+claude mcp add tablespec -s project -- /path/to/publish/McpServer/TableSpec.McpServer.exe
+```
+
+或手動建立 `.mcp.json`：
+
+```json
+{
+  "mcpServers": {
+    "tablespec": {
+      "type": "stdio",
+      "command": "/path/to/publish/McpServer/TableSpec.McpServer.exe",
+      "args": []
+    }
+  }
+}
+```
+
+#### Claude Desktop
+
+在 `claude_desktop_config.json` 中加入：
+
+```json
+{
+  "mcpServers": {
+    "tablespec": {
+      "command": "/path/to/publish/McpServer/TableSpec.McpServer.exe"
+    }
+  }
+}
+```
+
+### 連線設定
+
+MCP Server 與桌面應用程式共用連線設定，不需要額外設定：
+
+- **Windows:** `%APPDATA%\TableSpec\connections.json`
+- **macOS:** `~/.config/TableSpec/connections.json`
+- **Linux:** `~/.config/TableSpec/connections.json`
+
+在桌面應用程式中新增的連線設定，MCP Server 可直接使用。
+
+### 可用工具一覽（27 個）
+
+#### 連線管理
+| 工具 | 說明 |
+|------|------|
+| `list_connections` | 列出所有已設定的連線設定檔 |
+| `switch_connection` | 切換至指定的連線（依名稱或 ID） |
+| `test_connection` | 測試目前的連線是否正常 |
+
+#### 資料表查詢
+| 工具 | 說明 |
+|------|------|
+| `list_tables` | 列出資料庫物件（可依類型篩選：BASE TABLE、VIEW、PROCEDURE、FUNCTION） |
+| `get_columns` | 取得欄位資訊（型別、主鍵、可空、描述等） |
+| `get_indexes` | 取得索引資訊 |
+| `get_relations` | 取得外鍵關聯 |
+| `get_parameters` | 取得預存程序/函數參數 |
+| `get_definition` | 取得預存程序/函數 SQL 定義 |
+
+#### SQL 查詢
+| 工具 | 說明 |
+|------|------|
+| `execute_readonly_sql` | 執行唯讀 SQL 查詢 |
+| `search_columns` | 搜尋欄位名稱（模糊/精確比對） |
+| `get_create_table_sql` | 產生 CREATE TABLE 語句 |
+
+#### 描述管理
+| 工具 | 說明 |
+|------|------|
+| `update_table_description` | 更新資料表/檢視/預存程序的描述 |
+| `update_column_description` | 更新欄位描述 |
+
+#### 效能診斷
+| 工具 | 說明 |
+|------|------|
+| `get_wait_statistics` | 等候事件統計 |
+| `get_expensive_queries` | 最耗時的查詢 |
+| `get_expensive_procedures` | 最耗時的預存程序 |
+| `get_missing_indexes` | 缺少索引建議 |
+| `get_unused_indexes` | 未使用索引清單 |
+| `get_error_log` | SQL Server 錯誤記錄 |
+
+#### 健康監控
+| 工具 | 說明 |
+|------|------|
+| `get_health_install_status` | 健康監控系統安裝狀態 |
+| `get_health_status` | 健康狀態摘要 |
+| `get_health_metrics` | 目前健康指標數值 |
+| `get_health_alerts` | 最近告警記錄 |
+
+#### 統計資訊
+| 工具 | 說明 |
+|------|------|
+| `get_table_statistics` | 資料表統計（列數、大小） |
+| `get_exact_row_count` | 精確列數（COUNT(*)） |
+| `get_column_usage_statistics` | 欄位使用狀態統計 |
+
+### 使用範例
+
+在 Claude Code 中直接詢問 AI，它會自動呼叫對應的 MCP 工具：
+
+- 「列出所有資料表」→ `list_tables`
+- 「查看 Orders 表的欄位」→ `get_columns`
+- 「找出所有包含 Price 的欄位」→ `search_columns`
+- 「執行 SELECT TOP 10 * FROM Users」→ `execute_readonly_sql`
+- 「分析資料庫效能瓶頸」→ `get_wait_statistics` + `get_expensive_queries`
 
 ## 連線設定儲存位置
 

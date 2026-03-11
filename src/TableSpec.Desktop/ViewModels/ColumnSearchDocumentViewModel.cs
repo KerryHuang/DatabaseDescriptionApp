@@ -27,6 +27,9 @@ public partial class ColumnSearchDocumentViewModel : DocumentViewModel
     private string _columnSearchText = string.Empty;
 
     [ObservableProperty]
+    private string _tableSearchText = string.Empty;
+
+    [ObservableProperty]
     private bool _isSearching;
 
     [ObservableProperty]
@@ -209,7 +212,7 @@ public partial class ColumnSearchDocumentViewModel : DocumentViewModel
     [RelayCommand]
     private async Task SearchColumnsAsync()
     {
-        if (string.IsNullOrWhiteSpace(ColumnSearchText))
+        if (string.IsNullOrWhiteSpace(ColumnSearchText) && string.IsNullOrWhiteSpace(TableSearchText))
             return;
 
         var selectedProfileIds = SelectableProfiles
@@ -240,13 +243,14 @@ public partial class ColumnSearchDocumentViewModel : DocumentViewModel
 
             List<ColumnSearchResult> results;
             var searchText = ColumnSearchText.Trim();
+            var tableText = string.IsNullOrWhiteSpace(TableSearchText) ? null : TableSearchText.Trim();
 
             if (selectedProfileIds.Count == 1 && _sqlQueryRepository != null)
             {
                 // 單一資料庫：使用原有邏輯
                 var profile = SelectableProfiles.First(sp => sp.IsSelected).Profile;
                 _connectionManager?.SetCurrentProfile(profile.Id);
-                results = await _sqlQueryRepository.SearchColumnsAsync(searchText, IsExactMatch);
+                results = await _sqlQueryRepository.SearchColumnsAsync(searchText, IsExactMatch, tableText);
                 foreach (var r in results)
                     r.DatabaseName = profile.Database;
             }
@@ -255,7 +259,7 @@ public partial class ColumnSearchDocumentViewModel : DocumentViewModel
                 // 多資料庫：使用欄位搜尋服務
                 var progress = new Progress<string>(msg => StatusMessage = msg);
                 results = await _columnSearchService.SearchColumnsMultiAsync(
-                    searchText, selectedProfileIds, IsExactMatch, progress);
+                    searchText, selectedProfileIds, IsExactMatch, tableText, progress);
             }
             else
             {
@@ -291,6 +295,7 @@ public partial class ColumnSearchDocumentViewModel : DocumentViewModel
     private void ClearColumnSearch()
     {
         ColumnSearchText = string.Empty;
+        TableSearchText = string.Empty;
         ColumnSearchResults.Clear();
         ColumnGroups.Clear();
         SelectedGroup = null;

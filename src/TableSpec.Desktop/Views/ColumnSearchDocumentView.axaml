@@ -63,9 +63,13 @@
 
                 <!-- 中間：搜尋 -->
                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" Margin="20,0">
+                    <TextBlock Text="資料表名稱：" VerticalAlignment="Center"/>
+                    <TextBox Text="{Binding TableSearchText}"
+                             Width="200"
+                             Watermark="輸入資料表名稱關鍵字..."/>
                     <TextBlock Text="欄位名稱：" VerticalAlignment="Center"/>
                     <TextBox Text="{Binding ColumnSearchText}"
-                             Width="250"
+                             Width="200"
                              Watermark="輸入欄位名稱關鍵字..."/>
                     <CheckBox Content="完整比對"
                               IsChecked="{Binding IsExactMatch}"

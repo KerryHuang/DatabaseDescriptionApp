@@ -54,6 +54,7 @@ public interface ISqlQueryRepository
     /// </summary>
     /// <param name="columnName">欄位名稱關鍵字</param>
     /// <param name="exactMatch">是否精確比對（預設為模糊搜尋）</param>
+    /// <param name="tableName">資料表名稱關鍵字（可選，為空時不篩選）</param>
     /// <param name="ct">取消權杖</param>
-    Task<List<ColumnSearchResult>> SearchColumnsAsync(string columnName, bool exactMatch = false, CancellationToken ct = default);
+    Task<List<ColumnSearchResult>> SearchColumnsAsync(string columnName, bool exactMatch = false, string? tableName = null, CancellationToken ct = default);
 }

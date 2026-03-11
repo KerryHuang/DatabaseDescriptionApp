@@ -38,7 +38,7 @@ public class ColumnSearchServiceTests
         _connectionManager.GetAllProfiles().Returns(new List<ConnectionProfile> { profile });
 
         var repo = Substitute.For<ISqlQueryRepository>();
-        repo.SearchColumnsAsync("UserId", Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(new List<ColumnSearchResult>
+        repo.SearchColumnsAsync("UserId", Arg.Any<bool>(), Arg.Any<string?>(), Arg.Any<CancellationToken>()).Returns(new List<ColumnSearchResult>
         {
             new() { ColumnName = "UserId", ObjectName = "Users", SchemaName = "dbo", ObjectType = "TABLE", DataType = "int" }
         });
@@ -81,11 +81,11 @@ public class ColumnSearchServiceTests
         var repo1 = Substitute.For<ISqlQueryRepository>();
         var repo2 = Substitute.For<ISqlQueryRepository>();
 
-        repo1.SearchColumnsAsync("Id", Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(new List<ColumnSearchResult>
+        repo1.SearchColumnsAsync("Id", Arg.Any<bool>(), Arg.Any<string?>(), Arg.Any<CancellationToken>()).Returns(new List<ColumnSearchResult>
         {
             new() { ColumnName = "Id", ObjectName = "Orders", SchemaName = "dbo", ObjectType = "TABLE", DataType = "int" }
         });
-        repo2.SearchColumnsAsync("Id", Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(new List<ColumnSearchResult>
+        repo2.SearchColumnsAsync("Id", Arg.Any<bool>(), Arg.Any<string?>(), Arg.Any<CancellationToken>()).Returns(new List<ColumnSearchResult>
         {
             new() { ColumnName = "Id", ObjectName = "Users", SchemaName = "dbo", ObjectType = "TABLE", DataType = "int" }
         });
@@ -124,7 +124,7 @@ public class ColumnSearchServiceTests
         _connectionManager.GetAllProfiles().Returns(new List<ConnectionProfile> { profile2 });
 
         var repo = Substitute.For<ISqlQueryRepository>();
-        repo.SearchColumnsAsync("Name", Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(new List<ColumnSearchResult>
+        repo.SearchColumnsAsync("Name", Arg.Any<bool>(), Arg.Any<string?>(), Arg.Any<CancellationToken>()).Returns(new List<ColumnSearchResult>
         {
             new() { ColumnName = "Name", ObjectName = "Users", SchemaName = "dbo", ObjectType = "TABLE", DataType = "nvarchar(50)" }
         });
@@ -166,9 +166,9 @@ public class ColumnSearchServiceTests
         var failRepo = Substitute.For<ISqlQueryRepository>();
         var okRepo = Substitute.For<ISqlQueryRepository>();
 
-        failRepo.SearchColumnsAsync(Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+        failRepo.SearchColumnsAsync(Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
             .ThrowsAsync(new Exception("連線逾時"));
-        okRepo.SearchColumnsAsync("Id", Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(new List<ColumnSearchResult>
+        okRepo.SearchColumnsAsync("Id", Arg.Any<bool>(), Arg.Any<string?>(), Arg.Any<CancellationToken>()).Returns(new List<ColumnSearchResult>
         {
             new() { ColumnName = "Id", ObjectName = "Users", SchemaName = "dbo", ObjectType = "TABLE", DataType = "int" }
         });
@@ -200,7 +200,7 @@ public class ColumnSearchServiceTests
         _connectionManager.GetConnectionString(profileId).Returns("Server=down;Database=FailDb");
 
         var repo = Substitute.For<ISqlQueryRepository>();
-        repo.SearchColumnsAsync(Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+        repo.SearchColumnsAsync(Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
             .ThrowsAsync(new Exception("連線逾時"));
 
         ISqlQueryRepository RepoFactory(string? connStr) => repo;
@@ -211,7 +211,7 @@ public class ColumnSearchServiceTests
         progress.When(p => p.Report(Arg.Any<string>())).Do(ci => progressMessages.Add(ci.Arg<string>()));
 
         // Act
-        var results = await service.SearchColumnsMultiAsync("Id", new[] { profileId }, false, progress);
+        var results = await service.SearchColumnsMultiAsync("Id", new[] { profileId }, false, null, progress);
 
         // Assert
         results.Should().BeEmpty();
@@ -234,7 +234,7 @@ public class ColumnSearchServiceTests
         });
 
         var repo = Substitute.For<ISqlQueryRepository>();
-        repo.SearchColumnsAsync(Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+        repo.SearchColumnsAsync(Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
             .ThrowsAsync(new OperationCanceledException());
 
         ISqlQueryRepository RepoFactory(string? connStr) => repo;

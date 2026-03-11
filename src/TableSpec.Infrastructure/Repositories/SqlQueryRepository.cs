@@ -90,19 +90,26 @@ public class SqlQueryRepository : ISqlQueryRepository
         return result;
     }
 
-    public async Task<List<ColumnSearchResult>> SearchColumnsAsync(string columnName, bool exactMatch = false, CancellationToken ct = default)
+    public async Task<List<ColumnSearchResult>> SearchColumnsAsync(string columnName, bool exactMatch = false, string? tableName = null, CancellationToken ct = default)
     {
         var connectionString = _connectionStringProvider();
         if (string.IsNullOrEmpty(connectionString))
             return [];
 
         // 依搜尋模式決定 WHERE 條件：精確比對用 =，模糊搜尋用 LIKE
-        var columnCondition = exactMatch
-            ? "c.name = @ColumnName"
-            : "c.name LIKE '%' + @ColumnName + '%'";
-        var paramCondition = exactMatch
-            ? "p.name = @ColumnName"
-            : "p.name LIKE '%' + @ColumnName + '%'";
+        var hasColumnFilter = !string.IsNullOrWhiteSpace(columnName);
+        var columnCondition = hasColumnFilter
+            ? (exactMatch ? "AND c.name = @ColumnName" : "AND c.name LIKE '%' + @ColumnName + '%'")
+            : "";
+        var paramCondition = hasColumnFilter
+            ? (exactMatch ? "AND p.name = @ColumnName" : "AND p.name LIKE '%' + @ColumnName + '%'")
+            : "";
+
+        // 資料表名稱篩選條件（模糊搜尋）
+        var hasTableFilter = !string.IsNullOrWhiteSpace(tableName);
+        var objectNameCondition = hasTableFilter
+            ? "AND o.name LIKE '%' + @TableName + '%'"
+            : "";
 
         var sql = $@"
             -- 搜尋 Tables 的欄位
@@ -127,7 +134,8 @@ public class SqlQueryRepository : ISqlQueryRepository
                 AND ep.minor_id = c.column_id
                 AND ep.name = 'MS_Description'
             WHERE o.type = 'U'
-                AND {columnCondition}
+                {columnCondition}
+                {objectNameCondition}
 
             UNION ALL
 
@@ -153,7 +161,8 @@ public class SqlQueryRepository : ISqlQueryRepository
                 AND ep.minor_id = c.column_id
                 AND ep.name = 'MS_Description'
             WHERE o.type = 'V'
-                AND {columnCondition}
+                {columnCondition}
+                {objectNameCondition}
 
             UNION ALL
 
@@ -175,7 +184,8 @@ public class SqlQueryRepository : ISqlQueryRepository
             FROM sys.parameters p
             INNER JOIN sys.objects o ON p.object_id = o.object_id
             WHERE o.type = 'P'
-                AND {paramCondition}
+                {paramCondition}
+                {objectNameCondition}
                 AND p.name <> ''
 
             UNION ALL
@@ -203,7 +213,8 @@ public class SqlQueryRepository : ISqlQueryRepository
             FROM sys.parameters p
             INNER JOIN sys.objects o ON p.object_id = o.object_id
             WHERE o.type IN ('FN', 'IF', 'TF')
-                AND {paramCondition}
+                {paramCondition}
+                {objectNameCondition}
                 AND p.name <> ''
 
             ORDER BY ObjectType, SchemaName, ObjectName, ColumnName";
@@ -213,7 +224,10 @@ public class SqlQueryRepository : ISqlQueryRepository
 
         await using var command = new SqlCommand(sql, connection);
         command.CommandTimeout = 30;
-        command.Parameters.AddWithValue("@ColumnName", columnName);
+        if (hasColumnFilter)
+            command.Parameters.AddWithValue("@ColumnName", columnName);
+        if (hasTableFilter)
+            command.Parameters.AddWithValue("@TableName", tableName!);
 
         var results = new List<ColumnSearchResult>();
         using var reader = await command.ExecuteReaderAsync(ct);

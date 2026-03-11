@@ -12,6 +12,8 @@ public interface IColumnSearchService
     /// </summary>
     /// <param name="columnName">欄位名稱關鍵字</param>
     /// <param name="profileIds">要搜尋的連線設定 ID 清單</param>
+    /// <param name="exactMatch">是否精確比對</param>
+    /// <param name="tableName">資料表名稱關鍵字（可選）</param>
     /// <param name="progress">進度回報</param>
     /// <param name="ct">取消權杖</param>
     /// <returns>所有資料庫的搜尋結果（已填入 DatabaseName，按資料庫名稱排序）</returns>
@@ -19,6 +21,7 @@ public interface IColumnSearchService
         string columnName,
         IReadOnlyList<Guid> profileIds,
         bool exactMatch = false,
+        string? tableName = null,
         IProgress<string>? progress = null,
         CancellationToken ct = default);
 }

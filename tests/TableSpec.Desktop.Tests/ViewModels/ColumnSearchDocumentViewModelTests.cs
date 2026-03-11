@@ -382,7 +382,7 @@ public class ColumnSearchDocumentViewModelTests
             new() { SchemaName = "dbo", ObjectName = "Orders", ColumnName = "Id", ObjectType = "TABLE", DatabaseName = "DbB" }
         };
         _columnSearchService.SearchColumnsMultiAsync(
-            "Id", Arg.Any<IReadOnlyList<Guid>>(), Arg.Any<bool>(), Arg.Any<IProgress<string>>(), Arg.Any<CancellationToken>())
+            "Id", Arg.Any<IReadOnlyList<Guid>>(), Arg.Any<bool>(), Arg.Any<string?>(), Arg.Any<IProgress<string>>(), Arg.Any<CancellationToken>())
             .Returns(results);
 
         var vm = CreateViewModel();
@@ -398,7 +398,7 @@ public class ColumnSearchDocumentViewModelTests
         vm.ColumnSearchResults.Should().HaveCount(2);
         vm.StatusMessage.Should().Contain("2 個資料庫");
         await _columnSearchService.Received().SearchColumnsMultiAsync(
-            "Id", Arg.Any<IReadOnlyList<Guid>>(), Arg.Any<bool>(), Arg.Any<IProgress<string>>(), Arg.Any<CancellationToken>());
+            "Id", Arg.Any<IReadOnlyList<Guid>>(), Arg.Any<bool>(), Arg.Any<string?>(), Arg.Any<IProgress<string>>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]

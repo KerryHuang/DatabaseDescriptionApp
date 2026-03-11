@@ -23,6 +23,7 @@ public class ColumnSearchService : IColumnSearchService
         string columnName,
         IReadOnlyList<Guid> profileIds,
         bool exactMatch = false,
+        string? tableName = null,
         IProgress<string>? progress = null,
         CancellationToken ct = default)
     {
@@ -43,7 +44,7 @@ public class ColumnSearchService : IColumnSearchService
             try
             {
                 var repo = _repositoryFactory(connStr);
-                var results = await repo.SearchColumnsAsync(columnName, exactMatch, ct);
+                var results = await repo.SearchColumnsAsync(columnName, exactMatch, tableName, ct);
 
                 foreach (var result in results)
                 {

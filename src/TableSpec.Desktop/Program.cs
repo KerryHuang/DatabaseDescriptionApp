@@ -60,6 +60,7 @@ sealed class Program
         // Application - Services
         services.AddSingleton<ITableQueryService, TableQueryService>();
         services.AddSingleton<IExportService, ExcelExportService>();
+        services.AddSingleton<IConnectionExportService, ConnectionExportService>();
 
         // Infrastructure - Backup Service
         services.AddSingleton<IBackupService, MssqlBackupService>();

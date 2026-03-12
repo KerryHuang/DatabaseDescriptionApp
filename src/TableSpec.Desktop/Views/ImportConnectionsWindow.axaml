@@ -1,0 +1,70 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:TableSpec.Desktop.ViewModels"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="550" d:DesignHeight="450"
+        x:Class="TableSpec.Desktop.Views.ImportConnectionsWindow"
+        x:DataType="vm:ImportConnectionsViewModel"
+        Icon="/Assets/TableSpec.png"
+        Title="匯入連線設定"
+        Width="550" Height="480"
+        MinWidth="450" MinHeight="350"
+        WindowStartupLocation="CenterOwner">
+
+    <Design.DataContext>
+        <vm:ImportConnectionsViewModel/>
+    </Design.DataContext>
+
+    <DockPanel Margin="16">
+        <!-- 底部按鈕 -->
+        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,12,0,0">
+            <Button Content="匯入" Click="OnImportClick" Classes="accent" MinWidth="80"
+                    IsVisible="{Binding !NeedsPassword}"/>
+            <Button Content="取消" Click="OnCancelClick" MinWidth="80"/>
+        </StackPanel>
+
+        <ScrollViewer>
+            <StackPanel Spacing="12">
+                <!-- 密碼輸入（加密檔案） -->
+                <StackPanel IsVisible="{Binding NeedsPassword}" Spacing="8">
+                    <TextBlock Text="此檔案為加密格式，請輸入解密密碼：" FontWeight="SemiBold"/>
+                    <TextBox PasswordChar="●" Text="{Binding DecryptPassword}" Watermark="解密密碼"/>
+                    <TextBlock Text="{Binding ErrorMessage}" Foreground="Red"
+                               IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                    <Button Content="解密" Click="OnDecryptClick" Classes="accent" MinWidth="80"/>
+                </StackPanel>
+
+                <!-- 匯入預覽 -->
+                <StackPanel IsVisible="{Binding !NeedsPassword}" Spacing="8">
+                    <TextBlock Text="即將匯入的連線設定：" FontWeight="SemiBold"/>
+
+                    <!-- 批量操作 -->
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button Content="全部覆蓋" Command="{Binding OverwriteAllCommand}" Padding="8,4"/>
+                        <Button Content="全部跳過" Command="{Binding SkipAllCommand}" Padding="8,4"/>
+                    </StackPanel>
+
+                    <ItemsControl ItemsSource="{Binding ImportPreviews}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:ImportPreviewItem">
+                                <Border Margin="0,2" Padding="8,6" CornerRadius="4">
+                                    <DockPanel>
+                                        <StackPanel>
+                                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                                <TextBlock Text="{Binding Profile.Name}" FontWeight="SemiBold"/>
+                                                <TextBlock Text="(衝突)" Foreground="Orange" FontWeight="Bold"
+                                                           IsVisible="{Binding HasConflict}"/>
+                                            </StackPanel>
+                                            <TextBlock Text="{Binding Profile.Server}" Opacity="0.7" FontSize="12"/>
+                                        </StackPanel>
+                                    </DockPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </StackPanel>
+        </ScrollViewer>
+    </DockPanel>
+</Window>

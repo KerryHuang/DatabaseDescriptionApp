@@ -10,6 +10,7 @@
     <AssemblyTitle>TableSpec</AssemblyTitle>
     <Product>TableSpec</Product>
     <Description>資料庫規格查詢工具</Description>
+    <ApplicationIcon>Assets\TableSpec.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>

@@ -23,7 +23,8 @@
         <KeyBinding Gesture="Ctrl+W" Command="{Binding CloseCurrentDocumentCommand}"/>
         <KeyBinding Gesture="Ctrl+Q" Command="{Binding OpenSqlQueryCommand}"/>
         <KeyBinding Gesture="Ctrl+F" Command="{Binding OpenColumnSearchCommand}"/>
-        <KeyBinding Gesture="Ctrl+B" Command="{Binding OpenBackupRestoreCommand}"/>
+        <KeyBinding Gesture="Ctrl+B" Command="{Binding ToggleSidebarCommand}"/>
+        <KeyBinding Gesture="Ctrl+Shift+B" Command="{Binding OpenBackupRestoreCommand}"/>
         <KeyBinding Gesture="Ctrl+M" Command="{Binding OpenSchemaCompareCommand}"/>
         <KeyBinding Gesture="Ctrl+H" Command="{Binding OpenHealthMonitoringCommand}"/>
         <KeyBinding Gesture="Ctrl+P" Command="{Binding OpenPerformanceDiagnosticsCommand}"/>
@@ -71,6 +72,13 @@
                     </MenuItem>
                 </MenuItem>
                 <MenuItem Header="檢視(_V)">
+                    <MenuItem Header="切換側邊欄(_S)" Command="{Binding ToggleSidebarCommand}" InputGesture="Ctrl+B"
+                              ToolTip.Tip="顯示或隱藏左側物件面板">
+                        <MenuItem.Icon>
+                            <TextBlock Text="☰" FontSize="14"/>
+                        </MenuItem.Icon>
+                    </MenuItem>
+                    <Separator/>
                     <MenuItem Header="深色模式(_D)" Command="{Binding ToggleThemeCommand}"
                               ToolTip.Tip="切換深色/淺色主題">
                         <MenuItem.Icon>
@@ -105,7 +113,7 @@
                         </MenuItem.Icon>
                     </MenuItem>
                     <Separator/>
-                    <MenuItem Header="備份與還原(_B)" Command="{Binding OpenBackupRestoreCommand}" InputGesture="Ctrl+B" IsEnabled="{Binding IsConnected}"
+                    <MenuItem Header="備份與還原(_B)" Command="{Binding OpenBackupRestoreCommand}" InputGesture="Ctrl+Shift+B" IsEnabled="{Binding IsConnected}"
                               ToolTip.Tip="備份或還原資料庫">
                         <MenuItem.Icon>
                             <TextBlock Text="💾" FontSize="14"/>
@@ -171,16 +179,25 @@
                 </MenuItem>
             </Menu>
 
-            <!-- 右側：主題切換 -->
-            <Button Grid.Column="1"
-                    Content="{Binding ThemeIcon}"
-                    Command="{Binding ToggleThemeCommand}"
-                    ToolTip.Tip="切換深色/淺色模式"
-                    FontSize="16"
-                    Padding="10,4"
-                    Margin="5,0"
-                    Background="Transparent"
-                    BorderThickness="0"/>
+            <!-- 右側：側邊欄切換 + 主題切換 -->
+            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                <Button Content="☰"
+                        Command="{Binding ToggleSidebarCommand}"
+                        ToolTip.Tip="切換側邊欄 (Ctrl+B)"
+                        FontSize="16"
+                        Padding="10,4"
+                        Margin="5,0"
+                        Background="Transparent"
+                        BorderThickness="0"/>
+                <Button Content="{Binding ThemeIcon}"
+                        Command="{Binding ToggleThemeCommand}"
+                        ToolTip.Tip="切換深色/淺色模式"
+                        FontSize="16"
+                        Padding="10,4"
+                        Margin="5,0"
+                        Background="Transparent"
+                        BorderThickness="0"/>
+            </StackPanel>
         </Grid>
 
         <!-- 底部狀態列 -->
@@ -193,9 +210,16 @@
         </Border>
 
         <!-- 主內容區域 -->
-        <Grid ColumnDefinitions="280,5,*">
+        <Grid ColumnDefinitions="Auto,Auto,*">
             <!-- 左側：物件樹 -->
-            <Border Grid.Column="0" Background="{DynamicResource SystemControlBackgroundAltMediumLowBrush}">
+            <Border Grid.Column="0" Background="{DynamicResource SystemControlBackgroundAltMediumLowBrush}"
+                    Width="280" ClipToBounds="True"
+                    IsVisible="{Binding IsSidebarOpen}">
+                <Border.Transitions>
+                    <Transitions>
+                        <DoubleTransition Property="Width" Duration="0:0:0.2" Easing="CubicEaseOut"/>
+                    </Transitions>
+                </Border.Transitions>
                 <DockPanel>
                     <!-- 連線選擇區 -->
                     <Border DockPanel.Dock="Top" Padding="10" Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}">
@@ -258,7 +282,8 @@
 
             <!-- 分隔線 -->
             <GridSplitter Grid.Column="1" Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
-                          ResizeDirection="Columns"/>
+                          ResizeDirection="Columns"
+                          IsVisible="{Binding IsSidebarOpen}"/>
 
             <!-- 右側：MDI TabControl 區域 -->
             <Border Grid.Column="2" Padding="5">

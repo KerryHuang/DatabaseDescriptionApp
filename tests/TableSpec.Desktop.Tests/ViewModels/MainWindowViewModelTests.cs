@@ -39,7 +39,7 @@ public class MainWindowViewModelTests
 
         // Assert
         vm.Should().NotBeNull();
-        vm.Documents.Should().BeEmpty();
+        vm.Documents.Should().ContainSingle().Which.Should().BeOfType<AboutDocumentViewModel>();
         vm.ConnectionProfiles.Should().BeEmpty();
     }
 
@@ -78,23 +78,23 @@ public class MainWindowViewModelTests
     }
 
     [Fact]
-    public void 初始狀態_Documents應為空集合()
+    public void 初始狀態_Documents應包含關於分頁()
     {
         // Act
         var vm = new MainWindowViewModel();
 
         // Assert
-        vm.Documents.Should().BeEmpty();
+        vm.Documents.Should().ContainSingle().Which.Should().BeOfType<AboutDocumentViewModel>();
     }
 
     [Fact]
-    public void 初始狀態_SelectedDocument應為Null()
+    public void 初始狀態_SelectedDocument應為關於分頁()
     {
         // Act
         var vm = new MainWindowViewModel();
 
         // Assert
-        vm.SelectedDocument.Should().BeNull();
+        vm.SelectedDocument.Should().BeOfType<AboutDocumentViewModel>();
     }
 
     #endregion
@@ -108,12 +108,14 @@ public class MainWindowViewModelTests
         var vm = new MainWindowViewModel();
         var doc = new TestDocumentViewModel { Title = "測試文件", CanClose = true };
         vm.Documents.Add(doc);
+        var countBefore = vm.Documents.Count;
 
         // Act
         vm.CloseDocumentCommand.Execute(doc);
 
         // Assert
-        vm.Documents.Should().BeEmpty();
+        vm.Documents.Should().HaveCount(countBefore - 1);
+        vm.Documents.Should().NotContain(doc);
     }
 
     [Fact]
@@ -123,12 +125,13 @@ public class MainWindowViewModelTests
         var vm = new MainWindowViewModel();
         var doc = new TestDocumentViewModel { Title = "不可關閉", CanClose = false };
         vm.Documents.Add(doc);
+        var countBefore = vm.Documents.Count;
 
         // Act
         vm.CloseDocumentCommand.Execute(doc);
 
         // Assert
-        vm.Documents.Should().ContainSingle();
+        vm.Documents.Should().HaveCount(countBefore);
     }
 
     [Fact]
@@ -157,12 +160,14 @@ public class MainWindowViewModelTests
         var doc = new TestDocumentViewModel { Title = "當前文件", CanClose = true };
         vm.Documents.Add(doc);
         vm.SelectedDocument = doc;
+        var countBefore = vm.Documents.Count;
 
         // Act
         vm.CloseCurrentDocumentCommand.Execute(null);
 
         // Assert
-        vm.Documents.Should().BeEmpty();
+        vm.Documents.Should().HaveCount(countBefore - 1);
+        vm.Documents.Should().NotContain(doc);
     }
 
     [Fact]
@@ -170,6 +175,7 @@ public class MainWindowViewModelTests
     {
         // Arrange
         var vm = new MainWindowViewModel();
+        vm.Documents.Clear();
         var doc1 = new TestDocumentViewModel { Title = "可關閉1", CanClose = true };
         var doc2 = new TestDocumentViewModel { Title = "不可關閉", CanClose = false };
         var doc3 = new TestDocumentViewModel { Title = "可關閉2", CanClose = true };
@@ -185,25 +191,37 @@ public class MainWindowViewModelTests
         vm.Documents.First().Title.Should().Be("不可關閉");
     }
 
+    [Fact]
+    public void 初始狀態_應預設開啟關於分頁()
+    {
+        // Act
+        var vm = new MainWindowViewModel();
+
+        // Assert
+        vm.Documents.Should().ContainSingle();
+        vm.Documents.First().Should().BeOfType<AboutDocumentViewModel>();
+        vm.SelectedDocument.Should().BeOfType<AboutDocumentViewModel>();
+    }
+
     #endregion
 
     #region ShowAboutCommand 測試
 
     [Fact]
-    public void ShowAboutCommand_應開啟關於分頁()
+    public void ShowAboutCommand_應切換到關於分頁()
     {
         // Arrange
         var vm = new MainWindowViewModel();
-        var initialCount = vm.Documents.Count;
+        var doc = new TestDocumentViewModel { Title = "其他", CanClose = true };
+        vm.Documents.Add(doc);
+        vm.SelectedDocument = doc;
 
         // Act
         vm.ShowAboutCommand.Execute(null);
 
         // Assert
-        vm.Documents.Should().HaveCount(initialCount + 1);
-        vm.Documents.Last().Should().BeOfType<AboutDocumentViewModel>();
-        vm.Documents.Last().Title.Should().Be("關於");
         vm.SelectedDocument.Should().BeOfType<AboutDocumentViewModel>();
+        vm.Documents.Count(d => d.DocumentKey == "About").Should().Be(1);
     }
 
     [Fact]
@@ -220,6 +238,47 @@ public class MainWindowViewModelTests
         // Assert
         vm.Documents.Should().HaveCount(countAfterFirst);
         vm.Documents.Count(d => d.DocumentKey == "About").Should().Be(1);
+    }
+
+    #endregion
+
+    #region 側邊欄切換測試
+
+    [Fact]
+    public void 初始狀態_IsSidebarOpen應為True()
+    {
+        // Act
+        var vm = new MainWindowViewModel();
+
+        // Assert
+        vm.IsSidebarOpen.Should().BeTrue();
+    }
+
+    [Fact]
+    public void ToggleSidebarCommand_執行後_應切換為False()
+    {
+        // Arrange
+        var vm = new MainWindowViewModel();
+
+        // Act
+        vm.ToggleSidebarCommand.Execute(null);
+
+        // Assert
+        vm.IsSidebarOpen.Should().BeFalse();
+    }
+
+    [Fact]
+    public void ToggleSidebarCommand_執行兩次_應回到True()
+    {
+        // Arrange
+        var vm = new MainWindowViewModel();
+
+        // Act
+        vm.ToggleSidebarCommand.Execute(null);
+        vm.ToggleSidebarCommand.Execute(null);
+
+        // Assert
+        vm.IsSidebarOpen.Should().BeTrue();
     }
 
     #endregion

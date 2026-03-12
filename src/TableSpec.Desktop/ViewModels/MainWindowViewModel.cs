@@ -12,6 +12,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
 using TableSpec.Application.Services;
+using TableSpec.Desktop.Services;
 using TableSpec.Desktop.Views;
 using TableSpec.Domain.Entities;
 using TableSpec.Domain.Interfaces;
@@ -42,6 +43,9 @@ public partial class MainWindowViewModel : ViewModelBase
     private string _statusMessage = "就緒";
 
     [ObservableProperty]
+    private bool _isSidebarOpen = UserPreferences.IsSidebarOpen;
+
+    [ObservableProperty]
     private bool _isDarkMode;
 
     [ObservableProperty]
@@ -65,6 +69,7 @@ public partial class MainWindowViewModel : ViewModelBase
     public MainWindowViewModel()
     {
         // Design-time constructor
+        ShowAbout();
     }
 
     public MainWindowViewModel(
@@ -99,6 +104,9 @@ public partial class MainWindowViewModel : ViewModelBase
 
         // 初始化主題
         InitializeTheme();
+
+        // 預設開啟「關於」分頁
+        ShowAbout();
 
         // 初始化連線狀態並自動連線
         InitializeAsync();
@@ -546,6 +554,17 @@ public partial class MainWindowViewModel : ViewModelBase
             Documents.Remove(doc);
         }
         SelectedDocument = Documents.LastOrDefault();
+    }
+
+    [RelayCommand]
+    private void ToggleSidebar()
+    {
+        IsSidebarOpen = !IsSidebarOpen;
+    }
+
+    partial void OnIsSidebarOpenChanged(bool value)
+    {
+        UserPreferences.IsSidebarOpen = value;
     }
 
     [RelayCommand]

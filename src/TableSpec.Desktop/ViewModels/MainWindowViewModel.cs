@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
 using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Platform.Storage;
 using Avalonia.Styling;
@@ -266,6 +267,60 @@ public partial class MainWindowViewModel : ViewModelBase
             var viewModel = App.Services?.GetRequiredService<ConnectionSetupViewModel>()
                 ?? new ConnectionSetupViewModel();
             var window = new ConnectionSetupWindow(viewModel);
+            await window.ShowDialog(desktop.MainWindow!);
+
+            // 重新載入連線清單
+            LoadConnectionProfiles();
+        }
+    }
+
+    [RelayCommand]
+    private async Task ExportConnectionsAsync()
+    {
+        if (Avalonia.Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+        {
+            var exportService = App.Services?.GetRequiredService<IConnectionExportService>();
+            if (_connectionManager == null || exportService == null) return;
+
+            var viewModel = new ExportConnectionsViewModel(_connectionManager, exportService);
+            var window = new ExportConnectionsWindow(viewModel);
+            await window.ShowDialog(desktop.MainWindow!);
+        }
+    }
+
+    [RelayCommand]
+    private async Task ImportConnectionsAsync()
+    {
+        if (Avalonia.Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+        {
+            var exportService = App.Services?.GetRequiredService<IConnectionExportService>();
+            if (_connectionManager == null || exportService == null) return;
+
+            var topLevel = TopLevel.GetTopLevel(desktop.MainWindow);
+            if (topLevel == null) return;
+
+            var files = await topLevel.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+            {
+                Title = "選擇連線設定檔",
+                AllowMultiple = false,
+                FileTypeFilter =
+                [
+                    new FilePickerFileType("連線設定檔") { Patterns = ["*.json", "*.tsjson"] },
+                    new FilePickerFileType("所有檔案") { Patterns = ["*"] }
+                ]
+            });
+
+            if (files.Count == 0) return;
+
+            await using var stream = await files[0].OpenReadAsync();
+            using var ms = new System.IO.MemoryStream();
+            await stream.CopyToAsync(ms);
+            var data = ms.ToArray();
+
+            var viewModel = new ImportConnectionsViewModel(_connectionManager, exportService);
+            viewModel.LoadImportData(data);
+
+            var window = new ImportConnectionsWindow(viewModel);
             await window.ShowDialog(desktop.MainWindow!);
 
             // 重新載入連線清單

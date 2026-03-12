@@ -43,6 +43,19 @@
                             <TextBlock Text="🔌" FontSize="14"/>
                         </MenuItem.Icon>
                     </MenuItem>
+                    <MenuItem Header="匯出連線設定(_X)" Command="{Binding ExportConnectionsCommand}"
+                              ToolTip.Tip="將連線設定匯出為 JSON 或加密檔案">
+                        <MenuItem.Icon>
+                            <TextBlock Text="📁" FontSize="14"/>
+                        </MenuItem.Icon>
+                    </MenuItem>
+                    <MenuItem Header="匯入連線設定(_I)" Command="{Binding ImportConnectionsCommand}"
+                              ToolTip.Tip="從 JSON 或加密檔案匯入連線設定">
+                        <MenuItem.Icon>
+                            <TextBlock Text="📂" FontSize="14"/>
+                        </MenuItem.Icon>
+                    </MenuItem>
+                    <Separator/>
                     <MenuItem Header="匯出 Excel(_E)" Command="{Binding ExportToExcelCommand}" IsEnabled="{Binding IsConnected}"
                               ToolTip.Tip="將目前資料庫的所有物件規格匯出為 Excel 檔案">
                         <MenuItem.Icon>

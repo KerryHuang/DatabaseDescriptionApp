@@ -1,0 +1,159 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:TableSpec.Desktop.ViewModels"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="700" d:DesignHeight="650"
+        x:Class="TableSpec.Desktop.Views.MaintenancePlanWizardWindow"
+        x:DataType="vm:MaintenancePlanWizardViewModel"
+        Icon="/Assets/TableSpec.png"
+        Title="維護計劃精靈"
+        Width="700" Height="650"
+        WindowStartupLocation="CenterOwner">
+
+    <DockPanel>
+        <!-- 底部導覽列 -->
+        <Border DockPanel.Dock="Bottom" BorderThickness="0,1,0,0"
+                BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
+                Padding="16,12">
+            <Grid ColumnDefinitions="*,Auto">
+                <!-- 狀態訊息 -->
+                <TextBlock Grid.Column="0" Text="{Binding StatusMessage}"
+                           VerticalAlignment="Center" Opacity="0.7" />
+                <!-- 按鈕列 -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                    <Button Content="上一步" Command="{Binding PreviousStepCommand}"
+                            IsVisible="{Binding !IsStep1Visible}" />
+                    <Button Content="下一步" Command="{Binding NextStepCommand}"
+                            IsVisible="{Binding !IsStep3Visible}" />
+                    <Button Content="執行" Command="{Binding ExecuteCommand}"
+                            IsVisible="{Binding IsStep3Visible}"
+                            Classes="accent" />
+                    <Button Content="取消" Click="OnCancelClick" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- 主要內容區域 -->
+        <ScrollViewer Padding="24,16">
+            <StackPanel Spacing="16">
+
+                <!-- ===== 步驟 1：基本設定 ===== -->
+                <StackPanel IsVisible="{Binding IsStep1Visible}" Spacing="12">
+                    <TextBlock Text="步驟 1：基本設定" FontSize="18" FontWeight="Bold" />
+
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="資料庫名稱" />
+                        <ComboBox ItemsSource="{Binding Databases}"
+                                  SelectedItem="{Binding DatabaseName}"
+                                  HorizontalAlignment="Stretch"
+                                  IsEditable="True" />
+                    </StackPanel>
+
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="備份路徑" />
+                        <TextBox Text="{Binding BackupPath}"
+                                 Watermark="例如: D:\SQLBackup\" />
+                    </StackPanel>
+
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="還原路徑" />
+                        <TextBox Text="{Binding RestorePath}"
+                                 Watermark="例如: D:\sql_data\" />
+                    </StackPanel>
+
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="測試資料庫名稱" />
+                        <TextBox Text="{Binding TestDatabaseName}" />
+                    </StackPanel>
+
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="登入帳號" />
+                        <TextBox Text="{Binding LoginName}" />
+                    </StackPanel>
+
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="登入密碼" />
+                        <TextBox Text="{Binding LoginPassword}" PasswordChar="*" />
+                    </StackPanel>
+
+                    <Grid ColumnDefinitions="*,16,*">
+                        <StackPanel Grid.Column="0" Spacing="4">
+                            <TextBlock Text="備份時間" />
+                            <TimePicker SelectedTime="{Binding BackupTime}" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="2" Spacing="4">
+                            <TextBlock Text="還原時間" />
+                            <TimePicker SelectedTime="{Binding RestoreTime}" />
+                        </StackPanel>
+                    </Grid>
+                </StackPanel>
+
+                <!-- ===== 步驟 2：選擇步驟 ===== -->
+                <StackPanel IsVisible="{Binding IsStep2Visible}" Spacing="12">
+                    <TextBlock Text="步驟 2：選擇執行項目" FontSize="18" FontWeight="Bold" />
+
+                    <StackPanel Spacing="8">
+                        <CheckBox IsChecked="{Binding IsSetRecoveryModelSelected}"
+                                  Content="設定 Recovery Model 為 SIMPLE" />
+                        <CheckBox IsChecked="{Binding IsRenameLogicalFilesSelected}"
+                                  Content="重新命名邏輯檔名" />
+                        <CheckBox IsChecked="{Binding IsCreateLoginAndUserSelected}"
+                                  Content="建立登入帳號與使用者" />
+                        <CheckBox IsChecked="{Binding IsAddToDbOwnerSelected}"
+                                  Content="將使用者加入 db_owner" />
+                        <CheckBox IsChecked="{Binding IsCreateBackupJobSelected}"
+                                  Content="建立每日全備份排程" />
+                        <CheckBox IsChecked="{Binding IsCreateRestoreJobSelected}"
+                                  Content="建立每日還原排程（選填）" />
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- ===== 步驟 3：確認與執行 ===== -->
+                <StackPanel IsVisible="{Binding IsStep3Visible}" Spacing="12">
+                    <TextBlock Text="步驟 3：確認與執行" FontSize="18" FontWeight="Bold" />
+
+                    <!-- 檢查結果 -->
+                    <TextBlock Text="前置檢查結果" FontWeight="SemiBold" />
+                    <DataGrid ItemsSource="{Binding CheckResults}"
+                              AutoGenerateColumns="False"
+                              IsReadOnly="False"
+                              Height="180"
+                              CanUserResizeColumns="True">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="步驟" Binding="{Binding Step}" IsReadOnly="True" Width="*" />
+                            <DataGridTextColumn Header="目前狀態" Binding="{Binding CurrentStatus}" IsReadOnly="True" Width="*" />
+                            <DataGridTemplateColumn Header="處理方式" Width="*">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <ComboBox ItemsSource="{Binding AvailableActions}"
+                                                  SelectedItem="{Binding SelectedAction}"
+                                                  HorizontalAlignment="Stretch"
+                                                  Margin="2" />
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
+
+                    <!-- SQL 預覽 -->
+                    <StackPanel Spacing="4">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBlock Text="SQL 預覽" FontWeight="SemiBold" VerticalAlignment="Center" />
+                            <Button Content="產生 SQL" Command="{Binding GeneratePreviewCommand}" />
+                        </StackPanel>
+                        <TextBox Text="{Binding PreviewSql}"
+                                 AcceptsReturn="True" IsReadOnly="True"
+                                 Height="200"
+                                 FontFamily="Consolas,Menlo,monospace" />
+                    </StackPanel>
+
+                    <!-- 執行日誌 -->
+                    <TextBlock Text="執行日誌" FontWeight="SemiBold" />
+                    <ListBox ItemsSource="{Binding ExecutionLog}" Height="120" />
+                </StackPanel>
+
+            </StackPanel>
+        </ScrollViewer>
+    </DockPanel>
+</Window>

@@ -117,6 +117,22 @@ sealed class Program
                 sp.GetRequiredService<IConnectionManager>(),
                 connStr => new SqlQueryRepository(() => connStr)));
 
+        // === 維護計劃 ===
+        // Repositories
+        services.AddSingleton<IDatabaseInfoRepository>(sp =>
+            new DatabaseInfoRepository(() => sp.GetRequiredService<IConnectionManager>().GetCurrentConnectionString()));
+        services.AddSingleton<IAgentJobRepository>(sp =>
+            new AgentJobRepository(() => sp.GetRequiredService<IConnectionManager>().GetCurrentConnectionString()));
+
+        // Services
+        services.AddSingleton<IMaintenancePlanSqlGenerator, MaintenancePlanSqlGenerator>();
+        services.AddSingleton<IMaintenancePlanService, MaintenancePlanService>();
+        services.AddSingleton<IAgentJobService, AgentJobService>();
+
+        // ViewModels
+        services.AddTransient<MaintenancePlanManagerViewModel>();
+        services.AddTransient<MaintenancePlanWizardViewModel>();
+
         // ViewModels
         services.AddTransient<MainWindowViewModel>(sp =>
             new MainWindowViewModel(

@@ -415,6 +415,30 @@ public partial class MainWindowViewModel : ViewModelBase
     }
 
     [RelayCommand]
+    private async Task OpenMaintenancePlanAsync()
+    {
+        if (Avalonia.Application.Current?.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime desktop) return;
+
+        var viewModel = App.Services?.GetService<MaintenancePlanManagerViewModel>()
+            ?? new MaintenancePlanManagerViewModel();
+
+        // 連結排程編輯回呼
+        viewModel.EditScheduleCallback = async (job) =>
+        {
+            var scheduleVm = new ScheduleEditViewModel(
+                App.Services?.GetRequiredService<IAgentJobService>()!,
+                job.JobId,
+                job.ScheduleTime ?? 0,
+                job.ScheduleFreqType ?? 4);
+            var scheduleWindow = new ScheduleEditWindow(scheduleVm);
+            await scheduleWindow.ShowDialog(desktop.MainWindow!);
+        };
+
+        var window = new MaintenancePlanManagerWindow(viewModel);
+        await window.ShowDialog(desktop.MainWindow!);
+    }
+
+    [RelayCommand]
     private void OpenBackupRestore()
     {
         // 檢查是否已開啟

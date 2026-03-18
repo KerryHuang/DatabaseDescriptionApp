@@ -415,27 +415,37 @@ public partial class MainWindowViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private async Task OpenMaintenancePlanAsync()
+    private void OpenMaintenancePlan()
     {
-        if (Avalonia.Application.Current?.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime desktop) return;
+        // 檢查是否已開啟
+        var existing = Documents.OfType<MaintenancePlanDocumentViewModel>().FirstOrDefault();
+        if (existing != null)
+        {
+            SelectedDocument = existing;
+            return;
+        }
 
-        var viewModel = App.Services?.GetService<MaintenancePlanManagerViewModel>()
-            ?? new MaintenancePlanManagerViewModel();
+        var doc = App.Services?.GetRequiredService<MaintenancePlanDocumentViewModel>()
+            ?? new MaintenancePlanDocumentViewModel();
 
         // 連結排程編輯回呼
-        viewModel.EditScheduleCallback = async (job) =>
+        if (Avalonia.Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            var scheduleVm = new ScheduleEditViewModel(
-                App.Services?.GetRequiredService<IAgentJobService>()!,
-                job.JobId,
-                job.ScheduleTime ?? 0,
-                job.ScheduleFreqType ?? 4);
-            var scheduleWindow = new ScheduleEditWindow(scheduleVm);
-            await scheduleWindow.ShowDialog(desktop.MainWindow!);
-        };
+            doc.EditScheduleCallback = async (job) =>
+            {
+                var scheduleVm = new ScheduleEditViewModel(
+                    App.Services?.GetRequiredService<IAgentJobService>()!,
+                    job.JobId,
+                    job.ScheduleTime ?? 0,
+                    job.ScheduleFreqType ?? 4);
+                var scheduleWindow = new ScheduleEditWindow(scheduleVm);
+                await scheduleWindow.ShowDialog(desktop.MainWindow!);
+            };
+        }
 
-        var window = new MaintenancePlanManagerWindow(viewModel);
-        await window.ShowDialog(desktop.MainWindow!);
+        doc.CloseRequested += OnDocumentCloseRequested;
+        Documents.Add(doc);
+        SelectedDocument = doc;
     }
 
     [RelayCommand]

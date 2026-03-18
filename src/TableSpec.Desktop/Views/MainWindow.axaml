@@ -358,6 +358,9 @@
                                         <DataTemplate DataType="{x:Type vm:BackupRestoreDocumentViewModel}">
                                             <views:BackupRestoreDocumentView/>
                                         </DataTemplate>
+                                        <DataTemplate DataType="{x:Type vm:MaintenancePlanDocumentViewModel}">
+                                            <views:MaintenancePlanDocumentView/>
+                                        </DataTemplate>
                                         <DataTemplate DataType="{x:Type vm:SchemaCompareDocumentViewModel}">
                                             <views:SchemaCompareDocumentView/>
                                         </DataTemplate>

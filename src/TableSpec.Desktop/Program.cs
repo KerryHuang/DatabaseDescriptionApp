@@ -130,8 +130,12 @@ sealed class Program
         services.AddSingleton<IAgentJobService, AgentJobService>();
 
         // ViewModels
-        services.AddTransient<MaintenancePlanManagerViewModel>();
-        services.AddTransient<MaintenancePlanWizardViewModel>();
+        services.AddTransient<MaintenancePlanDocumentViewModel>(sp =>
+            new MaintenancePlanDocumentViewModel(
+                sp.GetRequiredService<IAgentJobService>(),
+                sp.GetRequiredService<IMaintenancePlanService>(),
+                sp.GetRequiredService<IMaintenancePlanSqlGenerator>(),
+                sp.GetRequiredService<IConnectionManager>()));
 
         // ViewModels
         services.AddTransient<MainWindowViewModel>(sp =>

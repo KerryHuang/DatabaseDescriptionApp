@@ -45,25 +45,27 @@ public class MaintenancePlanSqlGenerator : IMaintenancePlanSqlGenerator
 
         if (transactionSteps.Any())
         {
-            sb.AppendLine("-- ===== 基本設定（步驟 1-4）=====");
+            sb.AppendLine($"PRINT N'===== 基本設定（步驟 1-4）(開始) =====';");
             sb.AppendLine("BEGIN TRY");
             sb.AppendLine("BEGIN TRANSACTION;");
             sb.AppendLine();
 
             foreach (var result in transactionSteps)
             {
-                sb.AppendLine($"PRINT N'正在執行：{GetStepDescription(result.Step)}...';");
                 sb.AppendLine(GenerateStepSql(result.Step, config, result.SelectedAction));
                 sb.AppendLine();
             }
 
             sb.AppendLine("COMMIT TRANSACTION;");
-            sb.AppendLine("PRINT N'基本設定完成。';");
+            sb.AppendLine($"    PRINT N'===== 基本設定（步驟 1-4）(完成) =====';");
             sb.AppendLine("END TRY");
             sb.AppendLine("BEGIN CATCH");
+            sb.AppendLine("    PRINT N'##### 基本設定發生錯誤 #####';");
+            sb.AppendLine("    PRINT ERROR_MESSAGE();");
             sb.AppendLine("    IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;");
             sb.AppendLine("    THROW;");
-            sb.AppendLine("END CATCH");
+            sb.AppendLine("END CATCH;");
+            sb.AppendLine("GO");
             sb.AppendLine();
         }
 
@@ -71,9 +73,16 @@ public class MaintenancePlanSqlGenerator : IMaintenancePlanSqlGenerator
         var backupStep = activeResults.FirstOrDefault(r => r.Step == MaintenancePlanStep.CreateBackupJob);
         if (backupStep is not null)
         {
-            sb.AppendLine("-- ===== 建立備份排程（步驟 5）=====");
-            sb.AppendLine($"PRINT N'正在執行：{GetStepDescription(backupStep.Step)}...';");
+            sb.AppendLine($"PRINT N'===== 建立備份排程 (開始) =====';");
+            sb.AppendLine("BEGIN TRY");
             sb.AppendLine(GenerateStepSql(backupStep.Step, config, backupStep.SelectedAction));
+            sb.AppendLine($"    PRINT N'===== 建立備份排程 (完成) =====';");
+            sb.AppendLine("END TRY");
+            sb.AppendLine("BEGIN CATCH");
+            sb.AppendLine("    PRINT N'##### 建立備份排程發生錯誤 #####';");
+            sb.AppendLine("    PRINT ERROR_MESSAGE();");
+            sb.AppendLine("END CATCH;");
+            sb.AppendLine("GO");
             sb.AppendLine();
         }
 
@@ -81,9 +90,16 @@ public class MaintenancePlanSqlGenerator : IMaintenancePlanSqlGenerator
         var restoreStep = activeResults.FirstOrDefault(r => r.Step == MaintenancePlanStep.CreateRestoreJob);
         if (restoreStep is not null)
         {
-            sb.AppendLine("-- ===== 建立還原排程（步驟 6）=====");
-            sb.AppendLine($"PRINT N'正在執行：{GetStepDescription(restoreStep.Step)}...';");
+            sb.AppendLine($"PRINT N'===== 建立還原排程 (開始) =====';");
+            sb.AppendLine("BEGIN TRY");
             sb.AppendLine(GenerateStepSql(restoreStep.Step, config, restoreStep.SelectedAction));
+            sb.AppendLine($"    PRINT N'===== 建立還原排程 (完成) =====';");
+            sb.AppendLine("END TRY");
+            sb.AppendLine("BEGIN CATCH");
+            sb.AppendLine("    PRINT N'##### 建立還原排程發生錯誤 #####';");
+            sb.AppendLine("    PRINT ERROR_MESSAGE();");
+            sb.AppendLine("END CATCH;");
+            sb.AppendLine("GO");
             sb.AppendLine();
         }
 
@@ -93,26 +109,84 @@ public class MaintenancePlanSqlGenerator : IMaintenancePlanSqlGenerator
 
     private static string GenerateSetRecoveryModel(MaintenancePlanConfig config)
     {
+        var sb = new StringBuilder();
         var db = QuoteName(config.DatabaseName);
         var testDb = QuoteName(config.TestDatabaseName);
-        return $"""
-            USE [master];
-            ALTER DATABASE {db} SET RECOVERY SIMPLE WITH NO_WAIT;
-            ALTER DATABASE {testDb} SET RECOVERY SIMPLE WITH NO_WAIT;
-            """;
+
+        sb.AppendLine("    -- 切換到 master 資料庫");
+        sb.AppendLine("    PRINT N'1.1 切換到 master 資料庫...';");
+        sb.AppendLine("    USE [master];");
+        sb.AppendLine($"    -- 設定主要資料庫的 Recovery Model 為 SIMPLE");
+        sb.AppendLine($"    PRINT N'1.2 將資料庫 {db} 的 Recovery Model 設為 SIMPLE...';");
+        sb.AppendLine($"    ALTER DATABASE {db}");
+        sb.AppendLine($"    SET RECOVERY SIMPLE");
+        sb.AppendLine($"    WITH NO_WAIT;");
+        sb.AppendLine($"    PRINT N'1.2 完成：主要資料庫 {db} 設定為 SIMPLE 模式';");
+        sb.AppendLine();
+        sb.AppendLine($"    -- 設定測試資料庫的 Recovery Model 為 SIMPLE");
+        sb.AppendLine($"    PRINT N'1.3 將資料庫 {testDb} 的 Recovery Model 設為 SIMPLE...';");
+        sb.AppendLine($"    ALTER DATABASE {testDb}");
+        sb.AppendLine($"    SET RECOVERY SIMPLE");
+        sb.AppendLine($"    WITH NO_WAIT;");
+        sb.AppendLine($"    PRINT N'1.3 完成：測試資料庫 {testDb} 設定為 SIMPLE 模式';");
+
+        return sb.ToString();
     }
 
     private static string GenerateRenameLogicalFiles(MaintenancePlanConfig config)
     {
+        var sb = new StringBuilder();
         var db = QuoteName(config.DatabaseName);
         var dbName = EscapeSingleQuote(config.DatabaseName);
-        return $"""
-            USE [master];
-            IF EXISTS (SELECT 1 FROM sys.master_files WHERE database_id = DB_ID(N'{dbName}') AND name = N'shltw_Data')
-                ALTER DATABASE {db} MODIFY FILE (NAME = N'shltw_Data', NEWNAME = N'{dbName}_Data');
-            IF EXISTS (SELECT 1 FROM sys.master_files WHERE database_id = DB_ID(N'{dbName}') AND name = N'shltw_Log')
-                ALTER DATABASE {db} MODIFY FILE (NAME = N'shltw_Log', NEWNAME = N'{dbName}_Log');
-            """;
+
+        sb.AppendLine("    USE [master];");
+        sb.AppendLine($"    DECLARE @dbName SYSNAME = N'{dbName}';");
+        sb.AppendLine();
+        sb.AppendLine($"    -- 3.1 如果存在原本的邏輯資料檔 'shltw_Data'，將其改為 '{dbName}_Data'");
+        sb.AppendLine($"    PRINT N'3.1 檢查並重新命名邏輯資料檔 (Data)...';");
+        sb.AppendLine($"    IF EXISTS (");
+        sb.AppendLine($"        SELECT 1");
+        sb.AppendLine($"        FROM sys.master_files");
+        sb.AppendLine($"        WHERE database_id = DB_ID(@dbName)");
+        sb.AppendLine($"          AND name = N'shltw_Data'");
+        sb.AppendLine($"    )");
+        sb.AppendLine($"    BEGIN");
+        sb.AppendLine($"        PRINT N'3.1-1 重新命名邏輯 Data 檔: ''shltw_Data'' → ''{dbName}_Data''';");
+        sb.AppendLine($"        ALTER DATABASE {db}");
+        sb.AppendLine($"        MODIFY FILE (");
+        sb.AppendLine($"          NAME    = N'shltw_Data',");
+        sb.AppendLine($"          NEWNAME = N'{dbName}_Data'");
+        sb.AppendLine($"        );");
+        sb.AppendLine($"        PRINT N'3.1-2 完成 Data 檔重新命名';");
+        sb.AppendLine($"    END");
+        sb.AppendLine($"    ELSE");
+        sb.AppendLine($"    BEGIN");
+        sb.AppendLine($"        PRINT N'3.1-3 資料檔 ''shltw_Data'' 不存在或已被更名';");
+        sb.AppendLine($"    END");
+        sb.AppendLine();
+        sb.AppendLine($"    -- 3.2 如果存在原本的邏輯日誌檔 'shltw_Log'，將其改為 '{dbName}_Log'");
+        sb.AppendLine($"    PRINT N'3.2 檢查並重新命名邏輯日誌檔 (Log)...';");
+        sb.AppendLine($"    IF EXISTS (");
+        sb.AppendLine($"        SELECT 1");
+        sb.AppendLine($"        FROM sys.master_files");
+        sb.AppendLine($"        WHERE database_id = DB_ID(@dbName)");
+        sb.AppendLine($"          AND name = N'shltw_Log'");
+        sb.AppendLine($"    )");
+        sb.AppendLine($"    BEGIN");
+        sb.AppendLine($"        PRINT N'3.2-1 重新命名邏輯 Log 檔: ''shltw_Log'' → ''{dbName}_Log''';");
+        sb.AppendLine($"        ALTER DATABASE {db}");
+        sb.AppendLine($"        MODIFY FILE (");
+        sb.AppendLine($"          NAME    = N'shltw_Log',");
+        sb.AppendLine($"          NEWNAME = N'{dbName}_Log'");
+        sb.AppendLine($"        );");
+        sb.AppendLine($"        PRINT N'3.2-2 完成 Log 檔重新命名';");
+        sb.AppendLine($"    END");
+        sb.AppendLine($"    ELSE");
+        sb.AppendLine($"    BEGIN");
+        sb.AppendLine($"        PRINT N'3.2-3 日誌檔 ''shltw_Log'' 不存在或已被更名';");
+        sb.AppendLine($"    END");
+
+        return sb.ToString();
     }
 
     private static string GenerateCreateLoginAndUser(MaintenancePlanConfig config, string? action)
@@ -123,48 +197,114 @@ public class MaintenancePlanSqlGenerator : IMaintenancePlanSqlGenerator
         var login = QuoteName(config.LoginName);
         var escapedPassword = EscapeSingleQuote(config.LoginPassword);
         var escapedLogin = EscapeSingleQuote(config.LoginName);
-        var dbName = EscapeSingleQuote(config.DatabaseName);
 
-        sb.AppendLine("USE [master];");
+        sb.AppendLine("    -- 切換到 master");
+        sb.AppendLine("    PRINT N'5.1 切換到 master 資料庫...';");
+        sb.AppendLine("    USE [master];");
+        sb.AppendLine();
 
         if (action == "刪除重建")
         {
-            sb.AppendLine($"IF EXISTS (SELECT 1 FROM sys.server_principals WHERE name = N'{escapedLogin}')");
-            sb.AppendLine($"    DROP LOGIN {login};");
+            sb.AppendLine($"    -- 刪除現有登入帳號");
+            sb.AppendLine($"    IF EXISTS (");
+            sb.AppendLine($"        SELECT 1 FROM sys.server_principals WHERE name = N'{escapedLogin}'");
+            sb.AppendLine($"    )");
+            sb.AppendLine($"    BEGIN");
+            sb.AppendLine($"        PRINT N'5.1-1 刪除現有登入帳號 {login}...';");
+            sb.AppendLine($"        DROP LOGIN {login};");
+            sb.AppendLine($"        PRINT N'5.1-2 刪除完成';");
+            sb.AppendLine($"    END");
+            sb.AppendLine();
         }
 
-        sb.AppendLine($"CREATE LOGIN {login} WITH PASSWORD = N'{escapedPassword}', DEFAULT_DATABASE = {db}, CHECK_EXPIRATION = OFF, CHECK_POLICY = OFF;");
+        sb.AppendLine($"    -- 建立 SQL Server 登入帳號 {login}");
+        sb.AppendLine($"    PRINT N'5.2 建立 SQL Server 登入帳號 {login}...';");
+        sb.AppendLine($"    IF NOT EXISTS (");
+        sb.AppendLine($"        SELECT 1 FROM sys.server_principals WHERE name = N'{escapedLogin}'");
+        sb.AppendLine($"    )");
+        sb.AppendLine($"    BEGIN");
+        sb.AppendLine($"        CREATE LOGIN {login} WITH");
+        sb.AppendLine($"            PASSWORD = '{escapedPassword}',");
+        sb.AppendLine($"            DEFAULT_DATABASE = {db},");
+        sb.AppendLine($"            CHECK_EXPIRATION = OFF,");
+        sb.AppendLine($"            CHECK_POLICY = OFF;");
+        sb.AppendLine($"        PRINT N'5.2-1 登入帳號 {login} 建立成功';");
+        sb.AppendLine($"    END");
+        sb.AppendLine($"    ELSE");
+        sb.AppendLine($"    BEGIN");
+        sb.AppendLine($"        PRINT N'5.2-2 登入帳號 {login} 已存在，跳過建立';");
+        sb.AppendLine($"    END");
         sb.AppendLine();
 
         // 主資料庫使用者
-        sb.AppendLine($"USE {db};");
-        sb.AppendLine($"IF EXISTS (SELECT 1 FROM sys.database_principals WHERE name = N'{escapedLogin}')");
-        sb.AppendLine($"    ALTER USER {login} WITH LOGIN = {login};");
-        sb.AppendLine("ELSE");
-        sb.AppendLine($"    CREATE USER {login} FOR LOGIN {login};");
+        sb.AppendLine($"    -- 切換到目標資料庫");
+        sb.AppendLine($"    PRINT N'5.3 切換到資料庫 {db}...';");
+        sb.AppendLine($"    USE {db};");
+        sb.AppendLine();
+        sb.AppendLine($"    -- 檢查 database user 是否已存在，若不存在則建立；若已存在則重新綁定");
+        sb.AppendLine($"    PRINT N'5.4 檢查資料庫使用者 {login} 是否存在...';");
+        sb.AppendLine($"    IF NOT EXISTS (");
+        sb.AppendLine($"        SELECT 1");
+        sb.AppendLine($"        FROM sys.database_principals");
+        sb.AppendLine($"        WHERE name = N'{escapedLogin}'");
+        sb.AppendLine($"    )");
+        sb.AppendLine($"    BEGIN");
+        sb.AppendLine($"        PRINT N'5.4-1 資料庫使用者 {login} 不存在，開始建立...';");
+        sb.AppendLine($"        CREATE USER {login} FOR LOGIN {login};");
+        sb.AppendLine($"        PRINT N'5.4-2 資料庫使用者 {login} 建立成功';");
+        sb.AppendLine($"    END");
+        sb.AppendLine($"    ELSE");
+        sb.AppendLine($"    BEGIN");
+        sb.AppendLine($"        PRINT N'5.4-3 資料庫使用者 {login} 已存在，重新綁定至 LOGIN {login}...';");
+        sb.AppendLine($"        ALTER USER {login} WITH LOGIN = {login};");
+        sb.AppendLine($"        PRINT N'5.4-4 資料庫使用者 {login} 重新綁定完成';");
+        sb.AppendLine($"    END");
         sb.AppendLine();
 
         // 測試資料庫使用者
-        sb.AppendLine($"USE {testDb};");
-        sb.AppendLine($"IF EXISTS (SELECT 1 FROM sys.database_principals WHERE name = N'{escapedLogin}')");
-        sb.AppendLine($"    ALTER USER {login} WITH LOGIN = {login};");
-        sb.AppendLine("ELSE");
-        sb.AppendLine($"    CREATE USER {login} FOR LOGIN {login};");
+        sb.AppendLine($"    -- 切換到目標測試資料庫");
+        sb.AppendLine($"    PRINT N'5.5 切換到測試資料庫 {testDb}...';");
+        sb.AppendLine($"    USE {testDb};");
+        sb.AppendLine();
+        sb.AppendLine($"    -- 檢查 database user 是否已存在，若不存在則建立；若已存在則重新綁定");
+        sb.AppendLine($"    PRINT N'5.6 檢查測試資料庫使用者 {login} 是否存在...';");
+        sb.AppendLine($"    IF NOT EXISTS (");
+        sb.AppendLine($"        SELECT 1");
+        sb.AppendLine($"        FROM sys.database_principals");
+        sb.AppendLine($"        WHERE name = N'{escapedLogin}'");
+        sb.AppendLine($"    )");
+        sb.AppendLine($"    BEGIN");
+        sb.AppendLine($"        PRINT N'5.6-1 測試資料庫使用者 {login} 不存在，開始建立...';");
+        sb.AppendLine($"        CREATE USER {login} FOR LOGIN {login};");
+        sb.AppendLine($"        PRINT N'5.6-2 測試資料庫使用者 {login} 建立成功';");
+        sb.AppendLine($"    END");
+        sb.AppendLine($"    ELSE");
+        sb.AppendLine($"    BEGIN");
+        sb.AppendLine($"        PRINT N'5.6-3 測試資料庫使用者 {login} 已存在，重新綁定至 LOGIN {login}...';");
+        sb.AppendLine($"        ALTER USER {login} WITH LOGIN = {login};");
+        sb.AppendLine($"        PRINT N'5.6-4 測試資料庫使用者 {login} 重新綁定完成';");
+        sb.AppendLine($"    END");
 
         return sb.ToString();
     }
 
     private static string GenerateAddToDbOwner(MaintenancePlanConfig config)
     {
+        var sb = new StringBuilder();
         var db = QuoteName(config.DatabaseName);
         var testDb = QuoteName(config.TestDatabaseName);
         var login = QuoteName(config.LoginName);
-        return $"""
-            USE {db};
-            ALTER ROLE [db_owner] ADD MEMBER {login};
-            USE {testDb};
-            ALTER ROLE [db_owner] ADD MEMBER {login};
-            """;
+
+        sb.AppendLine($"    USE {db};");
+        sb.AppendLine($"    ALTER ROLE [db_owner]");
+        sb.AppendLine($"    ADD MEMBER {login};");
+        sb.AppendLine();
+        sb.AppendLine($"    USE {testDb};");
+        sb.AppendLine($"    ALTER ROLE [db_owner]");
+        sb.AppendLine($"    ADD MEMBER {login};");
+        sb.AppendLine($"    PRINT N'使用者 {login} 已成功加入 db_owner 角色';");
+
+        return sb.ToString();
     }
 
     private static string GenerateCreateBackupJob(MaintenancePlanConfig config, string? action)

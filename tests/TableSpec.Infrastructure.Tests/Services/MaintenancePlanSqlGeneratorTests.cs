@@ -43,7 +43,8 @@ public class MaintenancePlanSqlGeneratorTests
     {
         var sql = _sut.GenerateStepSql(MaintenancePlanStep.SetRecoveryModel, CreateConfig());
 
-        sql.Should().Contain("ALTER DATABASE [MyDB] SET RECOVERY SIMPLE");
+        sql.Should().Contain("ALTER DATABASE [MyDB]");
+        sql.Should().Contain("SET RECOVERY SIMPLE");
     }
 
     [Fact]
@@ -51,7 +52,7 @@ public class MaintenancePlanSqlGeneratorTests
     {
         var sql = _sut.GenerateStepSql(MaintenancePlanStep.SetRecoveryModel, CreateConfig());
 
-        sql.Should().Contain("ALTER DATABASE [MyDB_Test] SET RECOVERY SIMPLE");
+        sql.Should().Contain("ALTER DATABASE [MyDB_Test]");
     }
 
     #endregion

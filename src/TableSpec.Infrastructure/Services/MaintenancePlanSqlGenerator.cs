@@ -184,10 +184,14 @@ public class MaintenancePlanSqlGenerator : IMaintenancePlanSqlGenerator
         sb.AppendLine($"EXEC msdb.dbo.sp_add_job @job_name = N'{escapedJobName}', @enabled = 1, @description = N'[TableSpec] 每日全備份 {dbName}';");
         sb.AppendLine();
 
-        // 備份步驟命令
-        var backupCmd = EscapeSingleQuote(
-            $"BACKUP DATABASE [{config.DatabaseName}] TO DISK = N''{backupPath}{dbName}_Full_'' + CONVERT(NVARCHAR(8), GETDATE(), 112) + ''.bak'' WITH INIT, COMPRESSION;\r\n" +
-            $"EXEC master.dbo.xp_delete_file 0, N''{backupPath}'', N''bak'', DATEADD(DAY, -{config.RetentionDays}, GETDATE());");
+        // 備份步驟命令（使用 DECLARE 變數避免路徑中的特殊字元問題）
+        // 注意：@command 內的字串用 '' 代表單引號，不可再次 EscapeSingleQuote
+        var backupCmd =
+            $"DECLARE @today NVARCHAR(8) = CONVERT(VARCHAR(8), GETDATE(), 112);\r\n" +
+            $"DECLARE @fullPath NVARCHAR(260) = N''{backupPath}{dbName}_FULL_'' + @today + ''.bak'';\r\n" +
+            $"BACKUP DATABASE [{config.DatabaseName}] TO DISK = @fullPath WITH NOFORMAT, INIT, NAME = N''{dbName}-完整備份'', SKIP, NOREWIND, NOUNLOAD, STATS = 10;\r\n" +
+            $"DECLARE @deleteday VARCHAR(8) = CONVERT(VARCHAR(8), DATEADD(DAY, -{config.RetentionDays}, GETDATE()), 112);\r\n" +
+            $"EXEC master.dbo.xp_delete_file 0, N''{backupPath}'', N''bak'', @deleteday, 1;";
 
         sb.AppendLine($"EXEC msdb.dbo.sp_add_jobstep @job_name = N'{escapedJobName}', @step_name = N'全備份', @subsystem = N'TSQL', @command = N'{backupCmd}';");
         sb.AppendLine();
@@ -217,12 +221,14 @@ public class MaintenancePlanSqlGenerator : IMaintenancePlanSqlGenerator
         sb.AppendLine($"EXEC msdb.dbo.sp_add_job @job_name = N'{escapedJobName}', @enabled = 1, @description = N'[TableSpec] 每日全還原 {dbName}';");
         sb.AppendLine();
 
-        // 還原步驟命令
-        var restoreCmd = EscapeSingleQuote(
+        // 還原步驟命令（使用 DECLARE 變數，不可再次 EscapeSingleQuote）
+        var restoreCmd =
+            $"DECLARE @today NVARCHAR(8) = CONVERT(VARCHAR(8), GETDATE(), 112);\r\n" +
+            $"DECLARE @fullPath NVARCHAR(260) = N''{backupPath}{dbName}_FULL_'' + @today + ''.bak'';\r\n" +
             $"ALTER DATABASE [{config.TestDatabaseName}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE;\r\n" +
-            $"RESTORE DATABASE [{config.TestDatabaseName}] FROM DISK = N''{backupPath}{dbName}_Full_'' + CONVERT(NVARCHAR(8), GETDATE(), 112) + ''.bak'' " +
-            $"WITH MOVE N''{dbName}_Data'' TO N''{restorePath}{testDbName}.mdf'', MOVE N''{dbName}_Log'' TO N''{restorePath}{testDbName}.ldf'', REPLACE;\r\n" +
-            $"ALTER DATABASE [{config.TestDatabaseName}] SET MULTI_USER;");
+            $"RESTORE DATABASE [{config.TestDatabaseName}] FROM DISK = @fullPath " +
+            $"WITH MOVE N''{dbName}_Data'' TO N''{restorePath}{testDbName}.mdf'', MOVE N''{dbName}_Log'' TO N''{restorePath}{testDbName}.ldf'', REPLACE, RECOVERY, STATS = 5;\r\n" +
+            $"ALTER DATABASE [{config.TestDatabaseName}] SET MULTI_USER;";
 
         sb.AppendLine($"EXEC msdb.dbo.sp_add_jobstep @job_name = N'{escapedJobName}', @step_name = N'全還原', @subsystem = N'TSQL', @command = N'{restoreCmd}';");
         sb.AppendLine();

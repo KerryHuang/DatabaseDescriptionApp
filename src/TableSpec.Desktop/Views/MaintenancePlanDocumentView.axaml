@@ -105,14 +105,30 @@
 
                         <StackPanel Spacing="4">
                             <TextBlock Text="備份路徑"/>
-                            <TextBox Text="{Binding BackupPath}"
-                                     Watermark="例如: D:\SQLBackup\"/>
+                            <Grid ColumnDefinitions="Auto,8,*">
+                                <ComboBox Grid.Column="0"
+                                          ItemsSource="{Binding PathOptions}"
+                                          SelectedItem="{Binding SelectedBackupPathOption}"
+                                          Width="120"/>
+                                <TextBox Grid.Column="2"
+                                         Text="{Binding BackupPath}"
+                                         IsReadOnly="{Binding !IsBackupPathCustom}"
+                                         Watermark="例如: D:\SQLBackup\"/>
+                            </Grid>
                         </StackPanel>
 
                         <StackPanel Spacing="4">
                             <TextBlock Text="還原路徑"/>
-                            <TextBox Text="{Binding RestorePath}"
-                                     Watermark="例如: D:\sql_data\"/>
+                            <Grid ColumnDefinitions="Auto,8,*">
+                                <ComboBox Grid.Column="0"
+                                          ItemsSource="{Binding PathOptions}"
+                                          SelectedItem="{Binding SelectedRestorePathOption}"
+                                          Width="120"/>
+                                <TextBox Grid.Column="2"
+                                         Text="{Binding RestorePath}"
+                                         IsReadOnly="{Binding !IsRestorePathCustom}"
+                                         Watermark="例如: D:\sql_data\"/>
+                            </Grid>
                         </StackPanel>
 
                         <StackPanel Spacing="4">

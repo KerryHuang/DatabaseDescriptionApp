@@ -71,6 +71,45 @@ public partial class MaintenancePlanDocumentViewModel : DocumentViewModel
     [NotifyCanExecuteChangedFor(nameof(NextStepCommand))]
     private string _restorePath = string.Empty;
 
+    /// <summary>備份路徑選項</summary>
+    [ObservableProperty]
+    private string _selectedBackupPathOption = "Windows";
+
+    /// <summary>還原路徑選項</summary>
+    [ObservableProperty]
+    private string _selectedRestorePathOption = "Windows";
+
+    /// <summary>備份路徑是否為自訂</summary>
+    public bool IsBackupPathCustom => SelectedBackupPathOption == "其他";
+
+    /// <summary>還原路徑是否為自訂</summary>
+    public bool IsRestorePathCustom => SelectedRestorePathOption == "其他";
+
+    /// <summary>路徑選項清單</summary>
+    public IReadOnlyList<string> PathOptions { get; } = ["Windows", "Linux", "其他"];
+
+    partial void OnSelectedBackupPathOptionChanged(string value)
+    {
+        BackupPath = value switch
+        {
+            "Windows" => @"D:\SQLBackup\",
+            "Linux" => "/var/opt/mssql/backup/",
+            _ => BackupPath
+        };
+        OnPropertyChanged(nameof(IsBackupPathCustom));
+    }
+
+    partial void OnSelectedRestorePathOptionChanged(string value)
+    {
+        RestorePath = value switch
+        {
+            "Windows" => @"D:\sql_data\",
+            "Linux" => "/var/opt/mssql/data/",
+            _ => RestorePath
+        };
+        OnPropertyChanged(nameof(IsRestorePathCustom));
+    }
+
     [ObservableProperty]
     private string _testDatabaseName = string.Empty;
 
@@ -160,6 +199,8 @@ public partial class MaintenancePlanDocumentViewModel : DocumentViewModel
         Title = "維護計劃";
         Icon = "🔧";
         CanClose = true;
+        BackupPath = @"D:\SQLBackup\";
+        RestorePath = @"D:\sql_data\";
     }
 
     /// <summary>DI 建構函式</summary>
@@ -177,6 +218,10 @@ public partial class MaintenancePlanDocumentViewModel : DocumentViewModel
         Title = "維護計劃";
         Icon = "🔧";
         CanClose = true;
+
+        // 預設路徑
+        BackupPath = @"D:\SQLBackup\";
+        RestorePath = @"D:\sql_data\";
 
         // 從目前連線取得資料庫名稱
         var currentProfile = connectionManager.GetCurrentProfile();

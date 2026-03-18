@@ -32,8 +32,7 @@ SELECT
     h.last_run_date AS LastRunDateInt,
     h.last_run_time AS LastRunTimeInt,
     h.last_run_outcome AS LastRunOutcome,
-    s.next_run_date AS NextRunDateInt,
-    s.next_run_time AS NextRunTimeInt,
+    ja.next_scheduled_run_date AS NextRunDate,
     sch.active_start_time AS ScheduleTime,
     sch.freq_type AS ScheduleFreqType
 FROM msdb.dbo.sysjobs j
@@ -48,6 +47,11 @@ LEFT JOIN (
 ) h ON j.job_id = h.job_id
 LEFT JOIN msdb.dbo.sysjobschedules s ON j.job_id = s.job_id
 LEFT JOIN msdb.dbo.sysschedules sch ON s.schedule_id = sch.schedule_id
+LEFT JOIN (
+    SELECT job_id, next_scheduled_run_date
+    FROM msdb.dbo.sysjobactivity
+    WHERE session_id = (SELECT MAX(session_id) FROM msdb.dbo.syssessions)
+) ja ON j.job_id = ja.job_id
 WHERE j.description LIKE '%[[]TableSpec]%'
 ORDER BY j.name";
 
@@ -62,7 +66,7 @@ ORDER BY j.name";
             IsEnabled = r.IsEnabled,
             LastRunDate = ConvertToDateTime((int?)r.LastRunDateInt, (int?)r.LastRunTimeInt),
             LastRunOutcome = (int?)r.LastRunOutcome,
-            NextRunDate = ConvertToDateTime((int?)r.NextRunDateInt, (int?)r.NextRunTimeInt),
+            NextRunDate = (DateTime?)r.NextRunDate,
             ScheduleTime = (int?)r.ScheduleTime,
             ScheduleFreqType = (int?)r.ScheduleFreqType
         }).ToList();

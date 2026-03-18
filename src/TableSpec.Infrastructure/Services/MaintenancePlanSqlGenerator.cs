@@ -175,29 +175,80 @@ public class MaintenancePlanSqlGenerator : IMaintenancePlanSqlGenerator
         var escapedJobName = EscapeSingleQuote(jobName);
         var backupPath = EscapeSingleQuote(config.BackupPath);
 
+        sb.AppendLine("USE [msdb];");
+        sb.AppendLine();
+
         if (action == "刪除重建")
         {
-            sb.AppendLine($"EXEC msdb.dbo.sp_delete_job @job_name = N'{escapedJobName}', @delete_unused_schedule = 1;");
+            sb.AppendLine($"-- 刪除現有的 Job: [{jobName}]");
+            sb.AppendLine($"IF EXISTS (SELECT 1 FROM msdb.dbo.sysjobs WHERE name = N'{escapedJobName}')");
+            sb.AppendLine($"    EXEC dbo.sp_delete_job");
+            sb.AppendLine($"        @job_name = N'{escapedJobName}',");
+            sb.AppendLine($"        @delete_unused_schedule = 1;");
             sb.AppendLine();
         }
 
-        sb.AppendLine($"EXEC msdb.dbo.sp_add_job @job_name = N'{escapedJobName}', @enabled = 1, @description = N'[TableSpec] 每日全備份 {dbName}';");
+        // 建立 Job
+        sb.AppendLine($"-- 建立 Job: [{jobName}]");
+        sb.AppendLine($"EXEC dbo.sp_add_job");
+        sb.AppendLine($"    @job_name    = N'{escapedJobName}',");
+        sb.AppendLine($"    @enabled     = 1,");
+        sb.AppendLine($"    @description = N'[TableSpec] 每日對 {dbName} 做完整備份，保留 {config.RetentionDays} 天';");
         sb.AppendLine();
 
-        // 備份步驟命令（使用 DECLARE 變數避免路徑中的特殊字元問題）
-        // 注意：@command 內的字串用 '' 代表單引號，不可再次 EscapeSingleQuote
-        var backupCmd =
-            $"DECLARE @today NVARCHAR(8) = CONVERT(VARCHAR(8), GETDATE(), 112);\r\n" +
-            $"DECLARE @fullPath NVARCHAR(260) = N''{backupPath}{dbName}_FULL_'' + @today + ''.bak'';\r\n" +
-            $"BACKUP DATABASE [{config.DatabaseName}] TO DISK = @fullPath WITH NOFORMAT, INIT, NAME = N''{dbName}-完整備份'', SKIP, NOREWIND, NOUNLOAD, STATS = 10;\r\n" +
-            $"DECLARE @deleteday VARCHAR(8) = CONVERT(VARCHAR(8), DATEADD(DAY, -{config.RetentionDays}, GETDATE()), 112);\r\n" +
-            $"EXEC master.dbo.xp_delete_file 0, N''{backupPath}'', N''bak'', @deleteday, 1;";
+        // 備份步驟命令（@command 內的字串用 '' 代表單引號）
+        sb.AppendLine($"-- 新增 Step: Full Backup {dbName}");
+        sb.AppendLine($"EXEC dbo.sp_add_jobstep");
+        sb.AppendLine($"    @job_name       = N'{escapedJobName}',");
+        sb.AppendLine($"    @step_name      = N'Full Backup {dbName}',");
+        sb.AppendLine($"    @subsystem      = N'TSQL',");
+        sb.AppendLine($"    @on_success_action = 1,");
+        sb.AppendLine($"    @on_fail_action    = 2,");
+        sb.AppendLine($"    @command = N'");
+        sb.AppendLine($"BEGIN TRY");
+        sb.AppendLine($"    DECLARE @today     NVARCHAR(8)  = CONVERT(VARCHAR(8), GETDATE(), 112);");
+        sb.AppendLine($"    DECLARE @fullPath  NVARCHAR(260) = N''{backupPath}{dbName}_FULL_'' + @today + ''.bak'';");
+        sb.AppendLine();
+        sb.AppendLine($"    PRINT N''開始：執行 FULL 備份到 '' + @fullPath + N''...'';");
+        sb.AppendLine($"    BACKUP DATABASE [{config.DatabaseName}]");
+        sb.AppendLine($"    TO DISK = @fullPath");
+        sb.AppendLine($"    WITH NOFORMAT, INIT, NAME = N''{dbName}-完整 資料庫 備份'',");
+        sb.AppendLine($"         SKIP, NOREWIND, NOUNLOAD, STATS = 10;");
+        sb.AppendLine($"    PRINT N''FULL 備份完成'';");
+        sb.AppendLine();
+        sb.AppendLine($"    DECLARE @deleteday VARCHAR(8);");
+        sb.AppendLine($"    SELECT @deleteday = CONVERT(VARCHAR(8), DATEADD(DAY, -{config.RetentionDays}, GETDATE()), 112);");
+        sb.AppendLine();
+        sb.AppendLine($"    PRINT N''開始刪除 {config.RetentionDays} 天前的 .bak：刪除日期 = '' + @deleteday + N''...'';");
+        sb.AppendLine($"    EXEC master.dbo.xp_delete_file");
+        sb.AppendLine($"        0,");
+        sb.AppendLine($"        N''{backupPath}'',");
+        sb.AppendLine($"        N''bak'',");
+        sb.AppendLine($"        @deleteday,");
+        sb.AppendLine($"        1;");
+        sb.AppendLine($"    PRINT N''刪除過期備份完成'';");
+        sb.AppendLine($"END TRY");
+        sb.AppendLine($"BEGIN CATCH");
+        sb.AppendLine($"    PRINT N''錯誤: '' + ERROR_MESSAGE();");
+        sb.AppendLine($"    THROW;");
+        sb.AppendLine($"END CATCH");
+        sb.AppendLine($"';");
+        sb.AppendLine();
 
-        sb.AppendLine($"EXEC msdb.dbo.sp_add_jobstep @job_name = N'{escapedJobName}', @step_name = N'全備份', @subsystem = N'TSQL', @command = N'{backupCmd}';");
+        // 建立排程
+        sb.AppendLine($"-- 建立排程: 每日 {config.BackupTime / 10000:D2}:{config.BackupTime % 10000 / 100:D2} 執行");
+        sb.AppendLine($"EXEC dbo.sp_add_jobschedule");
+        sb.AppendLine($"    @job_name          = N'{escapedJobName}',");
+        sb.AppendLine($"    @name              = N'Nightly Full Backup Schedule',");
+        sb.AppendLine($"    @freq_type         = 4,");
+        sb.AppendLine($"    @freq_interval     = 1,");
+        sb.AppendLine($"    @active_start_time = {config.BackupTime};");
         sb.AppendLine();
-        sb.AppendLine($"EXEC msdb.dbo.sp_add_jobschedule @job_name = N'{escapedJobName}', @name = N'{escapedJobName}_Schedule', @freq_type = 4, @freq_interval = 1, @active_start_time = {config.BackupTime};");
-        sb.AppendLine();
-        sb.AppendLine($"EXEC msdb.dbo.sp_add_jobserver @job_name = N'{escapedJobName}';");
+
+        // 指定本機執行
+        sb.AppendLine($"-- 指定 Job 在本機伺服器執行");
+        sb.AppendLine($"EXEC dbo.sp_add_jobserver");
+        sb.AppendLine($"    @job_name = N'{escapedJobName}';");
 
         return sb.ToString();
     }
@@ -212,29 +263,81 @@ public class MaintenancePlanSqlGenerator : IMaintenancePlanSqlGenerator
         var restorePath = EscapeSingleQuote(config.RestorePath);
         var backupPath = EscapeSingleQuote(config.BackupPath);
 
+        sb.AppendLine("USE [msdb];");
+        sb.AppendLine();
+
         if (action == "刪除重建")
         {
-            sb.AppendLine($"EXEC msdb.dbo.sp_delete_job @job_name = N'{escapedJobName}', @delete_unused_schedule = 1;");
+            sb.AppendLine($"-- 刪除現有的 Job: [{jobName}]");
+            sb.AppendLine($"IF EXISTS (SELECT 1 FROM msdb.dbo.sysjobs WHERE name = N'{escapedJobName}')");
+            sb.AppendLine($"    EXEC dbo.sp_delete_job");
+            sb.AppendLine($"        @job_name = N'{escapedJobName}',");
+            sb.AppendLine($"        @delete_unused_schedule = 1;");
             sb.AppendLine();
         }
 
-        sb.AppendLine($"EXEC msdb.dbo.sp_add_job @job_name = N'{escapedJobName}', @enabled = 1, @description = N'[TableSpec] 每日全還原 {dbName}';");
+        // 建立 Job
+        sb.AppendLine($"-- 建立 Job: [{jobName}]");
+        sb.AppendLine($"EXEC dbo.sp_add_job");
+        sb.AppendLine($"    @job_name    = N'{escapedJobName}',");
+        sb.AppendLine($"    @enabled     = 1,");
+        sb.AppendLine($"    @description = N'[TableSpec] 每日將 {dbName} 還原到 {testDbName}';");
         sb.AppendLine();
 
-        // 還原步驟命令（使用 DECLARE 變數，不可再次 EscapeSingleQuote）
-        var restoreCmd =
-            $"DECLARE @today NVARCHAR(8) = CONVERT(VARCHAR(8), GETDATE(), 112);\r\n" +
-            $"DECLARE @fullPath NVARCHAR(260) = N''{backupPath}{dbName}_FULL_'' + @today + ''.bak'';\r\n" +
-            $"ALTER DATABASE [{config.TestDatabaseName}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE;\r\n" +
-            $"RESTORE DATABASE [{config.TestDatabaseName}] FROM DISK = @fullPath " +
-            $"WITH MOVE N''{dbName}_Data'' TO N''{restorePath}{testDbName}.mdf'', MOVE N''{dbName}_Log'' TO N''{restorePath}{testDbName}.ldf'', REPLACE, RECOVERY, STATS = 5;\r\n" +
-            $"ALTER DATABASE [{config.TestDatabaseName}] SET MULTI_USER;";
+        // 還原步驟命令
+        sb.AppendLine($"-- 新增 Step: Restore Full to {testDbName}");
+        sb.AppendLine($"EXEC dbo.sp_add_jobstep");
+        sb.AppendLine($"    @job_name       = N'{escapedJobName}',");
+        sb.AppendLine($"    @step_name      = N'Restore Full to {testDbName}',");
+        sb.AppendLine($"    @subsystem      = N'TSQL',");
+        sb.AppendLine($"    @on_success_action = 1,");
+        sb.AppendLine($"    @on_fail_action    = 2,");
+        sb.AppendLine($"    @command = N'");
+        sb.AppendLine($"BEGIN TRY");
+        sb.AppendLine($"    DECLARE @today     NVARCHAR(8)  = CONVERT(VARCHAR(8), GETDATE(), 112);");
+        sb.AppendLine($"    DECLARE @fullPath  NVARCHAR(260) = N''{backupPath}{dbName}_FULL_'' + @today + ''.bak'';");
+        sb.AppendLine();
+        sb.AppendLine($"    PRINT N''開始：將 [{config.TestDatabaseName}] 設為 SINGLE_USER 並強制回滾...'';");
+        sb.AppendLine($"    ALTER DATABASE [{config.TestDatabaseName}]");
+        sb.AppendLine($"    SET SINGLE_USER");
+        sb.AppendLine($"    WITH ROLLBACK IMMEDIATE;");
+        sb.AppendLine();
+        sb.AppendLine($"    PRINT N''開始執行還原到 [{config.TestDatabaseName}]，來源檔案 = '' + @fullPath + N''...'';");
+        sb.AppendLine($"    RESTORE DATABASE [{config.TestDatabaseName}]");
+        sb.AppendLine($"    FROM DISK = @fullPath");
+        sb.AppendLine($"    WITH");
+        sb.AppendLine($"      MOVE ''{dbName}_Data'' TO ''{restorePath}{testDbName}.mdf'',");
+        sb.AppendLine($"      MOVE ''{dbName}_Log'' TO ''{restorePath}{testDbName}.ldf'',");
+        sb.AppendLine($"      REPLACE,");
+        sb.AppendLine($"      RECOVERY,");
+        sb.AppendLine($"      STATS = 5;");
+        sb.AppendLine($"    PRINT N''還原完成，開始切回 MULTI_USER...'';");
+        sb.AppendLine();
+        sb.AppendLine($"    ALTER DATABASE [{config.TestDatabaseName}]");
+        sb.AppendLine($"    SET MULTI_USER;");
+        sb.AppendLine($"    PRINT N''完成：已切回 MULTI_USER'';");
+        sb.AppendLine($"END TRY");
+        sb.AppendLine($"BEGIN CATCH");
+        sb.AppendLine($"    PRINT N''錯誤: '' + ERROR_MESSAGE();");
+        sb.AppendLine($"    THROW;");
+        sb.AppendLine($"END CATCH");
+        sb.AppendLine($"';");
+        sb.AppendLine();
 
-        sb.AppendLine($"EXEC msdb.dbo.sp_add_jobstep @job_name = N'{escapedJobName}', @step_name = N'全還原', @subsystem = N'TSQL', @command = N'{restoreCmd}';");
+        // 建立排程
+        sb.AppendLine($"-- 建立排程: 每日 {config.RestoreTime / 10000:D2}:{config.RestoreTime % 10000 / 100:D2} 執行");
+        sb.AppendLine($"EXEC dbo.sp_add_jobschedule");
+        sb.AppendLine($"    @job_name          = N'{escapedJobName}',");
+        sb.AppendLine($"    @name              = N'Nightly Full Restore Schedule',");
+        sb.AppendLine($"    @freq_type         = 4,");
+        sb.AppendLine($"    @freq_interval     = 1,");
+        sb.AppendLine($"    @active_start_time = {config.RestoreTime};");
         sb.AppendLine();
-        sb.AppendLine($"EXEC msdb.dbo.sp_add_jobschedule @job_name = N'{escapedJobName}', @name = N'{escapedJobName}_Schedule', @freq_type = 4, @freq_interval = 1, @active_start_time = {config.RestoreTime};");
-        sb.AppendLine();
-        sb.AppendLine($"EXEC msdb.dbo.sp_add_jobserver @job_name = N'{escapedJobName}';");
+
+        // 指定本機執行
+        sb.AppendLine($"-- 指定 Job 在本機伺服器執行");
+        sb.AppendLine($"EXEC dbo.sp_add_jobserver");
+        sb.AppendLine($"    @job_name = N'{escapedJobName}';");
 
         return sb.ToString();
     }

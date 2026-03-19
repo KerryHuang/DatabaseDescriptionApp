@@ -30,6 +30,7 @@
         <KeyBinding Gesture="Ctrl+P" Command="{Binding OpenPerformanceDiagnosticsCommand}"/>
         <KeyBinding Gesture="Ctrl+U" Command="{Binding OpenColumnUsageCommand}"/>
         <KeyBinding Gesture="Ctrl+T" Command="{Binding OpenTableStatisticsCommand}"/>
+        <KeyBinding Gesture="Ctrl+I" Command="{Binding OpenMissingIndexReportCommand}"/>
         <KeyBinding Gesture="Ctrl+J" Command="{Binding OpenUnusedIndexReportCommand}"/>
         <KeyBinding Gesture="Ctrl+D" Command="{Binding OpenMaintenancePlanCommand}"/>
     </Window.KeyBindings>

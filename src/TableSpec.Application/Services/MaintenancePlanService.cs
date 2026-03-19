@@ -134,16 +134,19 @@ public class MaintenancePlanService : IMaintenancePlanService
     private async Task<StepCheckResult> CheckLogicalFilesAsync(MaintenancePlanConfig config, CancellationToken ct)
     {
         var files = await _dbInfoRepo.GetLogicalFileNamesAsync(config.DatabaseName, ct);
-        var hasOldNames = files.Any(f => f.LogicalName.StartsWith("shltw_", StringComparison.OrdinalIgnoreCase));
-        var alreadyRenamed = files.Count > 0 && !hasOldNames;
+        // 邏輯檔名應以資料庫名稱為前綴（如 DB_Data、DB_Log），不是的話就需要重命名
+        var allCorrect = files.Count > 0 && files.All(f =>
+            f.LogicalName.StartsWith(config.DatabaseName, StringComparison.OrdinalIgnoreCase));
+        var incorrectFiles = files.Where(f =>
+            !f.LogicalName.StartsWith(config.DatabaseName, StringComparison.OrdinalIgnoreCase)).ToList();
         return new StepCheckResult
         {
             Step = MaintenancePlanStep.RenameLogicalFiles,
-            AlreadyExists = alreadyRenamed,
-            CurrentStatus = alreadyRenamed
+            AlreadyExists = allCorrect,
+            CurrentStatus = allCorrect
                 ? $"邏輯檔名已正確（{string.Join(", ", files.Select(f => f.LogicalName))}）"
-                : "發現 shltw_ 開頭的邏輯檔名需重新命名",
-            AvailableActions = alreadyRenamed ? ["跳過"] : ["執行", "跳過"]
+                : $"發現不符合的邏輯檔名：{string.Join(", ", incorrectFiles.Select(f => f.LogicalName))}",
+            AvailableActions = allCorrect ? ["跳過"] : ["執行", "跳過"]
         };
     }
 

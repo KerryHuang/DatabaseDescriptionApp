@@ -21,6 +21,9 @@
     <Window.KeyBindings>
         <KeyBinding Gesture="Ctrl+L" Command="{Binding OpenConnectionSettingsCommand}"/>
         <KeyBinding Gesture="Ctrl+D" Command="{Binding ToggleThemeCommand}"/>
+        <KeyBinding Gesture="Ctrl+Shift+E" Command="{Binding ExportConnectionsCommand}"/>
+        <KeyBinding Gesture="Ctrl+Shift+I" Command="{Binding ImportConnectionsCommand}"/>
+        <KeyBinding Gesture="Ctrl+E" Command="{Binding ExportToExcelCommand}"/>
         <KeyBinding Gesture="Ctrl+W" Command="{Binding CloseCurrentDocumentCommand}"/>
         <KeyBinding Gesture="Ctrl+Shift+W" Command="{Binding CloseAllDocumentsCommand}"/>
         <KeyBinding Gesture="Ctrl+Q" Command="{Binding OpenSqlQueryCommand}"/>
@@ -48,20 +51,20 @@
                             <TextBlock Text="🔌" FontSize="14"/>
                         </MenuItem.Icon>
                     </MenuItem>
-                    <MenuItem Header="匯出連線設定(_X)" Command="{Binding ExportConnectionsCommand}"
+                    <MenuItem Header="匯出連線設定(_X)" Command="{Binding ExportConnectionsCommand}" InputGesture="Ctrl+Shift+E"
                               ToolTip.Tip="將連線設定匯出為 JSON 或加密檔案">
                         <MenuItem.Icon>
                             <TextBlock Text="📁" FontSize="14"/>
                         </MenuItem.Icon>
                     </MenuItem>
-                    <MenuItem Header="匯入連線設定(_I)" Command="{Binding ImportConnectionsCommand}"
+                    <MenuItem Header="匯入連線設定(_I)" Command="{Binding ImportConnectionsCommand}" InputGesture="Ctrl+Shift+I"
                               ToolTip.Tip="從 JSON 或加密檔案匯入連線設定">
                         <MenuItem.Icon>
                             <TextBlock Text="📂" FontSize="14"/>
                         </MenuItem.Icon>
                     </MenuItem>
                     <Separator/>
-                    <MenuItem Header="匯出 Excel(_E)" Command="{Binding ExportToExcelCommand}" IsEnabled="{Binding IsConnected}"
+                    <MenuItem Header="匯出 Excel(_E)" Command="{Binding ExportToExcelCommand}" InputGesture="Ctrl+E" IsEnabled="{Binding IsConnected}"
                               ToolTip.Tip="將目前資料庫的所有物件規格匯出為 Excel 檔案">
                         <MenuItem.Icon>
                             <TextBlock Text="📤" FontSize="14"/>

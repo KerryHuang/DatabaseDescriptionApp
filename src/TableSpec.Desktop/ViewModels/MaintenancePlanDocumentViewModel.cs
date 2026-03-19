@@ -71,43 +71,30 @@ public partial class MaintenancePlanDocumentViewModel : DocumentViewModel
     [NotifyCanExecuteChangedFor(nameof(NextStepCommand))]
     private string _restorePath = string.Empty;
 
-    /// <summary>備份路徑選項</summary>
+    /// <summary>平台選項</summary>
     [ObservableProperty]
-    private string _selectedBackupPathOption = "Windows";
+    private string _selectedPlatform = "Windows";
 
-    /// <summary>還原路徑選項</summary>
-    [ObservableProperty]
-    private string _selectedRestorePathOption = "Windows";
+    /// <summary>路徑是否為自訂</summary>
+    public bool IsPathCustom => SelectedPlatform == "其他";
 
-    /// <summary>備份路徑是否為自訂</summary>
-    public bool IsBackupPathCustom => SelectedBackupPathOption == "其他";
+    /// <summary>平台選項清單</summary>
+    public IReadOnlyList<string> PlatformOptions { get; } = ["Windows", "Linux", "其他"];
 
-    /// <summary>還原路徑是否為自訂</summary>
-    public bool IsRestorePathCustom => SelectedRestorePathOption == "其他";
-
-    /// <summary>路徑選項清單</summary>
-    public IReadOnlyList<string> PathOptions { get; } = ["Windows", "Linux", "其他"];
-
-    partial void OnSelectedBackupPathOptionChanged(string value)
+    partial void OnSelectedPlatformChanged(string value)
     {
-        BackupPath = value switch
+        switch (value)
         {
-            "Windows" => @"D:\SQLBackup\",
-            "Linux" => "/var/opt/mssql/backup/",
-            _ => BackupPath
-        };
-        OnPropertyChanged(nameof(IsBackupPathCustom));
-    }
-
-    partial void OnSelectedRestorePathOptionChanged(string value)
-    {
-        RestorePath = value switch
-        {
-            "Windows" => @"D:\sql_data\",
-            "Linux" => "/var/opt/mssql/data/",
-            _ => RestorePath
-        };
-        OnPropertyChanged(nameof(IsRestorePathCustom));
+            case "Windows":
+                BackupPath = @"D:\SQLBackup\";
+                RestorePath = @"D:\sql_data\";
+                break;
+            case "Linux":
+                BackupPath = "/var/opt/mssql/backup/";
+                RestorePath = "/var/opt/mssql/data/";
+                break;
+        }
+        OnPropertyChanged(nameof(IsPathCustom));
     }
 
     [ObservableProperty]

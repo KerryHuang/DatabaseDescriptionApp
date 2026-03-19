@@ -104,31 +104,24 @@
                         </StackPanel>
 
                         <StackPanel Spacing="4">
+                            <TextBlock Text="平台"/>
+                            <ComboBox ItemsSource="{Binding PlatformOptions}"
+                                      SelectedItem="{Binding SelectedPlatform}"
+                                      Width="150"/>
+                        </StackPanel>
+
+                        <StackPanel Spacing="4">
                             <TextBlock Text="備份路徑"/>
-                            <Grid ColumnDefinitions="Auto,8,*">
-                                <ComboBox Grid.Column="0"
-                                          ItemsSource="{Binding PathOptions}"
-                                          SelectedItem="{Binding SelectedBackupPathOption}"
-                                          Width="120"/>
-                                <TextBox Grid.Column="2"
-                                         Text="{Binding BackupPath}"
-                                         IsReadOnly="{Binding !IsBackupPathCustom}"
-                                         Watermark="例如: D:\SQLBackup\"/>
-                            </Grid>
+                            <TextBox Text="{Binding BackupPath}"
+                                     IsReadOnly="{Binding !IsPathCustom}"
+                                     Watermark="例如: D:\SQLBackup\"/>
                         </StackPanel>
 
                         <StackPanel Spacing="4">
                             <TextBlock Text="還原路徑"/>
-                            <Grid ColumnDefinitions="Auto,8,*">
-                                <ComboBox Grid.Column="0"
-                                          ItemsSource="{Binding PathOptions}"
-                                          SelectedItem="{Binding SelectedRestorePathOption}"
-                                          Width="120"/>
-                                <TextBox Grid.Column="2"
-                                         Text="{Binding RestorePath}"
-                                         IsReadOnly="{Binding !IsRestorePathCustom}"
-                                         Watermark="例如: D:\sql_data\"/>
-                            </Grid>
+                            <TextBox Text="{Binding RestorePath}"
+                                     IsReadOnly="{Binding !IsPathCustom}"
+                                     Watermark="例如: D:\sql_data\"/>
                         </StackPanel>
 
                         <StackPanel Spacing="4">

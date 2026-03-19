@@ -1,0 +1,290 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:TableSpec.Desktop.ViewModels"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="900" d:DesignHeight="600"
+             x:Class="TableSpec.Desktop.Views.MaintenancePlanDocumentView"
+             x:DataType="vm:MaintenancePlanDocumentViewModel">
+
+    <Design.DataContext>
+        <vm:MaintenancePlanDocumentViewModel/>
+    </Design.DataContext>
+
+    <Grid>
+        <!-- ===== 管理面板（非精靈模式） ===== -->
+        <Grid IsVisible="{Binding !IsWizardMode}" RowDefinitions="Auto,*,Auto">
+            <!-- 工具列 -->
+            <Border Grid.Row="0" Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}" Padding="10,8">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Button Command="{Binding OpenWizardCommand}">
+                        <StackPanel Orientation="Horizontal" Spacing="5">
+                            <TextBlock Text="&#x2795;" FontSize="14"/>
+                            <TextBlock Text="新增計劃"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Command="{Binding LoadJobsCommand}">
+                        <StackPanel Orientation="Horizontal" Spacing="5">
+                            <TextBlock Text="&#x1F504;" FontSize="14"/>
+                            <TextBlock Text="重新整理"/>
+                        </StackPanel>
+                    </Button>
+                    <Separator/>
+                    <Button Content="啟用/停用" Command="{Binding ToggleJobCommand}"
+                            IsEnabled="{Binding SelectedJob, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                    <Button Content="立即執行" Command="{Binding StartJobCommand}"
+                            IsEnabled="{Binding SelectedJob, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                    <Button Content="修改排程" Command="{Binding EditScheduleCommand}"
+                            IsEnabled="{Binding SelectedJob, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                    <Button Content="刪除" Command="{Binding DeleteJobCommand}"
+                            IsEnabled="{Binding SelectedJob, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                    <Separator/>
+                    <ProgressBar IsIndeterminate="True" Width="100" IsVisible="{Binding IsLoading}"/>
+                </StackPanel>
+            </Border>
+
+            <!-- 上下分割：Job 清單 + 執行歷史 -->
+            <Grid Grid.Row="1" RowDefinitions="*,5,*" Margin="10">
+                <!-- 上方：Job 清單 -->
+                <DataGrid Grid.Row="0"
+                          ItemsSource="{Binding Jobs}"
+                          SelectedItem="{Binding SelectedJob}"
+                          IsReadOnly="True"
+                          AutoGenerateColumns="False"
+                          GridLinesVisibility="Horizontal">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Job 名稱" Binding="{Binding Name}" Width="*"/>
+                        <DataGridTextColumn Header="狀態" Binding="{Binding StatusText}" Width="80"/>
+                        <DataGridTextColumn Header="上次執行時間" Binding="{Binding LastRunDate, StringFormat='{}{0:yyyy-MM-dd HH:mm}'}" Width="150"/>
+                        <DataGridTextColumn Header="上次執行結果" Binding="{Binding LastRunOutcomeText}" Width="100"/>
+                        <DataGridTextColumn Header="下次排程時間" Binding="{Binding NextRunDate, StringFormat='{}{0:yyyy-MM-dd HH:mm}'}" Width="150"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+
+                <!-- 分隔線 -->
+                <GridSplitter Grid.Row="1" ResizeDirection="Rows"
+                              Background="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
+                              HorizontalAlignment="Stretch" Height="5"/>
+
+                <!-- 下方：執行歷史 -->
+                <DockPanel Grid.Row="2">
+                    <TextBlock DockPanel.Dock="Top" Text="執行歷史" FontWeight="SemiBold" Margin="0,4,0,4"/>
+                    <DataGrid ItemsSource="{Binding JobHistory}"
+                              IsReadOnly="True"
+                              AutoGenerateColumns="False"
+                              GridLinesVisibility="Horizontal">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="執行時間" Binding="{Binding RunDate, StringFormat='{}{0:yyyy-MM-dd HH:mm:ss}'}" Width="160"/>
+                            <DataGridTextColumn Header="步驟" Binding="{Binding StepName}" Width="150"/>
+                            <DataGridTextColumn Header="結果" Binding="{Binding RunStatusText}" Width="80"/>
+                            <DataGridTextColumn Header="時長(秒)" Binding="{Binding DurationSeconds}" Width="80"/>
+                            <DataGridTextColumn Header="訊息" Binding="{Binding Message}" Width="*"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+            </Grid>
+
+            <!-- 狀態列 -->
+            <Border Grid.Row="2" Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}" Padding="10,5">
+                <TextBlock Text="{Binding StatusMessage}"/>
+            </Border>
+        </Grid>
+
+        <!-- ===== 精靈面板（精靈模式） ===== -->
+        <DockPanel IsVisible="{Binding IsWizardMode}">
+            <!-- 底部導覽列 -->
+            <Border DockPanel.Dock="Bottom" BorderThickness="0,1,0,0"
+                    BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
+                    Padding="16,12">
+                <Grid ColumnDefinitions="*,Auto">
+                    <!-- 狀態訊息 -->
+                    <TextBlock Grid.Column="0" Text="{Binding StatusMessage}"
+                               VerticalAlignment="Center" Opacity="0.7"/>
+                    <!-- 按鈕列 -->
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                        <Button Content="上一步" Command="{Binding PreviousStepCommand}"
+                                IsVisible="{Binding !IsStep1Visible}"/>
+                        <Button Content="下一步" Command="{Binding NextStepCommand}"
+                                IsVisible="{Binding !IsStep3Visible}"/>
+                        <Button Content="執行" Command="{Binding ExecuteCommand}"
+                                IsVisible="{Binding IsStep3Visible}"
+                                Classes="accent"/>
+                        <Button Content="取消" Command="{Binding CancelWizardCommand}"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- 主要內容區域 -->
+            <ScrollViewer Padding="24,16,24,60"
+                          VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled">
+                <StackPanel Spacing="16">
+
+                    <!-- ===== 步驟 1：基本設定 ===== -->
+                    <StackPanel IsVisible="{Binding IsStep1Visible}" Spacing="10">
+                        <TextBlock Text="步驟 1：基本設定" FontSize="18" FontWeight="Bold"/>
+
+                        <!-- 第一列：資料庫名稱 + 平台 -->
+                        <Grid ColumnDefinitions="*,16,Auto">
+                            <StackPanel Grid.Column="0" Spacing="4">
+                                <TextBlock Text="資料庫名稱"/>
+                                <TextBox Text="{Binding DatabaseName}" IsReadOnly="True"
+                                         Watermark="自動從目前連線取得"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2" Spacing="4">
+                                <TextBlock Text="平台"/>
+                                <ComboBox ItemsSource="{Binding PlatformOptions}"
+                                          SelectedItem="{Binding SelectedPlatform}"
+                                          Width="150"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <!-- 第二列：備份路徑 + 還原路徑 -->
+                        <Grid ColumnDefinitions="*,16,*">
+                            <StackPanel Grid.Column="0" Spacing="4">
+                                <TextBlock Text="備份路徑"/>
+                                <TextBox Text="{Binding BackupPath}"
+                                         IsReadOnly="{Binding !IsPathCustom}"
+                                         Watermark="例如: D:\SQLBackup\"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2" Spacing="4">
+                                <TextBlock Text="還原路徑"/>
+                                <TextBox Text="{Binding RestorePath}"
+                                         IsReadOnly="{Binding !IsPathCustom}"
+                                         Watermark="例如: D:\sql_data\"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <!-- 第三列：測試資料庫名稱 -->
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="測試資料庫名稱"/>
+                            <TextBox Text="{Binding TestDatabaseName}"/>
+                        </StackPanel>
+
+                        <!-- 第四列：登入帳號 + 登入密碼 -->
+                        <Grid ColumnDefinitions="*,16,*">
+                            <StackPanel Grid.Column="0" Spacing="4">
+                                <TextBlock Text="登入帳號"/>
+                                <TextBox Text="{Binding LoginName}"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2" Spacing="4">
+                                <TextBlock Text="登入密碼"/>
+                                <TextBox Text="{Binding LoginPassword}" PasswordChar="*"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <!-- 第五列：備份時間 + 還原時間 + 保留天數 -->
+                        <Grid ColumnDefinitions="*,16,*,16,Auto">
+                            <StackPanel Grid.Column="0" Spacing="4">
+                                <TextBlock Text="備份時間"/>
+                                <TimePicker SelectedTime="{Binding BackupTime}"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2" Spacing="4">
+                                <TextBlock Text="還原時間"/>
+                                <TimePicker SelectedTime="{Binding RestoreTime}"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="4" Spacing="4">
+                                <TextBlock Text="保留天數"/>
+                                <NumericUpDown Value="{Binding RetentionDays}" Minimum="1" Maximum="365"
+                                               Width="100" FormatString="0"/>
+                            </StackPanel>
+                        </Grid>
+                    </StackPanel>
+
+                    <!-- ===== 步驟 2：選擇步驟 ===== -->
+                    <StackPanel IsVisible="{Binding IsStep2Visible}" Spacing="12">
+                        <StackPanel Orientation="Horizontal" Spacing="12">
+                            <TextBlock Text="步驟 2：選擇執行項目" FontSize="18" FontWeight="Bold"/>
+                            <ProgressBar IsIndeterminate="True" Width="80" IsVisible="{Binding IsCheckingSteps}"/>
+                            <TextBlock Text="{Binding Step2CheckStatus}" VerticalAlignment="Center" Opacity="0.7"/>
+                        </StackPanel>
+
+                        <StackPanel Spacing="6">
+                            <Grid ColumnDefinitions="*,*">
+                                <CheckBox Grid.Column="0" IsChecked="{Binding IsSetRecoveryModelSelected}"
+                                          Content="設定 Recovery Model 為 SIMPLE"/>
+                                <TextBlock Grid.Column="1" Text="{Binding RecoveryModelStatus}"
+                                           VerticalAlignment="Center" Opacity="0.6" FontSize="12"/>
+                            </Grid>
+                            <Grid ColumnDefinitions="*,*">
+                                <CheckBox Grid.Column="0" IsChecked="{Binding IsRenameLogicalFilesSelected}"
+                                          Content="重新命名邏輯檔名"/>
+                                <TextBlock Grid.Column="1" Text="{Binding LogicalFilesStatus}"
+                                           VerticalAlignment="Center" Opacity="0.6" FontSize="12"/>
+                            </Grid>
+                            <Grid ColumnDefinitions="*,*">
+                                <CheckBox Grid.Column="0" IsChecked="{Binding IsCreateLoginAndUserSelected}"
+                                          Content="建立登入帳號與使用者"/>
+                                <TextBlock Grid.Column="1" Text="{Binding LoginAndUserStatus}"
+                                           VerticalAlignment="Center" Opacity="0.6" FontSize="12"/>
+                            </Grid>
+                            <Grid ColumnDefinitions="*,*">
+                                <CheckBox Grid.Column="0" IsChecked="{Binding IsAddToDbOwnerSelected}"
+                                          Content="將使用者加入 db_owner"/>
+                                <TextBlock Grid.Column="1" Text="{Binding DbOwnerStatus}"
+                                           VerticalAlignment="Center" Opacity="0.6" FontSize="12"/>
+                            </Grid>
+                            <Grid ColumnDefinitions="*,*">
+                                <CheckBox Grid.Column="0" IsChecked="{Binding IsCreateBackupJobSelected}"
+                                          Content="建立每日全備份排程"/>
+                                <TextBlock Grid.Column="1" Text="{Binding BackupJobStatus}"
+                                           VerticalAlignment="Center" Opacity="0.6" FontSize="12"/>
+                            </Grid>
+                            <Grid ColumnDefinitions="*,*">
+                                <CheckBox Grid.Column="0" IsChecked="{Binding IsCreateRestoreJobSelected}"
+                                          Content="建立每日還原排程（選填）"/>
+                                <TextBlock Grid.Column="1" Text="{Binding RestoreJobStatus}"
+                                           VerticalAlignment="Center" Opacity="0.6" FontSize="12"/>
+                            </Grid>
+                        </StackPanel>
+                    </StackPanel>
+
+                    <!-- ===== 步驟 3：確認與執行 ===== -->
+                    <StackPanel IsVisible="{Binding IsStep3Visible}" Spacing="12">
+                        <TextBlock Text="步驟 3：確認與執行" FontSize="18" FontWeight="Bold"/>
+
+                        <!-- 檢查結果 -->
+                        <TextBlock Text="前置檢查結果" FontWeight="SemiBold"/>
+                        <DataGrid ItemsSource="{Binding CheckResults}"
+                                  AutoGenerateColumns="False"
+                                  IsReadOnly="False"
+                                  Height="180"
+                                  CanUserResizeColumns="True">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="步驟" Binding="{Binding Step}" IsReadOnly="True" Width="*"/>
+                                <DataGridTextColumn Header="目前狀態" Binding="{Binding CurrentStatus}" IsReadOnly="True" Width="*"/>
+                                <DataGridTemplateColumn Header="處理方式" Width="*">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <ComboBox ItemsSource="{Binding AvailableActions}"
+                                                      SelectedItem="{Binding SelectedAction}"
+                                                      HorizontalAlignment="Stretch"
+                                                      Margin="2"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                            </DataGrid.Columns>
+                        </DataGrid>
+
+                        <!-- SQL 預覽 -->
+                        <StackPanel Spacing="4">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBlock Text="SQL 預覽" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                <Button Content="產生 SQL" Command="{Binding GeneratePreviewCommand}"/>
+                            </StackPanel>
+                            <TextBox Text="{Binding PreviewSql}"
+                                     AcceptsReturn="True" IsReadOnly="True"
+                                     Height="200"
+                                     FontFamily="Consolas,Menlo,monospace"/>
+                        </StackPanel>
+
+                        <!-- 執行日誌 -->
+                        <TextBlock Text="執行日誌" FontWeight="SemiBold"/>
+                        <ListBox ItemsSource="{Binding ExecutionLog}" Height="120"/>
+                    </StackPanel>
+
+                </StackPanel>
+            </ScrollViewer>
+        </DockPanel>
+    </Grid>
+</UserControl>

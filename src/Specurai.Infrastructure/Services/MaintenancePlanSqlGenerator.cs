@@ -16,6 +16,7 @@ public class MaintenancePlanSqlGenerator : IMaintenancePlanSqlGenerator
     {
         return step switch
         {
+            MaintenancePlanStep.SetCompatibilityLevel => GenerateSetCompatibilityLevel(config),
             MaintenancePlanStep.SetRecoveryModel => GenerateSetRecoveryModel(config),
             MaintenancePlanStep.RenameLogicalFiles => GenerateRenameLogicalFiles(config),
             MaintenancePlanStep.CreateLoginAndUser => GenerateCreateLoginAndUser(config, action),
@@ -35,7 +36,24 @@ public class MaintenancePlanSqlGenerator : IMaintenancePlanSqlGenerator
         if (!activeResults.Any())
             return string.Empty;
 
-        // 步驟 1-4：包在交易中
+        // 獨立步驟：更新相容性層級（ALTER DATABASE 不能在交易中執行）
+        var compatStep = activeResults.FirstOrDefault(r => r.Step == MaintenancePlanStep.SetCompatibilityLevel);
+        if (compatStep is not null)
+        {
+            sb.AppendLine($"PRINT N'===== 更新相容性層級 (開始) =====';");
+            sb.AppendLine("BEGIN TRY");
+            sb.AppendLine(GenerateStepSql(compatStep.Step, config, compatStep.SelectedAction));
+            sb.AppendLine($"    PRINT N'===== 更新相容性層級 (完成) =====';");
+            sb.AppendLine("END TRY");
+            sb.AppendLine("BEGIN CATCH");
+            sb.AppendLine("    PRINT N'##### 更新相容性層級發生錯誤 #####';");
+            sb.AppendLine("    PRINT ERROR_MESSAGE();");
+            sb.AppendLine("END CATCH;");
+            sb.AppendLine("GO");
+            sb.AppendLine();
+        }
+
+        // 基本設定步驟：包在交易中
         var transactionSteps = activeResults
             .Where(r => r.Step is MaintenancePlanStep.SetRecoveryModel
                 or MaintenancePlanStep.RenameLogicalFiles
@@ -45,7 +63,7 @@ public class MaintenancePlanSqlGenerator : IMaintenancePlanSqlGenerator
 
         if (transactionSteps.Any())
         {
-            sb.AppendLine($"PRINT N'===== 基本設定（步驟 1-4）(開始) =====';");
+            sb.AppendLine($"PRINT N'===== 基本設定 (開始) =====';");
             sb.AppendLine("BEGIN TRY");
             sb.AppendLine("BEGIN TRANSACTION;");
             sb.AppendLine();
@@ -57,7 +75,7 @@ public class MaintenancePlanSqlGenerator : IMaintenancePlanSqlGenerator
             }
 
             sb.AppendLine("COMMIT TRANSACTION;");
-            sb.AppendLine($"    PRINT N'===== 基本設定（步驟 1-4）(完成) =====';");
+            sb.AppendLine($"    PRINT N'===== 基本設定 (完成) =====';");
             sb.AppendLine("END TRY");
             sb.AppendLine("BEGIN CATCH");
             sb.AppendLine("    PRINT N'##### 基本設定發生錯誤 #####';");
@@ -104,6 +122,32 @@ public class MaintenancePlanSqlGenerator : IMaintenancePlanSqlGenerator
         }
 
         sb.AppendLine("PRINT N'維護計劃設定完成。';");
+        return sb.ToString();
+    }
+
+    private static string GenerateSetCompatibilityLevel(MaintenancePlanConfig config)
+    {
+        var sb = new StringBuilder();
+        var db = QuoteName(config.DatabaseName);
+        var dbName = EscapeSingleQuote(config.DatabaseName);
+
+        sb.AppendLine("    -- 取得當前 SQL Server 版本對應的相容性層級");
+        sb.AppendLine("    DECLARE @serverLevel INT = CAST(SERVERPROPERTY('ProductMajorVersion') AS INT) * 10;");
+        sb.AppendLine("    DECLARE @currentLevel INT;");
+        sb.AppendLine($"    SELECT @currentLevel = compatibility_level FROM sys.databases WHERE name = N'{dbName}';");
+        sb.AppendLine();
+        sb.AppendLine("    IF @currentLevel < @serverLevel");
+        sb.AppendLine("    BEGIN");
+        sb.AppendLine($"        PRINT N'更新 {db} 的相容性層級：' + CAST(@currentLevel AS NVARCHAR) + N' → ' + CAST(@serverLevel AS NVARCHAR);");
+        sb.AppendLine($"        DECLARE @compatSql NVARCHAR(200) = N'ALTER DATABASE {db} SET COMPATIBILITY_LEVEL = ' + CAST(@serverLevel AS NVARCHAR);");
+        sb.AppendLine("        EXEC sp_executesql @compatSql;");
+        sb.AppendLine($"        PRINT N'相容性層級更新完成';");
+        sb.AppendLine("    END");
+        sb.AppendLine("    ELSE");
+        sb.AppendLine("    BEGIN");
+        sb.AppendLine($"        PRINT N'{db} 的相容性層級已為最新（' + CAST(@currentLevel AS NVARCHAR) + N'），無需更新';");
+        sb.AppendLine("    END");
+
         return sb.ToString();
     }
 
@@ -482,12 +526,507 @@ public class MaintenancePlanSqlGenerator : IMaintenancePlanSqlGenerator
         return sb.ToString();
     }
 
+    /// <inheritdoc/>
+    public string GenerateExportSql(MaintenancePlanConfig config, IReadOnlyList<StepCheckResult> checkResults)
+    {
+        var sb = new StringBuilder();
+        var activeResults = checkResults.Where(r => r.SelectedAction != "跳過").ToList();
+
+        if (!activeResults.Any())
+            return string.Empty;
+
+        // 檔頭說明
+        sb.AppendLine("-- ============================================================");
+        sb.AppendLine("-- Specurai 維護計劃腳本");
+        sb.AppendLine($"-- 產生時間: {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+        sb.AppendLine("-- 說明: 此腳本由 Specurai 自動產生，您可以修改下方變數後直接執行");
+        sb.AppendLine("-- ============================================================");
+        sb.AppendLine();
+
+        // 變數宣告區
+        sb.AppendLine("-- ============================================================");
+        sb.AppendLine("-- 變數設定區（請依需求修改）");
+        sb.AppendLine("-- ============================================================");
+        sb.AppendLine();
+        sb.AppendLine("-- 主要資料庫名稱");
+        sb.AppendLine($"DECLARE @DatabaseName NVARCHAR(128) = N'{EscapeSingleQuote(config.DatabaseName)}';");
+        sb.AppendLine();
+        sb.AppendLine("-- 測試資料庫名稱（用於還原驗證）");
+        sb.AppendLine($"DECLARE @TestDatabaseName NVARCHAR(128) = N'{EscapeSingleQuote(config.TestDatabaseName)}';");
+        sb.AppendLine();
+        sb.AppendLine("-- 備份存放路徑（結尾需包含斜線）");
+        sb.AppendLine($"DECLARE @BackupPath NVARCHAR(260) = N'{EscapeSingleQuote(config.BackupPath)}';");
+        sb.AppendLine();
+        sb.AppendLine("-- 還原資料檔路徑（結尾需包含斜線）");
+        sb.AppendLine($"DECLARE @RestorePath NVARCHAR(260) = N'{EscapeSingleQuote(config.RestorePath)}';");
+        sb.AppendLine();
+        sb.AppendLine("-- SQL Server 登入帳號名稱");
+        sb.AppendLine($"DECLARE @LoginName NVARCHAR(128) = N'{EscapeSingleQuote(config.LoginName)}';");
+        sb.AppendLine();
+        sb.AppendLine("-- SQL Server 登入密碼");
+        sb.AppendLine($"DECLARE @LoginPassword NVARCHAR(128) = N'{EscapeSingleQuote(config.LoginPassword)}';");
+        sb.AppendLine();
+        sb.AppendLine("-- 備份保留天數（超過此天數的備份檔將自動刪除）");
+        sb.AppendLine($"DECLARE @RetentionDays INT = {config.RetentionDays};");
+        sb.AppendLine();
+        sb.AppendLine("-- 每日備份排程時間（HHMMSS 格式，例如 20000 = 02:00:00）");
+        sb.AppendLine($"DECLARE @BackupTime INT = {config.BackupTime};");
+        sb.AppendLine();
+        sb.AppendLine("-- 每日還原排程時間（HHMMSS 格式，例如 30000 = 03:00:00）");
+        sb.AppendLine($"DECLARE @RestoreTime INT = {config.RestoreTime};");
+        sb.AppendLine();
+
+        int stepNumber = 0;
+
+        // 更新相容性層級
+        var compatStep = activeResults.FirstOrDefault(r => r.Step == MaintenancePlanStep.SetCompatibilityLevel);
+        if (compatStep is not null)
+        {
+            stepNumber++;
+            sb.AppendLine("-- ============================================================");
+            sb.AppendLine($"-- 步驟 {stepNumber}: 更新相容性層級");
+            sb.AppendLine("-- 說明: 將資料庫的相容性層級更新至當前 SQL Server 版本，");
+            sb.AppendLine("--       以啟用最新的查詢最佳化和語法功能");
+            sb.AppendLine("-- ============================================================");
+            sb.AppendLine($"PRINT N'===== 步驟 {stepNumber}: 更新相容性層級 (開始) =====';");
+            sb.AppendLine("BEGIN TRY");
+            sb.AppendLine();
+            sb.AppendLine("    DECLARE @compatLevel INT = CAST(SERVERPROPERTY('ProductMajorVersion') AS INT) * 10;");
+            sb.AppendLine("    DECLARE @compatSql NVARCHAR(MAX);");
+            sb.AppendLine("    DECLARE @currentCompat INT;");
+            sb.AppendLine();
+            sb.AppendLine("    SELECT @currentCompat = compatibility_level FROM sys.databases WHERE name = @DatabaseName;");
+            sb.AppendLine();
+            sb.AppendLine("    IF @currentCompat < @compatLevel");
+            sb.AppendLine("    BEGIN");
+            sb.AppendLine("        SET @compatSql = N'ALTER DATABASE ' + QUOTENAME(@DatabaseName) + N' SET COMPATIBILITY_LEVEL = ' + CAST(@compatLevel AS NVARCHAR) + N';';");
+            sb.AppendLine("        PRINT N'  更新 ' + @DatabaseName + N' 的相容性層級：' + CAST(@currentCompat AS NVARCHAR) + N' → ' + CAST(@compatLevel AS NVARCHAR);");
+            sb.AppendLine("        EXEC sp_executesql @compatSql;");
+            sb.AppendLine("        PRINT N'  相容性層級更新完成';");
+            sb.AppendLine("    END");
+            sb.AppendLine("    ELSE");
+            sb.AppendLine("        PRINT N'  相容性層級已為最新（' + CAST(@currentCompat AS NVARCHAR) + N'），無需更新';");
+            sb.AppendLine();
+            sb.AppendLine($"PRINT N'===== 步驟 {stepNumber}: 更新相容性層級 (完成) =====';");
+            sb.AppendLine("END TRY");
+            sb.AppendLine("BEGIN CATCH");
+            sb.AppendLine($"    PRINT N'##### 步驟 {stepNumber} 發生錯誤 #####';");
+            sb.AppendLine("    PRINT ERROR_MESSAGE();");
+            sb.AppendLine("END CATCH;");
+            sb.AppendLine("GO");
+            sb.AppendLine();
+        }
+
+        // 設定 Recovery Model
+        var recoveryStep = activeResults.FirstOrDefault(r => r.Step == MaintenancePlanStep.SetRecoveryModel);
+        if (recoveryStep is not null)
+        {
+            stepNumber++;
+            sb.AppendLine("-- ============================================================");
+            sb.AppendLine($"-- 步驟 {stepNumber}: 設定 Recovery Model");
+            sb.AppendLine("-- 說明: 將主資料庫和測試資料庫的 Recovery Model 設為 SIMPLE，");
+            sb.AppendLine("--       以減少交易記錄空間佔用");
+            sb.AppendLine("-- ============================================================");
+            sb.AppendLine($"PRINT N'===== 步驟 {stepNumber}: 設定 Recovery Model (開始) =====';");
+            sb.AppendLine("BEGIN TRY");
+            sb.AppendLine("BEGIN TRANSACTION;");
+            sb.AppendLine();
+            sb.AppendLine("    DECLARE @sql NVARCHAR(MAX);");
+            sb.AppendLine();
+            sb.AppendLine("    -- 設定主資料庫");
+            sb.AppendLine("    SET @sql = N'ALTER DATABASE ' + QUOTENAME(@DatabaseName) + N' SET RECOVERY SIMPLE WITH NO_WAIT;';");
+            sb.AppendLine("    PRINT N'  設定 ' + @DatabaseName + N' 為 SIMPLE 模式...';");
+            sb.AppendLine("    EXEC sp_executesql @sql;");
+            sb.AppendLine();
+            sb.AppendLine("    -- 設定測試資料庫");
+            sb.AppendLine("    SET @sql = N'ALTER DATABASE ' + QUOTENAME(@TestDatabaseName) + N' SET RECOVERY SIMPLE WITH NO_WAIT;';");
+            sb.AppendLine("    PRINT N'  設定 ' + @TestDatabaseName + N' 為 SIMPLE 模式...';");
+            sb.AppendLine("    EXEC sp_executesql @sql;");
+            sb.AppendLine();
+            sb.AppendLine("COMMIT TRANSACTION;");
+            sb.AppendLine($"PRINT N'===== 步驟 {stepNumber}: 設定 Recovery Model (完成) =====';");
+            sb.AppendLine("END TRY");
+            sb.AppendLine("BEGIN CATCH");
+            sb.AppendLine($"    PRINT N'##### 步驟 {stepNumber} 發生錯誤 #####';");
+            sb.AppendLine("    PRINT ERROR_MESSAGE();");
+            sb.AppendLine("    IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;");
+            sb.AppendLine("    THROW;");
+            sb.AppendLine("END CATCH;");
+            sb.AppendLine("GO");
+            sb.AppendLine();
+        }
+
+        // 步驟 2: 重新命名邏輯檔名
+        var renameStep = activeResults.FirstOrDefault(r => r.Step == MaintenancePlanStep.RenameLogicalFiles);
+        if (renameStep is not null)
+        {
+            stepNumber++;
+            sb.AppendLine("-- ============================================================");
+            sb.AppendLine($"-- 步驟 {stepNumber}: 重新命名邏輯檔名");
+            sb.AppendLine("-- 說明: 將舊的邏輯檔名 (shltw_Data/shltw_Log) 更名為目前資料庫名稱");
+            sb.AppendLine("-- ============================================================");
+            sb.AppendLine($"PRINT N'===== 步驟 {stepNumber}: 重新命名邏輯檔名 (開始) =====';");
+            sb.AppendLine("BEGIN TRY");
+            sb.AppendLine("BEGIN TRANSACTION;");
+            sb.AppendLine();
+            sb.AppendLine("    DECLARE @renameSql NVARCHAR(MAX);");
+            sb.AppendLine("    USE [master];");
+            sb.AppendLine();
+            sb.AppendLine("    -- 重新命名邏輯資料檔");
+            sb.AppendLine("    IF EXISTS (");
+            sb.AppendLine("        SELECT 1 FROM sys.master_files");
+            sb.AppendLine("        WHERE database_id = DB_ID(@DatabaseName)");
+            sb.AppendLine("          AND name = N'shltw_Data'");
+            sb.AppendLine("    )");
+            sb.AppendLine("    BEGIN");
+            sb.AppendLine("        SET @renameSql = N'ALTER DATABASE ' + QUOTENAME(@DatabaseName) + N' MODIFY FILE (NAME = N''shltw_Data'', NEWNAME = N''' + @DatabaseName + N'_Data'');';");
+            sb.AppendLine("        PRINT N'  重新命名邏輯 Data 檔: shltw_Data → ' + @DatabaseName + N'_Data';");
+            sb.AppendLine("        EXEC sp_executesql @renameSql;");
+            sb.AppendLine("    END");
+            sb.AppendLine("    ELSE");
+            sb.AppendLine("        PRINT N'  資料檔 shltw_Data 不存在或已被更名';");
+            sb.AppendLine();
+            sb.AppendLine("    -- 重新命名邏輯日誌檔");
+            sb.AppendLine("    IF EXISTS (");
+            sb.AppendLine("        SELECT 1 FROM sys.master_files");
+            sb.AppendLine("        WHERE database_id = DB_ID(@DatabaseName)");
+            sb.AppendLine("          AND name = N'shltw_Log'");
+            sb.AppendLine("    )");
+            sb.AppendLine("    BEGIN");
+            sb.AppendLine("        SET @renameSql = N'ALTER DATABASE ' + QUOTENAME(@DatabaseName) + N' MODIFY FILE (NAME = N''shltw_Log'', NEWNAME = N''' + @DatabaseName + N'_Log'');';");
+            sb.AppendLine("        PRINT N'  重新命名邏輯 Log 檔: shltw_Log → ' + @DatabaseName + N'_Log';");
+            sb.AppendLine("        EXEC sp_executesql @renameSql;");
+            sb.AppendLine("    END");
+            sb.AppendLine("    ELSE");
+            sb.AppendLine("        PRINT N'  日誌檔 shltw_Log 不存在或已被更名';");
+            sb.AppendLine();
+            sb.AppendLine("COMMIT TRANSACTION;");
+            sb.AppendLine($"PRINT N'===== 步驟 {stepNumber}: 重新命名邏輯檔名 (完成) =====';");
+            sb.AppendLine("END TRY");
+            sb.AppendLine("BEGIN CATCH");
+            sb.AppendLine($"    PRINT N'##### 步驟 {stepNumber} 發生錯誤 #####';");
+            sb.AppendLine("    PRINT ERROR_MESSAGE();");
+            sb.AppendLine("    IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;");
+            sb.AppendLine("    THROW;");
+            sb.AppendLine("END CATCH;");
+            sb.AppendLine("GO");
+            sb.AppendLine();
+        }
+
+        // 步驟 3: 建立登入帳號與使用者
+        var loginStep = activeResults.FirstOrDefault(r => r.Step == MaintenancePlanStep.CreateLoginAndUser);
+        if (loginStep is not null)
+        {
+            stepNumber++;
+            var isRecreate = loginStep.SelectedAction == "刪除重建";
+            sb.AppendLine("-- ============================================================");
+            sb.AppendLine($"-- 步驟 {stepNumber}: 建立登入帳號與使用者");
+            sb.AppendLine("-- 說明: 建立 SQL Server 登入帳號，並在主資料庫和測試資料庫中建立使用者");
+            sb.AppendLine("-- ============================================================");
+            sb.AppendLine($"PRINT N'===== 步驟 {stepNumber}: 建立登入帳號與使用者 (開始) =====';");
+            sb.AppendLine("BEGIN TRY");
+            sb.AppendLine("BEGIN TRANSACTION;");
+            sb.AppendLine();
+            sb.AppendLine("    DECLARE @loginSql NVARCHAR(MAX);");
+            sb.AppendLine("    USE [master];");
+            sb.AppendLine();
+
+            if (isRecreate)
+            {
+                sb.AppendLine("    -- 刪除現有登入帳號");
+                sb.AppendLine("    IF EXISTS (SELECT 1 FROM sys.server_principals WHERE name = @LoginName)");
+                sb.AppendLine("    BEGIN");
+                sb.AppendLine("        SET @loginSql = N'DROP LOGIN ' + QUOTENAME(@LoginName) + N';';");
+                sb.AppendLine("        PRINT N'  刪除現有登入帳號 ' + @LoginName + N'...';");
+                sb.AppendLine("        EXEC sp_executesql @loginSql;");
+                sb.AppendLine("    END");
+                sb.AppendLine();
+            }
+
+            sb.AppendLine("    -- 建立登入帳號");
+            sb.AppendLine("    IF NOT EXISTS (SELECT 1 FROM sys.server_principals WHERE name = @LoginName)");
+            sb.AppendLine("    BEGIN");
+            sb.AppendLine("        SET @loginSql = N'CREATE LOGIN ' + QUOTENAME(@LoginName) + N' WITH PASSWORD = N''' + REPLACE(@LoginPassword, N'''', N'''''') + N''', DEFAULT_DATABASE = ' + QUOTENAME(@DatabaseName) + N', CHECK_EXPIRATION = OFF, CHECK_POLICY = OFF;';");
+            sb.AppendLine("        PRINT N'  建立登入帳號 ' + @LoginName + N'...';");
+            sb.AppendLine("        EXEC sp_executesql @loginSql;");
+            sb.AppendLine("    END");
+            sb.AppendLine("    ELSE");
+            sb.AppendLine("        PRINT N'  登入帳號 ' + @LoginName + N' 已存在，跳過建立';");
+            sb.AppendLine();
+
+            // 主資料庫使用者
+            sb.AppendLine("    -- 在主資料庫建立使用者");
+            sb.AppendLine("    SET @loginSql = N'USE ' + QUOTENAME(@DatabaseName) + N';");
+            sb.AppendLine("    IF NOT EXISTS (SELECT 1 FROM sys.database_principals WHERE name = N''' + REPLACE(@LoginName, N'''', N'''''') + N''')");
+            sb.AppendLine("        CREATE USER ' + QUOTENAME(@LoginName) + N' FOR LOGIN ' + QUOTENAME(@LoginName) + N';");
+            sb.AppendLine("    ELSE");
+            sb.AppendLine("        ALTER USER ' + QUOTENAME(@LoginName) + N' WITH LOGIN = ' + QUOTENAME(@LoginName) + N';';");
+            sb.AppendLine("    PRINT N'  在 ' + @DatabaseName + N' 建立/綁定使用者...';");
+            sb.AppendLine("    EXEC sp_executesql @loginSql;");
+            sb.AppendLine();
+
+            // 測試資料庫使用者
+            sb.AppendLine("    -- 在測試資料庫建立使用者");
+            sb.AppendLine("    SET @loginSql = N'USE ' + QUOTENAME(@TestDatabaseName) + N';");
+            sb.AppendLine("    IF NOT EXISTS (SELECT 1 FROM sys.database_principals WHERE name = N''' + REPLACE(@LoginName, N'''', N'''''') + N''')");
+            sb.AppendLine("        CREATE USER ' + QUOTENAME(@LoginName) + N' FOR LOGIN ' + QUOTENAME(@LoginName) + N';");
+            sb.AppendLine("    ELSE");
+            sb.AppendLine("        ALTER USER ' + QUOTENAME(@LoginName) + N' WITH LOGIN = ' + QUOTENAME(@LoginName) + N';';");
+            sb.AppendLine("    PRINT N'  在 ' + @TestDatabaseName + N' 建立/綁定使用者...';");
+            sb.AppendLine("    EXEC sp_executesql @loginSql;");
+            sb.AppendLine();
+            sb.AppendLine("COMMIT TRANSACTION;");
+            sb.AppendLine($"PRINT N'===== 步驟 {stepNumber}: 建立登入帳號與使用者 (完成) =====';");
+            sb.AppendLine("END TRY");
+            sb.AppendLine("BEGIN CATCH");
+            sb.AppendLine($"    PRINT N'##### 步驟 {stepNumber} 發生錯誤 #####';");
+            sb.AppendLine("    PRINT ERROR_MESSAGE();");
+            sb.AppendLine("    IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;");
+            sb.AppendLine("    THROW;");
+            sb.AppendLine("END CATCH;");
+            sb.AppendLine("GO");
+            sb.AppendLine();
+        }
+
+        // 步驟 4: 加入 db_owner 角色
+        var dbOwnerStep = activeResults.FirstOrDefault(r => r.Step == MaintenancePlanStep.AddToDbOwner);
+        if (dbOwnerStep is not null)
+        {
+            stepNumber++;
+            sb.AppendLine("-- ============================================================");
+            sb.AppendLine($"-- 步驟 {stepNumber}: 加入 db_owner 角色");
+            sb.AppendLine("-- 說明: 將使用者加入主資料庫和測試資料庫的 db_owner 角色");
+            sb.AppendLine("-- ============================================================");
+            sb.AppendLine($"PRINT N'===== 步驟 {stepNumber}: 加入 db_owner 角色 (開始) =====';");
+            sb.AppendLine("BEGIN TRY");
+            sb.AppendLine("BEGIN TRANSACTION;");
+            sb.AppendLine();
+            sb.AppendLine("    DECLARE @roleSql NVARCHAR(MAX);");
+            sb.AppendLine();
+            sb.AppendLine("    -- 主資料庫");
+            sb.AppendLine("    SET @roleSql = N'USE ' + QUOTENAME(@DatabaseName) + N'; ALTER ROLE [db_owner] ADD MEMBER ' + QUOTENAME(@LoginName) + N';';");
+            sb.AppendLine("    PRINT N'  在 ' + @DatabaseName + N' 加入 db_owner...';");
+            sb.AppendLine("    EXEC sp_executesql @roleSql;");
+            sb.AppendLine();
+            sb.AppendLine("    -- 測試資料庫");
+            sb.AppendLine("    SET @roleSql = N'USE ' + QUOTENAME(@TestDatabaseName) + N'; ALTER ROLE [db_owner] ADD MEMBER ' + QUOTENAME(@LoginName) + N';';");
+            sb.AppendLine("    PRINT N'  在 ' + @TestDatabaseName + N' 加入 db_owner...';");
+            sb.AppendLine("    EXEC sp_executesql @roleSql;");
+            sb.AppendLine();
+            sb.AppendLine("COMMIT TRANSACTION;");
+            sb.AppendLine($"PRINT N'===== 步驟 {stepNumber}: 加入 db_owner 角色 (完成) =====';");
+            sb.AppendLine("END TRY");
+            sb.AppendLine("BEGIN CATCH");
+            sb.AppendLine($"    PRINT N'##### 步驟 {stepNumber} 發生錯誤 #####';");
+            sb.AppendLine("    PRINT ERROR_MESSAGE();");
+            sb.AppendLine("    IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;");
+            sb.AppendLine("    THROW;");
+            sb.AppendLine("END CATCH;");
+            sb.AppendLine("GO");
+            sb.AppendLine();
+        }
+
+        // 步驟 5: 建立備份排程 Job
+        var backupStep = activeResults.FirstOrDefault(r => r.Step == MaintenancePlanStep.CreateBackupJob);
+        if (backupStep is not null)
+        {
+            stepNumber++;
+            var isRecreate = backupStep.SelectedAction == "刪除重建";
+            sb.AppendLine("-- ============================================================");
+            sb.AppendLine($"-- 步驟 {stepNumber}: 建立每日備份排程 Job");
+            sb.AppendLine("-- 說明: 建立 SQL Agent Job，每日在指定時間對資料庫做完整備份，");
+            sb.AppendLine("--       並自動清理超過保留天數的舊備份檔案");
+            sb.AppendLine("-- ============================================================");
+            sb.AppendLine($"PRINT N'===== 步驟 {stepNumber}: 建立備份排程 (開始) =====';");
+            sb.AppendLine("BEGIN TRY");
+            sb.AppendLine("    USE [msdb];");
+            sb.AppendLine();
+            sb.AppendLine("    DECLARE @jobName NVARCHAR(256) = @DatabaseName + N'_FullBackup';");
+            sb.AppendLine();
+
+            if (isRecreate)
+            {
+                sb.AppendLine("    -- 若 Job 已存在，先刪除");
+                sb.AppendLine("    IF EXISTS (SELECT 1 FROM msdb.dbo.sysjobs WHERE name = @jobName)");
+                sb.AppendLine("    BEGIN");
+                sb.AppendLine("        PRINT N'  刪除現有 Job: ' + @jobName;");
+                sb.AppendLine("        EXEC dbo.sp_delete_job @job_name = @jobName, @delete_unused_schedule = 1;");
+                sb.AppendLine("    END");
+                sb.AppendLine();
+            }
+
+            sb.AppendLine("    -- 建立 Job");
+            sb.AppendLine("    PRINT N'  建立 Job: ' + @jobName;");
+            sb.AppendLine("    EXEC dbo.sp_add_job");
+            sb.AppendLine("        @job_name    = @jobName,");
+            sb.AppendLine("        @enabled     = 1,");
+            sb.AppendLine("        @description = N'[Specurai] 每日完整備份';");
+            sb.AppendLine();
+
+            // 備份步驟命令（使用動態 SQL 建構 @command）
+            sb.AppendLine("    -- 建立備份步驟的命令");
+            sb.AppendLine("    DECLARE @backupCmd NVARCHAR(MAX) = N'");
+            sb.AppendLine("BEGIN TRY");
+            sb.AppendLine("    DECLARE @today     NVARCHAR(8)  = CONVERT(VARCHAR(8), GETDATE(), 112);");
+            sb.AppendLine("    DECLARE @fullPath  NVARCHAR(260) = N''' + @BackupPath + @DatabaseName + N'_FULL_'' + @today + ''.bak'';");
+            sb.AppendLine();
+            sb.AppendLine("    BACKUP DATABASE [' + @DatabaseName + N']");
+            sb.AppendLine("    TO DISK = @fullPath");
+            sb.AppendLine("    WITH NOFORMAT, INIT,");
+            sb.AppendLine("         NAME = N''' + @DatabaseName + N'-完整備份'',");
+            sb.AppendLine("         SKIP, NOREWIND, NOUNLOAD, STATS = 10;");
+            sb.AppendLine();
+            sb.AppendLine("    DECLARE @deleteday VARCHAR(8);");
+            sb.AppendLine("    SELECT @deleteday = CONVERT(VARCHAR(8), DATEADD(DAY, -' + CAST(@RetentionDays AS NVARCHAR) + N', GETDATE()), 112);");
+            sb.AppendLine("    EXEC master.dbo.xp_delete_file 0, N''' + @BackupPath + N''', N''bak'', @deleteday, 1;");
+            sb.AppendLine("END TRY");
+            sb.AppendLine("BEGIN CATCH");
+            sb.AppendLine("    PRINT N''錯誤: '' + ERROR_MESSAGE();");
+            sb.AppendLine("    THROW;");
+            sb.AppendLine("END CATCH';");
+            sb.AppendLine();
+
+            sb.AppendLine("    EXEC dbo.sp_add_jobstep");
+            sb.AppendLine("        @job_name       = @jobName,");
+            sb.AppendLine("        @step_name      = N'Full Backup',");
+            sb.AppendLine("        @subsystem      = N'TSQL',");
+            sb.AppendLine("        @on_success_action = 1,");
+            sb.AppendLine("        @on_fail_action    = 2,");
+            sb.AppendLine("        @command        = @backupCmd;");
+            sb.AppendLine();
+
+            sb.AppendLine("    -- 建立排程");
+            sb.AppendLine("    DECLARE @scheduleName NVARCHAR(256) = @jobName + N'_Schedule';");
+            sb.AppendLine("    EXEC dbo.sp_add_jobschedule");
+            sb.AppendLine("        @job_name          = @jobName,");
+            sb.AppendLine("        @name              = @scheduleName,");
+            sb.AppendLine("        @freq_type         = 4,");
+            sb.AppendLine("        @freq_interval     = 1,");
+            sb.AppendLine("        @active_start_time = @BackupTime;");
+            sb.AppendLine();
+
+            sb.AppendLine("    -- 指定本機執行");
+            sb.AppendLine("    EXEC dbo.sp_add_jobserver @job_name = @jobName;");
+            sb.AppendLine();
+            sb.AppendLine($"PRINT N'===== 步驟 {stepNumber}: 建立備份排程 (完成) =====';");
+            sb.AppendLine("END TRY");
+            sb.AppendLine("BEGIN CATCH");
+            sb.AppendLine($"    PRINT N'##### 步驟 {stepNumber} 發生錯誤 #####';");
+            sb.AppendLine("    PRINT ERROR_MESSAGE();");
+            sb.AppendLine("END CATCH;");
+            sb.AppendLine("GO");
+            sb.AppendLine();
+        }
+
+        // 步驟 6: 建立還原排程 Job
+        var restoreStep = activeResults.FirstOrDefault(r => r.Step == MaintenancePlanStep.CreateRestoreJob);
+        if (restoreStep is not null)
+        {
+            stepNumber++;
+            var isRecreate = restoreStep.SelectedAction == "刪除重建";
+            sb.AppendLine("-- ============================================================");
+            sb.AppendLine($"-- 步驟 {stepNumber}: 建立每日還原排程 Job");
+            sb.AppendLine("-- 說明: 建立 SQL Agent Job，每日在指定時間將備份還原到測試資料庫，");
+            sb.AppendLine("--       以驗證備份完整性");
+            sb.AppendLine("-- ============================================================");
+            sb.AppendLine($"PRINT N'===== 步驟 {stepNumber}: 建立還原排程 (開始) =====';");
+            sb.AppendLine("BEGIN TRY");
+            sb.AppendLine("    USE [msdb];");
+            sb.AppendLine();
+            sb.AppendLine("    DECLARE @restoreJobName NVARCHAR(256) = @DatabaseName + N'_FullRestore';");
+            sb.AppendLine();
+
+            if (isRecreate)
+            {
+                sb.AppendLine("    -- 若 Job 已存在，先刪除");
+                sb.AppendLine("    IF EXISTS (SELECT 1 FROM msdb.dbo.sysjobs WHERE name = @restoreJobName)");
+                sb.AppendLine("    BEGIN");
+                sb.AppendLine("        PRINT N'  刪除現有 Job: ' + @restoreJobName;");
+                sb.AppendLine("        EXEC dbo.sp_delete_job @job_name = @restoreJobName, @delete_unused_schedule = 1;");
+                sb.AppendLine("    END");
+                sb.AppendLine();
+            }
+
+            sb.AppendLine("    -- 建立 Job");
+            sb.AppendLine("    PRINT N'  建立 Job: ' + @restoreJobName;");
+            sb.AppendLine("    EXEC dbo.sp_add_job");
+            sb.AppendLine("        @job_name    = @restoreJobName,");
+            sb.AppendLine("        @enabled     = 1,");
+            sb.AppendLine("        @description = N'[Specurai] 每日將備份還原到測試資料庫';");
+            sb.AppendLine();
+
+            // 還原步驟命令
+            sb.AppendLine("    -- 建立還原步驟的命令");
+            sb.AppendLine("    DECLARE @restoreCmd NVARCHAR(MAX) = N'");
+            sb.AppendLine("BEGIN TRY");
+            sb.AppendLine("    DECLARE @today     NVARCHAR(8)  = CONVERT(VARCHAR(8), GETDATE(), 112);");
+            sb.AppendLine("    DECLARE @fullPath  NVARCHAR(260) = N''' + @BackupPath + @DatabaseName + N'_FULL_'' + @today + ''.bak'';");
+            sb.AppendLine();
+            sb.AppendLine("    PRINT N''開始：將 [' + @TestDatabaseName + N'] 設為 SINGLE_USER 並強制回滾...'';");
+            sb.AppendLine("    ALTER DATABASE [' + @TestDatabaseName + N']");
+            sb.AppendLine("    SET SINGLE_USER WITH ROLLBACK IMMEDIATE;");
+            sb.AppendLine();
+            sb.AppendLine("    PRINT N''開始執行還原到 [' + @TestDatabaseName + N']...'';");
+            sb.AppendLine("    RESTORE DATABASE [' + @TestDatabaseName + N']");
+            sb.AppendLine("    FROM DISK = @fullPath");
+            sb.AppendLine("    WITH");
+            sb.AppendLine("      MOVE N''' + @DatabaseName + N'_Data'' TO N''' + @RestorePath + @TestDatabaseName + N'.mdf'',");
+            sb.AppendLine("      MOVE N''' + @DatabaseName + N'_Log'' TO N''' + @RestorePath + @TestDatabaseName + N'.ldf'',");
+            sb.AppendLine("      REPLACE, RECOVERY, STATS = 5;");
+            sb.AppendLine();
+            sb.AppendLine("    ALTER DATABASE [' + @TestDatabaseName + N']");
+            sb.AppendLine("    SET MULTI_USER;");
+            sb.AppendLine("    PRINT N''還原完成，已切回 MULTI_USER'';");
+            sb.AppendLine("END TRY");
+            sb.AppendLine("BEGIN CATCH");
+            sb.AppendLine("    PRINT N''錯誤: '' + ERROR_MESSAGE();");
+            sb.AppendLine("    THROW;");
+            sb.AppendLine("END CATCH';");
+            sb.AppendLine();
+
+            sb.AppendLine("    EXEC dbo.sp_add_jobstep");
+            sb.AppendLine("        @job_name       = @restoreJobName,");
+            sb.AppendLine("        @step_name      = N'Restore Full',");
+            sb.AppendLine("        @subsystem      = N'TSQL',");
+            sb.AppendLine("        @on_success_action = 1,");
+            sb.AppendLine("        @on_fail_action    = 2,");
+            sb.AppendLine("        @command        = @restoreCmd;");
+            sb.AppendLine();
+
+            sb.AppendLine("    -- 建立排程");
+            sb.AppendLine("    DECLARE @restoreScheduleName NVARCHAR(256) = @restoreJobName + N'_Schedule';");
+            sb.AppendLine("    EXEC dbo.sp_add_jobschedule");
+            sb.AppendLine("        @job_name          = @restoreJobName,");
+            sb.AppendLine("        @name              = @restoreScheduleName,");
+            sb.AppendLine("        @freq_type         = 4,");
+            sb.AppendLine("        @freq_interval     = 1,");
+            sb.AppendLine("        @active_start_time = @RestoreTime;");
+            sb.AppendLine();
+
+            sb.AppendLine("    -- 指定本機執行");
+            sb.AppendLine("    EXEC dbo.sp_add_jobserver @job_name = @restoreJobName;");
+            sb.AppendLine();
+            sb.AppendLine($"PRINT N'===== 步驟 {stepNumber}: 建立還原排程 (完成) =====';");
+            sb.AppendLine("END TRY");
+            sb.AppendLine("BEGIN CATCH");
+            sb.AppendLine($"    PRINT N'##### 步驟 {stepNumber} 發生錯誤 #####';");
+            sb.AppendLine("    PRINT ERROR_MESSAGE();");
+            sb.AppendLine("END CATCH;");
+            sb.AppendLine("GO");
+            sb.AppendLine();
+        }
+
+        sb.AppendLine("PRINT N'維護計劃設定完成。';");
+        return sb.ToString();
+    }
+
     private static string EscapeSingleQuote(string value) => value.Replace("'", "''");
 
     private static string QuoteName(string name) => $"[{name.Replace("]", "]]")}]";
 
     private static string GetStepDescription(MaintenancePlanStep step) => step switch
     {
+        MaintenancePlanStep.SetCompatibilityLevel => "更新相容性層級",
         MaintenancePlanStep.SetRecoveryModel => "設定 Recovery Model",
         MaintenancePlanStep.RenameLogicalFiles => "重新命名邏輯檔名",
         MaintenancePlanStep.CreateLoginAndUser => "建立登入帳號與使用者",

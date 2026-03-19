@@ -5,6 +5,8 @@ namespace Specurai.Domain.Enums;
 /// </summary>
 public enum MaintenancePlanStep
 {
+    /// <summary>更新資料庫相容性層級至當前 SQL Server 版本</summary>
+    SetCompatibilityLevel,
     /// <summary>設定 Recovery Model 為 SIMPLE</summary>
     SetRecoveryModel,
     /// <summary>重新命名邏輯檔名</summary>

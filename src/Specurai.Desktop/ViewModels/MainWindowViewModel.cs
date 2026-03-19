@@ -449,6 +449,30 @@ public partial class MainWindowViewModel : ViewModelBase
                 var importWindow = new ImportJobWindow(importVm);
                 await importWindow.ShowDialog(desktop.MainWindow!);
             };
+
+            doc.SaveFileCallback = async (content) =>
+            {
+                if (desktop.MainWindow?.StorageProvider is not { } storageProvider)
+                    return null;
+
+                var file = await storageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+                {
+                    Title = "儲存 SQL 腳本",
+                    DefaultExtension = "sql",
+                    SuggestedFileName = "MaintenancePlan.sql",
+                    FileTypeChoices = new List<FilePickerFileType>
+                    {
+                        new("SQL 腳本") { Patterns = ["*.sql"] }
+                    }
+                });
+
+                if (file == null) return null;
+
+                await using var stream = await file.OpenWriteAsync();
+                await using var writer = new System.IO.StreamWriter(stream, System.Text.Encoding.UTF8);
+                await writer.WriteAsync(content);
+                return file.Name;
+            };
         }
 
         doc.CloseRequested += OnDocumentCloseRequested;
@@ -505,6 +529,35 @@ public partial class MainWindowViewModel : ViewModelBase
 
         var doc = App.Services?.GetRequiredService<HealthMonitoringDocumentViewModel>()
             ?? new HealthMonitoringDocumentViewModel();
+
+        // 連結匯出 SQL 腳本回呼
+        if (Avalonia.Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktopLifetime)
+        {
+            doc.SaveFileCallback = async (content) =>
+            {
+                var topLevel = TopLevel.GetTopLevel(desktopLifetime.MainWindow);
+                if (topLevel?.StorageProvider is not { } storageProvider) return null;
+
+                var file = await storageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+                {
+                    Title = "匯出 SQL 腳本",
+                    DefaultExtension = "sql",
+                    SuggestedFileName = "HealthMonitoring.sql",
+                    FileTypeChoices = new List<FilePickerFileType>
+                    {
+                        new("SQL 腳本") { Patterns = ["*.sql"] }
+                    }
+                });
+
+                if (file == null) return null;
+
+                await using var stream = await file.OpenWriteAsync();
+                await using var writer = new System.IO.StreamWriter(stream, System.Text.Encoding.UTF8);
+                await writer.WriteAsync(content);
+                return file.Name;
+            };
+        }
+
         doc.CloseRequested += OnDocumentCloseRequested;
         Documents.Add(doc);
         SelectedDocument = doc;

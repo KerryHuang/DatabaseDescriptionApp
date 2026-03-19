@@ -56,6 +56,11 @@ public interface IHealthMonitoringService
     /// 更新監控類別
     /// </summary>
     Task UpdateCategoryAsync(int categoryId, bool isEnabled, int checkIntervalMinutes, CancellationToken ct = default);
+
+    /// <summary>
+    /// 產生可匯出的健康監控安裝 SQL 腳本（含 SQLCMD 變數宣告和說明）
+    /// </summary>
+    Task<string> GenerateExportSqlAsync(CancellationToken ct = default);
 }
 
 /// <summary>

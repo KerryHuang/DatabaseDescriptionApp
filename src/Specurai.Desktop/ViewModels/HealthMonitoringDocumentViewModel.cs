@@ -127,6 +127,11 @@ public partial class HealthMonitoringDocumentViewModel : DocumentViewModel
 
     #endregion
 
+    /// <summary>
+    /// 匯出 SQL 腳本回呼（由 View 層設定，參數為 SQL 內容，回傳儲存路徑或 null）
+    /// </summary>
+    public Func<string, Task<string?>>? SaveFileCallback { get; set; }
+
     #region 告警篩選
 
     [ObservableProperty]
@@ -709,6 +714,31 @@ public partial class HealthMonitoringDocumentViewModel : DocumentViewModel
         catch (Exception ex)
         {
             StatusMessage = $"更新失敗: {ex.Message}";
+        }
+    }
+
+    #endregion
+
+    #region 匯出 SQL 腳本
+
+    [RelayCommand]
+    private async Task ExportSqlAsync()
+    {
+        if (_healthMonitoringService == null || SaveFileCallback == null) return;
+
+        try
+        {
+            StatusMessage = "正在產生 SQL 腳本...";
+            var sql = await _healthMonitoringService.GenerateExportSqlAsync();
+            var filePath = await SaveFileCallback(sql);
+            if (filePath != null)
+                StatusMessage = $"已匯出 SQL 腳本至 {filePath}";
+            else
+                StatusMessage = "已取消匯出";
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"匯出失敗：{ex.Message}";
         }
     }
 

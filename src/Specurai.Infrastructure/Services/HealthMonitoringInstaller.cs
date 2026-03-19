@@ -298,6 +298,106 @@ DROP DATABASE DBA;";
         }
     }
 
+    /// <inheritdoc/>
+    public async Task<string> GenerateExportSqlAsync(CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        var script = await LoadEmbeddedScriptAsync("HealthMonitoringInstall.sql");
+        if (string.IsNullOrEmpty(script))
+        {
+            throw new InvalidOperationException("無法讀取安裝腳本嵌入資源");
+        }
+
+        // 替換硬編碼值為 SQLCMD 變數
+        var exportSql = script;
+
+        // 資料庫名稱替換
+        exportSql = exportSql.Replace("USE DBA;", "USE [$(DBADatabaseName)];");
+        exportSql = exportSql.Replace("CREATE DATABASE DBA;", "CREATE DATABASE [$(DBADatabaseName)];");
+        exportSql = exportSql.Replace("WHERE name = 'DBA'", "WHERE name = '$(DBADatabaseName)'");
+        exportSql = exportSql.Replace("DELETE FROM DBA.dbo.ServerHealthLog", "DELETE FROM [$(DBADatabaseName)].dbo.ServerHealthLog");
+        exportSql = exportSql.Replace("ALTER INDEX ALL ON DBA.dbo.ServerHealthLog", "ALTER INDEX ALL ON [$(DBADatabaseName)].dbo.ServerHealthLog");
+        exportSql = exportSql.Replace("EXEC DBA.dbo.sp_MasterHealthCheck;", "EXEC [$(DBADatabaseName)].dbo.sp_MasterHealthCheck;");
+        exportSql = exportSql.Replace("EXEC DBA.dbo.sp_CleanupHealthLog @RetentionDays = 30;", "EXEC [$(DBADatabaseName)].dbo.sp_CleanupHealthLog @RetentionDays = $(LogRetentionDays);");
+        exportSql = exportSql.Replace("@command = N'EXEC DBA.dbo.sp_MasterHealthCheck;'", "@command = N'EXEC [$(DBADatabaseName)].dbo.sp_MasterHealthCheck;'");
+        exportSql = exportSql.Replace("@command = N'EXEC DBA.dbo.sp_CleanupHealthLog @RetentionDays = 30;'", "@command = N'EXEC [$(DBADatabaseName)].dbo.sp_CleanupHealthLog @RetentionDays = $(LogRetentionDays);'");
+        exportSql = exportSql.Replace("@database_name = N'DBA'", "@database_name = N'$(DBADatabaseName)'");
+
+        // 驗證 SQL 中的 DBA 資料庫參考（如 DBA.sys.tables）
+        exportSql = exportSql.Replace("FROM DBA.sys.", "FROM [$(DBADatabaseName)].sys.");
+
+        // 長時間查詢閾值替換
+        exportSql = exportSql.Replace("@ThresholdSeconds INT = 300", "@ThresholdSeconds INT = $(LongQueryThresholdSeconds)");
+        exportSql = exportSql.Replace("EXEC sp_MonitorLongQueries @ThresholdSeconds = 300;", "EXEC sp_MonitorLongQueries @ThresholdSeconds = $(LongQueryThresholdSeconds);");
+
+        // 清理程序保留天數替換
+        exportSql = exportSql.Replace("@RetentionDays INT = 30", "@RetentionDays INT = $(LogRetentionDays)");
+
+        // Job 名稱替換
+        exportSql = exportSql.Replace("N'DBA - Server Health Monitoring'", "N'$(HealthCheckJobName)'");
+        exportSql = exportSql.Replace("N'DBA - Cleanup Health Log'", "N'$(CleanupJobName)'");
+
+        // Job 描述替換
+        exportSql = exportSql.Replace("N'[Specurai] 每日清理超過30天的記錄'", "N'[Specurai] 每日清理超過$(LogRetentionDays)天的記錄'");
+
+        // 排程設定替換
+        exportSql = exportSql.Replace("@active_start_time = 20000;", "@active_start_time = $(CleanupTime);");
+
+        // 重試設定替換
+        exportSql = exportSql.Replace("@retry_attempts = 3,", "@retry_attempts = $(RetryAttempts),");
+        exportSql = exportSql.Replace("@retry_interval = 5;", "@retry_interval = $(RetryInterval);");
+
+        // 組合最終腳本：標題 + 變數宣告區 + 修改後的安裝腳本
+        var header = $"""
+            -- ============================================================
+            -- Specurai 健康監控系統安裝腳本
+            -- 產生時間: {DateTime.Now:yyyy-MM-dd HH:mm:ss}
+            -- 說明: 此腳本由 Specurai 自動產生
+            --       請在 SSMS 啟用 SQLCMD 模式後執行，或修改下方變數
+            -- ============================================================
+
+            -- ============================================================
+            -- SQLCMD 變數設定區（請依需求修改）
+            -- 在 SSMS 中：查詢 → SQLCMD 模式，即可使用 :setvar
+            -- ============================================================
+
+            -- 健康監控資料庫名稱（用於儲存監控記錄）
+            :setvar DBADatabaseName "DBA"
+
+            -- 記錄保留天數（超過此天數的舊記錄將自動刪除）
+            :setvar LogRetentionDays "30"
+
+            -- 長時間查詢閾值（秒，超過此時間的查詢將被記錄為異常）
+            :setvar LongQueryThresholdSeconds "300"
+
+            -- 監控 Job 名稱 - 每小時健康檢查
+            :setvar HealthCheckJobName "DBA - Server Health Monitoring"
+
+            -- 監控 Job 名稱 - 每日記錄清理
+            :setvar CleanupJobName "DBA - Cleanup Health Log"
+
+            -- 每日清理排程時間（HHMMSS 格式，20000 = 02:00:00）
+            :setvar CleanupTime "20000"
+
+            -- 監控 Job 失敗時重試次數
+            :setvar RetryAttempts "3"
+
+            -- 監控 Job 失敗時重試間隔（分鐘）
+            :setvar RetryInterval "5"
+
+            """;
+
+        // 移除原始腳本開頭的註解標題（已由新標題取代）
+        var scriptStartIndex = exportSql.IndexOf("SET NOCOUNT ON;", StringComparison.Ordinal);
+        if (scriptStartIndex >= 0)
+        {
+            exportSql = exportSql[scriptStartIndex..];
+        }
+
+        return header + exportSql;
+    }
+
     private static async Task<string?> LoadEmbeddedScriptAsync(string fileName)
     {
         var assembly = Assembly.GetExecutingAssembly();

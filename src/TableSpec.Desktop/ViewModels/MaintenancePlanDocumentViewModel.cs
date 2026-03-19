@@ -49,6 +49,27 @@ public partial class MaintenancePlanDocumentViewModel : DocumentViewModel
     /// <summary>Agent Job 清單</summary>
     public ObservableCollection<AgentJobInfo> Jobs { get; } = [];
 
+    /// <summary>執行歷史</summary>
+    public ObservableCollection<AgentJobHistory> JobHistory { get; } = [];
+
+    /// <summary>選取 Job 時自動載入執行歷史</summary>
+    async partial void OnSelectedJobChanged(AgentJobInfo? value)
+    {
+        JobHistory.Clear();
+        if (value == null || _jobService == null) return;
+
+        try
+        {
+            var history = await _jobService.GetJobHistoryAsync(value.JobId);
+            foreach (var h in history)
+                JobHistory.Add(h);
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"載入執行歷史失敗：{ex.Message}";
+        }
+    }
+
     /// <summary>刪除確認回呼</summary>
     public Func<Task<bool>>? ConfirmDeleteCallback { get; set; }
 

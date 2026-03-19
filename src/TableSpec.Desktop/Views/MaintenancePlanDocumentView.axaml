@@ -43,21 +43,46 @@
                 </StackPanel>
             </Border>
 
-            <!-- 資料表格 -->
-            <DataGrid Grid.Row="1" Margin="10"
-                      ItemsSource="{Binding Jobs}"
-                      SelectedItem="{Binding SelectedJob}"
-                      IsReadOnly="True"
-                      AutoGenerateColumns="False"
-                      GridLinesVisibility="Horizontal">
-                <DataGrid.Columns>
-                    <DataGridTextColumn Header="Job 名稱" Binding="{Binding Name}" Width="*"/>
-                    <DataGridTextColumn Header="狀態" Binding="{Binding StatusText}" Width="80"/>
-                    <DataGridTextColumn Header="上次執行時間" Binding="{Binding LastRunDate, StringFormat='{}{0:yyyy-MM-dd HH:mm}'}" Width="150"/>
-                    <DataGridTextColumn Header="上次執行結果" Binding="{Binding LastRunOutcomeText}" Width="100"/>
-                    <DataGridTextColumn Header="下次排程時間" Binding="{Binding NextRunDate, StringFormat='{}{0:yyyy-MM-dd HH:mm}'}" Width="150"/>
-                </DataGrid.Columns>
-            </DataGrid>
+            <!-- 上下分割：Job 清單 + 執行歷史 -->
+            <Grid Grid.Row="1" RowDefinitions="*,5,*" Margin="10">
+                <!-- 上方：Job 清單 -->
+                <DataGrid Grid.Row="0"
+                          ItemsSource="{Binding Jobs}"
+                          SelectedItem="{Binding SelectedJob}"
+                          IsReadOnly="True"
+                          AutoGenerateColumns="False"
+                          GridLinesVisibility="Horizontal">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Job 名稱" Binding="{Binding Name}" Width="*"/>
+                        <DataGridTextColumn Header="狀態" Binding="{Binding StatusText}" Width="80"/>
+                        <DataGridTextColumn Header="上次執行時間" Binding="{Binding LastRunDate, StringFormat='{}{0:yyyy-MM-dd HH:mm}'}" Width="150"/>
+                        <DataGridTextColumn Header="上次執行結果" Binding="{Binding LastRunOutcomeText}" Width="100"/>
+                        <DataGridTextColumn Header="下次排程時間" Binding="{Binding NextRunDate, StringFormat='{}{0:yyyy-MM-dd HH:mm}'}" Width="150"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+
+                <!-- 分隔線 -->
+                <GridSplitter Grid.Row="1" ResizeDirection="Rows"
+                              Background="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
+                              HorizontalAlignment="Stretch" Height="5"/>
+
+                <!-- 下方：執行歷史 -->
+                <DockPanel Grid.Row="2">
+                    <TextBlock DockPanel.Dock="Top" Text="執行歷史" FontWeight="SemiBold" Margin="0,4,0,4"/>
+                    <DataGrid ItemsSource="{Binding JobHistory}"
+                              IsReadOnly="True"
+                              AutoGenerateColumns="False"
+                              GridLinesVisibility="Horizontal">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="執行時間" Binding="{Binding RunDate, StringFormat='{}{0:yyyy-MM-dd HH:mm:ss}'}" Width="160"/>
+                            <DataGridTextColumn Header="步驟" Binding="{Binding StepName}" Width="150"/>
+                            <DataGridTextColumn Header="結果" Binding="{Binding RunStatusText}" Width="80"/>
+                            <DataGridTextColumn Header="時長(秒)" Binding="{Binding DurationSeconds}" Width="80"/>
+                            <DataGridTextColumn Header="訊息" Binding="{Binding Message}" Width="*"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+            </Grid>
 
             <!-- 狀態列 -->
             <Border Grid.Row="2" Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}" Padding="10,5">

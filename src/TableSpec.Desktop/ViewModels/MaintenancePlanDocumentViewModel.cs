@@ -256,6 +256,9 @@ public partial class MaintenancePlanDocumentViewModel : DocumentViewModel
             }
             DatabaseName = dbName;
         }
+
+        // 進入頁面時自動載入 Job 清單
+        _ = LoadJobsAsync();
     }
 
     #endregion

@@ -236,11 +236,21 @@ public partial class MaintenancePlanDocumentViewModel : DocumentViewModel
         BackupPath = @"D:\SQLBackup\";
         RestorePath = @"D:\sql_data\";
 
-        // 從目前連線取得資料庫名稱
+        // 從目前連線取得資料庫名稱，若為測試庫則自動取主庫名稱
         var currentProfile = connectionManager.GetCurrentProfile();
         if (currentProfile != null)
         {
-            DatabaseName = currentProfile.Database;
+            var dbName = currentProfile.Database;
+            // 移除常見的測試庫後綴（-Test、-test、_Test、_test）
+            foreach (var suffix in new[] { "-Test", "-test", "_Test", "_test" })
+            {
+                if (dbName.EndsWith(suffix, StringComparison.Ordinal))
+                {
+                    dbName = dbName[..^suffix.Length];
+                    break;
+                }
+            }
+            DatabaseName = dbName;
         }
     }
 

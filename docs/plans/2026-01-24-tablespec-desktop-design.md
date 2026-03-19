@@ -1,8 +1,8 @@
-# TableSpec Desktop 應用程式設計文件
+# Specurai Desktop 應用程式設計文件
 
 **建立日期**: 2026-01-24
 **專案目錄**: `C:\Users\zihao\source\repos\DatabaseDescriptionApp`
-**原始專案**: WayDoSoft.MoldPlan.TableSpecWeb (ASP.NET Core MVC)
+**原始專案**: WayDoSoft.MoldPlan.SpecuraiWeb (ASP.NET Core MVC)
 
 ---
 
@@ -31,9 +31,9 @@
 ## 2. 專案結構
 
 ```
-TableSpecApp/
+SpecuraiApp/
 ├── src/
-│   ├── TableSpec.Domain/              # 領域層
+│   ├── Specurai.Domain/              # 領域層
 │   │   ├── Entities/
 │   │   │   ├── TableInfo.cs
 │   │   │   ├── ColumnInfo.cs
@@ -46,7 +46,7 @@ TableSpecApp/
 │   │       ├── IIndexRepository.cs
 │   │       └── IRelationRepository.cs
 │   │
-│   ├── TableSpec.Application/         # 應用層
+│   ├── Specurai.Application/         # 應用層
 │   │   ├── Services/
 │   │   │   ├── ITableQueryService.cs
 │   │   │   ├── TableQueryService.cs
@@ -54,7 +54,7 @@ TableSpecApp/
 │   │   │   └── IExportService.cs
 │   │   └── DTOs/
 │   │
-│   ├── TableSpec.Infrastructure/      # 基礎設施層
+│   ├── Specurai.Infrastructure/      # 基礎設施層
 │   │   ├── Repositories/
 │   │   │   ├── TableRepository.cs
 │   │   │   ├── ColumnRepository.cs
@@ -64,7 +64,7 @@ TableSpecApp/
 │   │       ├── ConnectionManager.cs
 │   │       └── ExcelExportService.cs
 │   │
-│   └── TableSpec.Desktop/             # 展示層 (Avalonia)
+│   └── Specurai.Desktop/             # 展示層 (Avalonia)
 │       ├── App.axaml
 │       ├── Program.cs
 │       ├── ViewModels/
@@ -83,9 +83,9 @@ TableSpecApp/
 │           └── ViewLocator.cs
 │
 └── tests/
-    ├── TableSpec.Domain.Tests/
-    ├── TableSpec.Application.Tests/
-    └── TableSpec.Infrastructure.Tests/
+    ├── Specurai.Domain.Tests/
+    ├── Specurai.Application.Tests/
+    └── Specurai.Infrastructure.Tests/
 ```
 
 ---
@@ -268,7 +268,7 @@ public interface IExportService
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│  TableSpec    [開發環境 ▼]    [匯出 Excel]   [設定]    │
+│  Specurai    [開發環境 ▼]    [匯出 Excel]   [設定]    │
 ├───────────────┬─────────────────────────────────────────┤
 │               │                                         │
 │ [搜尋物件...] │   [搜尋欄位...]                        │
@@ -328,9 +328,9 @@ public interface IExportService
 
 ### 7.1 儲存位置
 
-- Windows: `%APPDATA%/TableSpec/connections.json`
-- Mac: `~/Library/Application Support/TableSpec/connections.json`
-- Linux: `~/.config/TableSpec/connections.json`
+- Windows: `%APPDATA%/Specurai/connections.json`
+- Mac: `~/Library/Application Support/Specurai/connections.json`
+- Linux: `~/.config/Specurai/connections.json`
 
 ### 7.2 安全性
 

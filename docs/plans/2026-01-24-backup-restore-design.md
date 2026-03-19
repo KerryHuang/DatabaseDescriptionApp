@@ -10,7 +10,7 @@
 
 ### 1.1 目標
 
-在現有 TableSpec 專案中新增「資料庫備份與還原」功能，作為獨立功能模組，同時為後續 Schema Compare 功能提供安全保障。
+在現有 Specurai 專案中新增「資料庫備份與還原」功能，作為獨立功能模組，同時為後續 Schema Compare 功能提供安全保障。
 
 ### 1.2 功能需求
 
@@ -112,7 +112,7 @@
 ### 3.1 新增檔案清單
 
 ```
-src/TableSpec.Domain/
+src/Specurai.Domain/
 ├── Entities/
 │   ├── BackupInfo.cs
 │   ├── BackupHistory.cs
@@ -129,7 +129,7 @@ src/TableSpec.Domain/
 #### BackupInfo.cs
 
 ```csharp
-namespace TableSpec.Domain.Entities;
+namespace Specurai.Domain.Entities;
 
 /// <summary>
 /// 備份資訊
@@ -191,7 +191,7 @@ public class BackupInfo
 #### BackupHistory.cs
 
 ```csharp
-namespace TableSpec.Domain.Entities;
+namespace Specurai.Domain.Entities;
 
 /// <summary>
 /// 備份歷史記錄集合
@@ -226,7 +226,7 @@ public class BackupHistory
 #### RestoreOptions.cs
 
 ```csharp
-namespace TableSpec.Domain.Entities;
+namespace Specurai.Domain.Entities;
 
 /// <summary>
 /// 還原選項
@@ -260,7 +260,7 @@ public class RestoreOptions
 
 ```csharp
 // BackupType.cs
-namespace TableSpec.Domain.Enums;
+namespace Specurai.Domain.Enums;
 
 /// <summary>
 /// 備份類型
@@ -278,7 +278,7 @@ public enum BackupType
 }
 
 // RestoreMode.cs
-namespace TableSpec.Domain.Enums;
+namespace Specurai.Domain.Enums;
 
 /// <summary>
 /// 還原模式
@@ -298,7 +298,7 @@ public enum RestoreMode
 #### IBackupService.cs
 
 ```csharp
-namespace TableSpec.Domain.Interfaces;
+namespace Specurai.Domain.Interfaces;
 
 /// <summary>
 /// 資料庫備份服務介面
@@ -452,7 +452,7 @@ public class BackupLogicalFile
 ### 4.1 新增檔案清單
 
 ```
-src/TableSpec.Infrastructure/
+src/Specurai.Infrastructure/
 └── Services/
     └── MssqlBackupService.cs
 ```
@@ -460,7 +460,7 @@ src/TableSpec.Infrastructure/
 ### 4.2 MssqlBackupService 實作
 
 ```csharp
-namespace TableSpec.Infrastructure.Services;
+namespace Specurai.Infrastructure.Services;
 
 /// <summary>
 /// MSSQL 備份服務實作
@@ -474,7 +474,7 @@ public class MssqlBackupService : IBackupService
     {
         var appDataPath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "TableSpec");
+            "Specurai");
         Directory.CreateDirectory(appDataPath);
         _historyFilePath = Path.Combine(appDataPath, "backup-history.json");
     }
@@ -812,7 +812,7 @@ public class MssqlBackupService : IBackupService
 ### 5.1 新增檔案清單
 
 ```
-src/TableSpec.Desktop/
+src/Specurai.Desktop/
 ├── ViewModels/
 │   └── BackupRestoreDocumentViewModel.cs
 ├── Views/

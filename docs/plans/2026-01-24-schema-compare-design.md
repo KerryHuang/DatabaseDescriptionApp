@@ -208,7 +208,7 @@ Scripts/
 ### Domain 層（實體與介面）
 
 ```
-src/TableSpec.Domain/
+src/Specurai.Domain/
 ├── Entities/SchemaCompare/
 │   ├── DatabaseSchema.cs      # 單一資料庫完整快照
 │   ├── SchemaTable.cs         # 表格結構
@@ -229,7 +229,7 @@ src/TableSpec.Domain/
 ### Application 層（服務邏輯）
 
 ```
-src/TableSpec.Application/Services/
+src/Specurai.Application/Services/
 ├── ISchemaCompareService.cs   # 比對服務介面
 └── SchemaCompareService.cs    # 比對邏輯實作
 ```
@@ -237,7 +237,7 @@ src/TableSpec.Application/Services/
 ### Infrastructure 層（資料存取與匯出）
 
 ```
-src/TableSpec.Infrastructure/
+src/Specurai.Infrastructure/
 ├── Services/
 │   ├── MssqlSchemaCollector.cs      # SQL Server Schema 收集
 │   ├── SchemaCompareExcelExporter.cs # Excel 匯出
@@ -249,7 +249,7 @@ src/TableSpec.Infrastructure/
 ### Desktop 層（UI）
 
 ```
-src/TableSpec.Desktop/
+src/Specurai.Desktop/
 ├── ViewModels/
 │   └── SchemaCompareDocumentViewModel.cs
 └── Views/

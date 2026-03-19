@@ -1,10 +1,10 @@
-# 關於 TableSpec 分頁設計
+# 關於 Specurai 分頁設計
 
 > 建立日期：2026-01-25
 
 ## 一、概述
 
-將「說明 → 關於 TableSpec」功能從狀態列訊息改為 MDI 分頁，提供完整的應用程式資訊、系統資訊、相依套件清單及授權條款。
+將「說明 → 關於 Specurai」功能從狀態列訊息改為 MDI 分頁，提供完整的應用程式資訊、系統資訊、相依套件清單及授權條款。
 
 ## 二、頁面結構
 
@@ -12,7 +12,7 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  🗃️  TableSpec                                              │
+│  🗃️  Specurai                                              │
 │      資料庫規格查詢工具                                       │
 │                                                             │
 │      版本：1.0.0                                             │
@@ -50,9 +50,9 @@
 
 | 檔案 | 位置 | 說明 |
 |------|------|------|
-| `AboutDocumentView.axaml` | `src/TableSpec.Desktop/Views/` | AXAML 視圖 |
-| `AboutDocumentView.axaml.cs` | `src/TableSpec.Desktop/Views/` | Code-behind |
-| `AboutDocumentViewModel.cs` | `src/TableSpec.Desktop/ViewModels/` | ViewModel |
+| `AboutDocumentView.axaml` | `src/Specurai.Desktop/Views/` | AXAML 視圖 |
+| `AboutDocumentView.axaml.cs` | `src/Specurai.Desktop/Views/` | Code-behind |
+| `AboutDocumentViewModel.cs` | `src/Specurai.Desktop/ViewModels/` | ViewModel |
 
 ### 3.2 ViewModel 設計
 
@@ -60,7 +60,7 @@
 public partial class AboutDocumentViewModel : DocumentViewModel
 {
     // 應用程式資訊
-    public string AppName => "TableSpec";
+    public string AppName => "Specurai";
     public string AppDescription => "資料庫規格查詢工具";
     public string Version { get; }      // 從 Assembly 讀取
     public string Copyright => "© 2024-2026 KerryHuang";

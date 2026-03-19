@@ -2,7 +2,7 @@
 
 ## 概述
 
-為 TableSpec 應用程式新增連線設定的匯出與匯入功能，讓使用者能在不同電腦或團隊成員之間分享資料庫連線設定。
+為 Specurai 應用程式新增連線設定的匯出與匯入功能，讓使用者能在不同電腦或團隊成員之間分享資料庫連線設定。
 
 ## 需求
 
@@ -25,7 +25,7 @@
 
 ### Domain 層
 
-新增 `ConnectionExportData` 於 `TableSpec.Domain/Entities/`：
+新增 `ConnectionExportData` 於 `Specurai.Domain/Entities/`：
 
 ```csharp
 public class ConnectionExportData
@@ -38,7 +38,7 @@ public class ConnectionExportData
 
 ### Application 層
 
-新增 `IConnectionExportService` 於 `TableSpec.Application/Services/`：
+新增 `IConnectionExportService` 於 `Specurai.Application/Services/`：
 
 ```csharp
 public interface IConnectionExportService
@@ -62,7 +62,7 @@ public interface IConnectionExportService
 
 ### Infrastructure 層
 
-新增 `ConnectionExportService` 於 `TableSpec.Infrastructure/Services/`：
+新增 `ConnectionExportService` 於 `Specurai.Infrastructure/Services/`：
 
 **加密方案：**
 - 演算法：AES-256-CBC
@@ -137,7 +137,7 @@ public interface IConnectionExportService
 | 格式 | 副檔名 | 說明 |
 |------|--------|------|
 | 純文字 JSON | `.json` | 可直接以文字編輯器開啟 |
-| 加密 JSON | `.tsjson` | TableSpec 專用加密格式 |
+| 加密 JSON | `.tsjson` | Specurai 專用加密格式 |
 
 ## 錯誤處理
 

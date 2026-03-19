@@ -14,24 +14,24 @@ description: 建立新的 Avalonia View
 
 1. 確認 View 名稱，如果未提供則詢問使用者
 
-2. 在 `src/TableSpec.Desktop/Views/` 建立 AXAML 檔案 `{ViewName}.axaml`
+2. 在 `src/Specurai.Desktop/Views/` 建立 AXAML 檔案 `{ViewName}.axaml`
 
-3. 在 `src/TableSpec.Desktop/Views/` 建立 Code-behind 檔案 `{ViewName}.axaml.cs`
+3. 在 `src/Specurai.Desktop/Views/` 建立 Code-behind 檔案 `{ViewName}.axaml.cs`
 
-4. 在 `src/TableSpec.Desktop/ViewModels/` 建立 ViewModel 檔案 `{ViewName}ViewModel.cs`
+4. 在 `src/Specurai.Desktop/ViewModels/` 建立 ViewModel 檔案 `{ViewName}ViewModel.cs`
 
-5. 在 `src/TableSpec.Desktop/Program.cs` 的 `ConfigureServices()` 方法中註冊 ViewModel
+5. 在 `src/Specurai.Desktop/Program.cs` 的 `ConfigureServices()` 方法中註冊 ViewModel
 
 ## AXAML 範本 (Window)
 
 ```xml
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:vm="using:TableSpec.Desktop.ViewModels"
+        xmlns:vm="using:Specurai.Desktop.ViewModels"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="600"
-        x:Class="TableSpec.Desktop.Views.{ViewName}"
+        x:Class="Specurai.Desktop.Views.{ViewName}"
         x:DataType="vm:{ViewName}ViewModel"
         Title="{視窗標題}"
         Width="800"
@@ -66,7 +66,7 @@ description: 建立新的 Avalonia View
 ```csharp
 using Avalonia.Controls;
 
-namespace TableSpec.Desktop.Views;
+namespace Specurai.Desktop.Views;
 
 /// <summary>
 /// {View 說明}
@@ -86,7 +86,7 @@ public partial class {ViewName} : Window
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
-namespace TableSpec.Desktop.ViewModels;
+namespace Specurai.Desktop.ViewModels;
 
 /// <summary>
 /// {ViewModel 說明}

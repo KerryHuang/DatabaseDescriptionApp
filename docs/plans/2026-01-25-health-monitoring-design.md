@@ -10,7 +10,7 @@
 
 ### 1.1 目標
 
-在現有 TableSpec 專案中新增「SQL Server 健康監控」功能，提供資料庫健康狀態的視覺化監控和告警管理。
+在現有 Specurai 專案中新增「SQL Server 健康監控」功能，提供資料庫健康狀態的視覺化監控和告警管理。
 
 ### 1.2 功能需求
 
@@ -139,7 +139,7 @@
 ### 3.1 新增檔案清單
 
 ```
-src/TableSpec.Domain/
+src/Specurai.Domain/
 ├── Entities/
 │   ├── HealthLogEntry.cs
 │   ├── MonitoringCategory.cs
@@ -156,7 +156,7 @@ src/TableSpec.Domain/
 #### HealthLogEntry.cs
 
 ```csharp
-namespace TableSpec.Domain.Entities;
+namespace Specurai.Domain.Entities;
 
 /// <summary>
 /// 健康記錄實體
@@ -201,7 +201,7 @@ public class HealthLogEntry
 #### MonitoringCategory.cs
 
 ```csharp
-namespace TableSpec.Domain.Entities;
+namespace Specurai.Domain.Entities;
 
 /// <summary>
 /// 監控類別實體
@@ -234,7 +234,7 @@ public class MonitoringCategory
 #### HealthStatusSummary.cs
 
 ```csharp
-namespace TableSpec.Domain.Entities;
+namespace Specurai.Domain.Entities;
 
 /// <summary>
 /// 健康狀態摘要實體
@@ -267,7 +267,7 @@ public class HealthStatusSummary
 #### HealthMetric.cs
 
 ```csharp
-namespace TableSpec.Domain.Entities;
+namespace Specurai.Domain.Entities;
 
 /// <summary>
 /// 即時健康指標實體
@@ -300,7 +300,7 @@ public class HealthMetric
 #### TrendDataPoint.cs
 
 ```csharp
-namespace TableSpec.Domain.Entities;
+namespace Specurai.Domain.Entities;
 
 /// <summary>
 /// 趨勢資料點實體
@@ -321,7 +321,7 @@ public class TrendDataPoint
 #### HealthMonitoringInstallStatus.cs
 
 ```csharp
-namespace TableSpec.Domain.Entities;
+namespace Specurai.Domain.Entities;
 
 /// <summary>
 /// 健康監控安裝狀態實體
@@ -364,7 +364,7 @@ public class HealthMonitoringInstallStatus
 #### IHealthMonitoringRepository.cs
 
 ```csharp
-namespace TableSpec.Domain.Interfaces;
+namespace Specurai.Domain.Interfaces;
 
 /// <summary>
 /// 健康監控資料存取介面
@@ -405,7 +405,7 @@ public interface IHealthMonitoringRepository
 ### 4.1 新增檔案清單
 
 ```
-src/TableSpec.Application/
+src/Specurai.Application/
 └── Services/
     ├── IHealthMonitoringService.cs
     ├── IHealthMonitoringInstaller.cs
@@ -417,7 +417,7 @@ src/TableSpec.Application/
 #### IHealthMonitoringService.cs
 
 ```csharp
-namespace TableSpec.Application.Services;
+namespace Specurai.Application.Services;
 
 /// <summary>
 /// 健康監控服務介面
@@ -452,7 +452,7 @@ public record UninstallResult(bool Success, string? ErrorMessage = null);
 #### IHealthMonitoringInstaller.cs
 
 ```csharp
-namespace TableSpec.Application.Services;
+namespace Specurai.Application.Services;
 
 /// <summary>
 /// 健康監控安裝器介面
@@ -471,7 +471,7 @@ public interface IHealthMonitoringInstaller
 ### 5.1 新增檔案清單
 
 ```
-src/TableSpec.Infrastructure/
+src/Specurai.Infrastructure/
 ├── Repositories/
 │   └── HealthMonitoringRepository.cs
 ├── Services/
@@ -483,7 +483,7 @@ src/TableSpec.Infrastructure/
 
 ### 5.2 嵌入資源設定
 
-在 `TableSpec.Infrastructure.csproj` 中：
+在 `Specurai.Infrastructure.csproj` 中：
 
 ```xml
 <ItemGroup>
@@ -543,7 +543,7 @@ src/TableSpec.Infrastructure/
 ### 6.1 新增檔案清單
 
 ```
-src/TableSpec.Desktop/
+src/Specurai.Desktop/
 ├── ViewModels/
 │   └── HealthMonitoringDocumentViewModel.cs
 ├── Views/
@@ -555,7 +555,7 @@ src/TableSpec.Desktop/
 
 ### 6.2 套件相依
 
-在 `TableSpec.Desktop.csproj` 中新增：
+在 `Specurai.Desktop.csproj` 中新增：
 
 ```xml
 <PackageReference Include="LiveChartsCore.SkiaSharpView.Avalonia" Version="2.0.0-rc2" />
@@ -866,10 +866,10 @@ services.AddTransient<HealthMonitoringDocumentViewModel>(sp =>
 
 ## 九、參考資料
 
-- `src/TableSpec.Desktop/ViewModels/BackupRestoreDocumentViewModel.cs` - DocumentViewModel 完整模式
-- `src/TableSpec.Infrastructure/Repositories/TableRepository.cs` - Repository 模式
-- `src/TableSpec.Desktop/Program.cs` - DI 註冊
-- `src/TableSpec.Desktop/Views/MainWindow.axaml` - MDI 整合
+- `src/Specurai.Desktop/ViewModels/BackupRestoreDocumentViewModel.cs` - DocumentViewModel 完整模式
+- `src/Specurai.Infrastructure/Repositories/TableRepository.cs` - Repository 模式
+- `src/Specurai.Desktop/Program.cs` - DI 註冊
+- `src/Specurai.Desktop/Views/MainWindow.axaml` - MDI 整合
 - `docs/SQLServer完整健康監控系統-統一安裝腳本.sql` - 安裝腳本參考
 
 ---

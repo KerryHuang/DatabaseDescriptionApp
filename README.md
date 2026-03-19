@@ -1,6 +1,6 @@
-# TableSpec - 資料庫規格查詢工具
+# Specurai - 資料庫規格查詢工具
 
-TableSpec 是一個跨平台桌面應用程式，用於查詢和管理 SQL Server 資料庫的結構規格，包含資料表、檢視表、預存程序和函數的詳細資訊。
+Specurai 是一個跨平台桌面應用程式，用於查詢和管理 SQL Server 資料庫的結構規格，包含資料表、檢視表、預存程序和函數的詳細資訊。
 
 ## 功能特色
 
@@ -151,7 +151,7 @@ TableSpec 是一個跨平台桌面應用程式，用於查詢和管理 SQL Serve
 ```
 DatabaseDescriptionApp/
 ├── src/
-│   ├── TableSpec.Domain/          # 領域層：實體、介面、列舉
+│   ├── Specurai.Domain/          # 領域層：實體、介面、列舉
 │   │   ├── Entities/
 │   │   │   ├── TableInfo.cs
 │   │   │   ├── ColumnInfo.cs
@@ -205,7 +205,7 @@ DatabaseDescriptionApp/
 │   │       ├── SyncAction.cs
 │   │       └── MaintenancePlanStep.cs
 │   │
-│   ├── TableSpec.Application/     # 應用層：服務介面與實作
+│   ├── Specurai.Application/     # 應用層：服務介面與實作
 │   │   └── Services/
 │   │       ├── ITableQueryService.cs
 │   │       ├── TableQueryService.cs
@@ -229,7 +229,7 @@ DatabaseDescriptionApp/
 │   │       ├── IAgentJobService.cs
 │   │       └── AgentJobService.cs
 │   │
-│   ├── TableSpec.Infrastructure/  # 基礎設施層：資料存取實作
+│   ├── Specurai.Infrastructure/  # 基礎設施層：資料存取實作
 │   │   ├── Repositories/
 │   │   │   ├── TableRepository.cs
 │   │   │   ├── ColumnRepository.cs
@@ -255,7 +255,7 @@ DatabaseDescriptionApp/
 │   │       ├── HealthMonitoringUninstall.sql
 │   │       └── SyncScriptGenerator.cs
 │   │
-│   ├── TableSpec.McpServer/       # MCP Server：AI 整合
+│   ├── Specurai.McpServer/       # MCP Server：AI 整合
 │   │   ├── Program.cs
 │   │   └── Tools/
 │   │       ├── ConnectionTools.cs
@@ -266,7 +266,7 @@ DatabaseDescriptionApp/
 │   │       ├── HealthTools.cs
 │   │       └── StatisticsTools.cs
 │   │
-│   └── TableSpec.Desktop/         # 桌面應用層：UI
+│   └── Specurai.Desktop/         # 桌面應用層：UI
 │       ├── Views/
 │       │   ├── MainWindow.axaml
 │       │   ├── ConnectionSetupWindow.axaml
@@ -315,10 +315,10 @@ DatabaseDescriptionApp/
 │       └── Program.cs
 │
 ├── tests/
-│   ├── TableSpec.Domain.Tests/
-│   ├── TableSpec.Application.Tests/
-│   ├── TableSpec.Infrastructure.Tests/
-│   └── TableSpec.Desktop.Tests/
+│   ├── Specurai.Domain.Tests/
+│   ├── Specurai.Application.Tests/
+│   ├── Specurai.Infrastructure.Tests/
+│   └── Specurai.Desktop.Tests/
 │
 └── docs/
     ├── UserGuide.md
@@ -331,10 +331,10 @@ DatabaseDescriptionApp/
 
 | 平台 | 下載連結 | 說明 |
 |------|----------|------|
-| Windows x64 | [TableSpec-win-Setup.exe](https://github.com/KerryHuang/DatabaseDescriptionApp/releases/latest/download/TableSpec-win-Setup.exe) | 安裝程式 |
-| Windows x64 | [TableSpec-win-Portable.zip](https://github.com/KerryHuang/DatabaseDescriptionApp/releases/latest/download/TableSpec-win-Portable.zip) | 可攜式版本 |
-| macOS (Apple Silicon) | [TableSpec-osx-arm64.zip](https://github.com/KerryHuang/DatabaseDescriptionApp/releases/latest) | 從 Releases 頁面下載 |
-| Linux x64 | [TableSpec.AppImage](https://github.com/KerryHuang/DatabaseDescriptionApp/releases/latest/download/TableSpec.AppImage) | AppImage 格式 |
+| Windows x64 | [Specurai-win-Setup.exe](https://github.com/KerryHuang/DatabaseDescriptionApp/releases/latest/download/Specurai-win-Setup.exe) | 安裝程式 |
+| Windows x64 | [Specurai-win-Portable.zip](https://github.com/KerryHuang/DatabaseDescriptionApp/releases/latest/download/Specurai-win-Portable.zip) | 可攜式版本 |
+| macOS (Apple Silicon) | [Specurai-osx-arm64.zip](https://github.com/KerryHuang/DatabaseDescriptionApp/releases/latest) | 從 Releases 頁面下載 |
+| Linux x64 | [Specurai.AppImage](https://github.com/KerryHuang/DatabaseDescriptionApp/releases/latest/download/Specurai.AppImage) | AppImage 格式 |
 
 > Windows 安裝程式會自動建立開始選單和桌面捷徑，並支援自動更新。
 
@@ -357,7 +357,7 @@ dotnet build
 
 ### 執行應用程式
 ```bash
-dotnet run --project src/TableSpec.Desktop/TableSpec.Desktop.csproj
+dotnet run --project src/Specurai.Desktop/Specurai.Desktop.csproj
 ```
 
 ### 執行測試
@@ -369,22 +369,22 @@ dotnet test
 
 **Windows:**
 ```bash
-dotnet publish src/TableSpec.Desktop -c Release -r win-x64 --self-contained -p:PublishSingleFile=true
+dotnet publish src/Specurai.Desktop -c Release -r win-x64 --self-contained -p:PublishSingleFile=true
 ```
 
 **macOS (Apple Silicon):**
 ```bash
-dotnet publish src/TableSpec.Desktop -c Release -r osx-arm64 --self-contained -p:PublishSingleFile=true
+dotnet publish src/Specurai.Desktop -c Release -r osx-arm64 --self-contained -p:PublishSingleFile=true
 ```
 
 **macOS (Intel):**
 ```bash
-dotnet publish src/TableSpec.Desktop -c Release -r osx-x64 --self-contained -p:PublishSingleFile=true
+dotnet publish src/Specurai.Desktop -c Release -r osx-x64 --self-contained -p:PublishSingleFile=true
 ```
 
 **Linux:**
 ```bash
-dotnet publish src/TableSpec.Desktop -c Release -r linux-x64 --self-contained -p:PublishSingleFile=true
+dotnet publish src/Specurai.Desktop -c Release -r linux-x64 --self-contained -p:PublishSingleFile=true
 ```
 
 ## 使用說明
@@ -486,7 +486,7 @@ dotnet publish src/TableSpec.Desktop -c Release -r linux-x64 --self-contained -p
 
 ## MCP Server
 
-TableSpec MCP Server 讓 AI 助手（如 Claude Code、Claude Desktop）透過 [Model Context Protocol](https://modelcontextprotocol.io/) 直接存取資料庫結構資訊。
+Specurai MCP Server 讓 AI 助手（如 Claude Code、Claude Desktop）透過 [Model Context Protocol](https://modelcontextprotocol.io/) 直接存取資料庫結構資訊。
 
 ### 架構
 
@@ -501,7 +501,7 @@ MCP Server 與桌面應用程式處於相同的架構層級，共用 Domain、Ap
 ### 建置 MCP Server
 
 ```bash
-dotnet publish src/TableSpec.McpServer -c Release -o publish/McpServer
+dotnet publish src/Specurai.McpServer -c Release -o publish/McpServer
 ```
 
 ### 設定 MCP Server
@@ -509,7 +509,7 @@ dotnet publish src/TableSpec.McpServer -c Release -o publish/McpServer
 #### Claude Code（專案層級）
 
 ```bash
-claude mcp add tablespec -s project -- /path/to/publish/McpServer/TableSpec.McpServer.exe
+claude mcp add tablespec -s project -- /path/to/publish/McpServer/Specurai.McpServer.exe
 ```
 
 或手動建立 `.mcp.json`：
@@ -519,7 +519,7 @@ claude mcp add tablespec -s project -- /path/to/publish/McpServer/TableSpec.McpS
   "mcpServers": {
     "tablespec": {
       "type": "stdio",
-      "command": "/path/to/publish/McpServer/TableSpec.McpServer.exe",
+      "command": "/path/to/publish/McpServer/Specurai.McpServer.exe",
       "args": []
     }
   }
@@ -534,7 +534,7 @@ claude mcp add tablespec -s project -- /path/to/publish/McpServer/TableSpec.McpS
 {
   "mcpServers": {
     "tablespec": {
-      "command": "/path/to/publish/McpServer/TableSpec.McpServer.exe"
+      "command": "/path/to/publish/McpServer/Specurai.McpServer.exe"
     }
   }
 }
@@ -544,9 +544,9 @@ claude mcp add tablespec -s project -- /path/to/publish/McpServer/TableSpec.McpS
 
 MCP Server 與桌面應用程式共用連線設定，不需要額外設定：
 
-- **Windows:** `%APPDATA%\TableSpec\connections.json`
-- **macOS:** `~/.config/TableSpec/connections.json`
-- **Linux:** `~/.config/TableSpec/connections.json`
+- **Windows:** `%APPDATA%\Specurai\connections.json`
+- **macOS:** `~/.config/Specurai/connections.json`
+- **Linux:** `~/.config/Specurai/connections.json`
 
 在桌面應用程式中新增的連線設定，MCP Server 可直接使用。
 
@@ -620,9 +620,9 @@ MCP Server 與桌面應用程式共用連線設定，不需要額外設定：
 ## 連線設定儲存位置
 
 連線設定儲存於使用者 AppData 目錄：
-- **Windows:** `%APPDATA%\TableSpec\connections.json`
-- **macOS:** `~/.config/TableSpec/connections.json`
-- **Linux:** `~/.config/TableSpec/connections.json`
+- **Windows:** `%APPDATA%\Specurai\connections.json`
+- **macOS:** `~/.config/Specurai/connections.json`
+- **Linux:** `~/.config/Specurai/connections.json`
 
 ## 螢幕截圖
 

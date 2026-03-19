@@ -1,0 +1,241 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Specurai.Desktop.ViewModels"
+             xmlns:domain="using:Specurai.Domain.Entities"
+             xmlns:converters="using:Specurai.Desktop.Converters"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="1200" d:DesignHeight="700"
+             x:Class="Specurai.Desktop.Views.ColumnUsageDocumentView"
+             x:DataType="vm:ColumnUsageDocumentViewModel">
+
+    <UserControl.Resources>
+        <converters:BoolToConsistencyColorConverter x:Key="BoolToColorConverter"/>
+        <converters:BoolToConsistencyForegroundConverter x:Key="BoolToForegroundConverter"/>
+        <converters:BoolToDifferenceTextConverter x:Key="BoolToDifferenceConverter"/>
+        <converters:DifferenceToColorConverter x:Key="DifferenceToColorConverter"/>
+        <converters:BoolToNullableTextConverter x:Key="BoolToNullableConverter"/>
+    </UserControl.Resources>
+
+    <Design.DataContext>
+        <vm:ColumnUsageDocumentViewModel/>
+    </Design.DataContext>
+
+    <Grid RowDefinitions="Auto,*,Auto">
+        <!-- 工具列 -->
+        <Border Grid.Row="0" Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}" Padding="10,8">
+            <StackPanel Orientation="Horizontal" Spacing="15">
+                <!-- 搜尋 -->
+                <StackPanel Orientation="Horizontal" Spacing="8"
+                            ToolTip.Tip="輸入欄位名稱關鍵字進行搜尋，支援部分比對。">
+                    <TextBlock Text="搜尋欄位：" VerticalAlignment="Center"/>
+                    <TextBox Text="{Binding SearchText}"
+                             Width="200"
+                             Watermark="輸入欄位名稱..."/>
+                </StackPanel>
+
+                <!-- 最小出現次數 -->
+                <StackPanel Orientation="Horizontal" Spacing="8"
+                            ToolTip.Tip="篩選欄位名稱在資料庫中出現的最少次數。&#x0a;例如設為 2，表示只顯示出現 2 次以上的同名欄位。&#x0a;出現 1 次的欄位無比對對象，通常可忽略。">
+                    <TextBlock Text="最小次數：" VerticalAlignment="Center"/>
+                    <ComboBox MinWidth="80"
+                              ItemsSource="{Binding MinUsageCountOptions}"
+                              SelectedItem="{Binding MinUsageCount}"/>
+                    <TextBlock Text="ℹ️" FontSize="12" VerticalAlignment="Center" Opacity="0.6"
+                               ToolTip.Tip="篩選欄位名稱在資料庫中出現的最少次數。&#x0a;例如設為 2，表示只顯示出現 2 次以上的同名欄位。&#x0a;出現 1 次的欄位無比對對象，通常可忽略。"/>
+                </StackPanel>
+
+                <!-- 只顯示不一致 -->
+                <CheckBox Content="只顯示不一致" IsChecked="{Binding ShowOnlyInconsistent}"
+                          ToolTip.Tip="勾選後只顯示型別、長度或可空性不一致的欄位。&#x0a;用於快速找出需要檢視的問題欄位。"/>
+
+                <!-- 操作按鈕 -->
+                <Button Command="{Binding LoadCommand}"
+                        IsEnabled="{Binding !IsLoading}">
+                    <StackPanel Orientation="Horizontal" Spacing="5">
+                        <TextBlock Text="🔄" FontSize="14"/>
+                        <TextBlock Text="載入"/>
+                    </StackPanel>
+                </Button>
+
+                <Button Command="{Binding ExportCommand}"
+                        IsEnabled="{Binding !IsLoading}">
+                    <StackPanel Orientation="Horizontal" Spacing="5">
+                        <TextBlock Text="📥" FontSize="14"/>
+                        <TextBlock Text="匯出 Excel"/>
+                    </StackPanel>
+                </Button>
+
+                <Button Command="{Binding ClearFilterCommand}">
+                    <StackPanel Orientation="Horizontal" Spacing="5">
+                        <TextBlock Text="🗑️" FontSize="14"/>
+                        <TextBlock Text="清除篩選"/>
+                    </StackPanel>
+                </Button>
+
+                <!-- 載入中指示器 -->
+                <ProgressBar IsIndeterminate="True" Width="80"
+                             IsVisible="{Binding IsLoading}"/>
+            </StackPanel>
+        </Border>
+
+        <!-- 主要內容：分組檢視 -->
+        <Grid Grid.Row="1" ColumnDefinitions="*,*" Margin="10,5">
+            <!-- 左側：欄位清單 -->
+            <Border Grid.Column="0" BorderBrush="{DynamicResource SystemControlForegroundBaseMediumBrush}"
+                    BorderThickness="1" Margin="0,0,5,0">
+                <Grid RowDefinitions="Auto,*">
+                    <Border Grid.Row="0" Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}" Padding="10,5">
+                        <TextBlock Text="欄位統計清單" FontWeight="Bold"/>
+                    </Border>
+                    <ListBox Grid.Row="1"
+                             ItemsSource="{Binding Statistics}"
+                             SelectedItem="{Binding SelectedStatistics}">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="domain:ColumnUsageStatistics">
+                                <Border Padding="8,6" BorderThickness="0,0,0,1"
+                                        BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <StackPanel Grid.Column="0" Spacing="3">
+                                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                                <TextBlock Text="{Binding ColumnName}" FontWeight="SemiBold" FontSize="14"/>
+                                                <TextBlock Text="{Binding UsageCount, StringFormat='({0} 次)'}"
+                                                           Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"/>
+                                            </StackPanel>
+                                            <StackPanel Orientation="Horizontal" Spacing="5">
+                                                <TextBlock Text="{Binding PrimaryDataType}"
+                                                           Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"
+                                                           FontSize="12"/>
+                                            </StackPanel>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
+                                            <!-- 一致性標記 -->
+                                            <Border Background="{Binding IsTypeConsistent, Converter={StaticResource BoolToColorConverter}}"
+                                                    CornerRadius="3" Padding="4,2"
+                                                    ToolTip.Tip="型別一致性">
+                                                <TextBlock Text="型別" FontSize="10"
+                                                           Foreground="{Binding IsTypeConsistent, Converter={StaticResource BoolToForegroundConverter}}"/>
+                                            </Border>
+                                            <Border Background="{Binding IsLengthConsistent, Converter={StaticResource BoolToColorConverter}}"
+                                                    CornerRadius="3" Padding="4,2"
+                                                    ToolTip.Tip="長度一致性">
+                                                <TextBlock Text="長度" FontSize="10"
+                                                           Foreground="{Binding IsLengthConsistent, Converter={StaticResource BoolToForegroundConverter}}"/>
+                                            </Border>
+                                            <Border Background="{Binding IsNullabilityConsistent, Converter={StaticResource BoolToColorConverter}}"
+                                                    CornerRadius="3" Padding="4,2"
+                                                    ToolTip.Tip="可空一致性">
+                                                <TextBlock Text="可空" FontSize="10"
+                                                           Foreground="{Binding IsNullabilityConsistent, Converter={StaticResource BoolToForegroundConverter}}"/>
+                                            </Border>
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </Grid>
+            </Border>
+
+            <!-- 右側：詳細資訊 -->
+            <Border Grid.Column="1" BorderBrush="{DynamicResource SystemControlForegroundBaseMediumBrush}"
+                    BorderThickness="1" Margin="5,0,0,0">
+                <Grid RowDefinitions="Auto,Auto,Auto,*">
+                    <!-- 標題列 -->
+                    <Border Grid.Row="0" Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}" Padding="10,5">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Grid.Column="0" FontWeight="Bold">
+                                <TextBlock.Text>
+                                    <MultiBinding StringFormat="使用明細 - {0}">
+                                        <Binding Path="SelectedStatistics.ColumnName" FallbackValue="請選擇欄位"/>
+                                    </MultiBinding>
+                                </TextBlock.Text>
+                            </TextBlock>
+                            <!-- 只顯示差異篩選 -->
+                            <CheckBox Grid.Column="1" Content="只顯示差異" IsChecked="{Binding ShowOnlyDifferent}"
+                                      IsVisible="{Binding SelectedStatistics, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                      ToolTip.Tip="勾選後只顯示與主要型態不同的欄位使用記錄。"/>
+                        </Grid>
+                    </Border>
+
+                    <!-- 主要型態說明（比對基準） -->
+                    <Border Grid.Row="1" Background="{DynamicResource SystemControlBackgroundAltMediumLowBrush}"
+                            Padding="10,8" IsVisible="{Binding SelectedStatistics, Converter={x:Static ObjectConverters.IsNotNull}}">
+                        <StackPanel Spacing="5">
+                            <TextBlock Text="📌 比對基準（主要型態）" FontWeight="SemiBold" Foreground="{DynamicResource SystemControlForegroundBaseHighBrush}"/>
+                            <WrapPanel Orientation="Horizontal">
+                                <TextBlock Text="型別：" Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"/>
+                                <TextBlock Text="{Binding SelectedStatistics.PrimaryDataType}" FontWeight="SemiBold" Margin="0,0,15,0"/>
+                                <TextBlock Text="可空：" Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"/>
+                                <TextBlock Text="{Binding SelectedStatistics.PrimaryIsNullable, Converter={StaticResource BoolToNullableConverter}}" FontWeight="SemiBold"/>
+                            </WrapPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- 說明區塊 -->
+                    <Border Grid.Row="2" Background="{DynamicResource SystemControlBackgroundListLowBrush}"
+                            Padding="10,6" BorderThickness="0,1,0,1"
+                            BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBlock Text="ℹ️" FontSize="12"/>
+                            <TextBlock Text="差異說明：系統以最多使用的型態作為「主要型態」，與主要型態不同的欄位會標記為「差異」。"
+                                       FontSize="11" Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"
+                                       TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- 資料表格 -->
+                    <DataGrid Grid.Row="3"
+                              ItemsSource="{Binding FilteredUsages}"
+                              AutoGenerateColumns="False"
+                              IsReadOnly="True"
+                              GridLinesVisibility="All"
+                              CanUserResizeColumns="True"
+                              CanUserSortColumns="True">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Schema" Binding="{Binding SchemaName}" Width="80"/>
+                            <DataGridTextColumn Header="物件名稱" Binding="{Binding ObjectName}" Width="180"/>
+                            <DataGridTextColumn Header="類型" Binding="{Binding ObjectType}" Width="70"/>
+                            <DataGridTextColumn Header="資料型別" Binding="{Binding DataType}" Width="130"/>
+                            <DataGridTextColumn Header="可空" Width="80"
+                                                Binding="{Binding IsNullable, Converter={StaticResource BoolToNullableConverter}}"/>
+                            <DataGridTemplateColumn Header="差異" Width="60">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate x:DataType="domain:ColumnUsageDetail">
+                                        <TextBlock Text="{Binding HasDifference, Converter={StaticResource BoolToDifferenceConverter}}"
+                                                   Foreground="{Binding HasDifference, Converter={StaticResource DifferenceToColorConverter}}"
+                                                   HorizontalAlignment="Center"
+                                                   FontWeight="Bold"/>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <!-- 狀態列 -->
+        <Border Grid.Row="2" Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}" Padding="10,5">
+            <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Grid.Column="0" Text="{Binding StatusMessage}" VerticalAlignment="Center"/>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="15">
+                    <TextBlock VerticalAlignment="Center">
+                        <TextBlock.Text>
+                            <MultiBinding StringFormat="共 {0} 個欄位">
+                                <Binding Path="TotalColumnCount"/>
+                            </MultiBinding>
+                        </TextBlock.Text>
+                    </TextBlock>
+                    <TextBlock VerticalAlignment="Center" Foreground="OrangeRed">
+                        <TextBlock.Text>
+                            <MultiBinding StringFormat="不一致 {0} 個">
+                                <Binding Path="InconsistentCount"/>
+                            </MultiBinding>
+                        </TextBlock.Text>
+                    </TextBlock>
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>

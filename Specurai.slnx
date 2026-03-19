@@ -1,0 +1,15 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Specurai.Application/Specurai.Application.csproj" />
+    <Project Path="src/Specurai.Desktop/Specurai.Desktop.csproj" />
+    <Project Path="src/Specurai.Domain/Specurai.Domain.csproj" />
+    <Project Path="src/Specurai.Infrastructure/Specurai.Infrastructure.csproj" />
+    <Project Path="src/Specurai.McpServer/Specurai.McpServer.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Specurai.Application.Tests/Specurai.Application.Tests.csproj" />
+    <Project Path="tests/Specurai.Desktop.Tests/Specurai.Desktop.Tests.csproj" />
+    <Project Path="tests/Specurai.Domain.Tests/Specurai.Domain.Tests.csproj" />
+    <Project Path="tests/Specurai.Infrastructure.Tests/Specurai.Infrastructure.Tests.csproj" />
+  </Folder>
+</Solution>

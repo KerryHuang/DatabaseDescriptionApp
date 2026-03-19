@@ -4,13 +4,13 @@ description: 執行桌面應用程式
 
 # 執行應用程式
 
-啟動 TableSpec 桌面應用程式。
+啟動 Specurai 桌面應用程式。
 
 ## 步驟
 
 1. 執行應用程式：
    ```bash
-   dotnet run --project src/TableSpec.Desktop/TableSpec.Desktop.csproj
+   dotnet run --project src/Specurai.Desktop/Specurai.Desktop.csproj
    ```
 
 2. 應用程式會在新視窗中開啟。

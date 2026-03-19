@@ -35,12 +35,12 @@ jobs:
         run: dotnet test --configuration Release --verbosity normal
 
       - name: 發布應用程式
-        run: dotnet publish src/TableSpec.Desktop -c Release -r win-x64 --self-contained -o publish
+        run: dotnet publish src/Specurai.Desktop -c Release -r win-x64 --self-contained -o publish
 
       - name: 建立 Velopack 安裝包
         run: |
           dotnet tool install -g vpk
-          vpk pack -u TableSpec -v ${{ steps.get-version.outputs.version }} -p publish -e TableSpec.Desktop.exe --packTitle "TableSpec" -i src/TableSpec.Desktop/Assets/avalonia-logo.ico -o Releases
+          vpk pack -u Specurai -v ${{ steps.get-version.outputs.version }} -p publish -e Specurai.Desktop.exe --packTitle "Specurai" -i src/Specurai.Desktop/Assets/avalonia-logo.ico -o Releases
 
       - name: 上傳安裝包
         uses: actions/upload-artifact@v4
@@ -81,13 +81,13 @@ jobs:
         run: dotnet test --configuration Release --verbosity normal
 
       - name: 發布應用程式
-        run: dotnet publish src/TableSpec.Desktop -c Release -r ${{ matrix.runtime }} --self-contained -o publish
+        run: dotnet publish src/Specurai.Desktop -c Release -r ${{ matrix.runtime }} --self-contained -o publish
 
       - name: 建立 macOS 壓縮包
         run: |
           mkdir -p Releases
           cd publish
-          zip -r ../Releases/TableSpec-${{ steps.get-version.outputs.version }}-${{ matrix.runtime }}.zip .
+          zip -r ../Releases/Specurai-${{ steps.get-version.outputs.version }}-${{ matrix.runtime }}.zip .
           cd ..
           ls -la Releases/
 
@@ -122,12 +122,12 @@ jobs:
         run: dotnet test --configuration Release --verbosity normal
 
       - name: 發布應用程式
-        run: dotnet publish src/TableSpec.Desktop -c Release -r linux-x64 --self-contained -o publish
+        run: dotnet publish src/Specurai.Desktop -c Release -r linux-x64 --self-contained -o publish
 
       - name: 建立 Velopack 安裝包
         run: |
           dotnet tool install -g vpk
-          vpk pack -u TableSpec -v ${{ steps.get-version.outputs.version }} -p publish -e TableSpec.Desktop --packTitle "TableSpec" -i src/TableSpec.Desktop/Assets/TableSpec.png -o Releases
+          vpk pack -u Specurai -v ${{ steps.get-version.outputs.version }} -p publish -e Specurai.Desktop --packTitle "Specurai" -i src/Specurai.Desktop/Assets/Specurai.png -o Releases
 
       - name: 上傳安裝包
         uses: actions/upload-artifact@v4

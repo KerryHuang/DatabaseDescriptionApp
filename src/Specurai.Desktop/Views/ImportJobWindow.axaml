@@ -1,0 +1,51 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Specurai.Desktop.ViewModels"
+        x:Class="Specurai.Desktop.Views.ImportJobWindow"
+        x:DataType="vm:ImportJobWindowViewModel"
+        Icon="/Assets/Specurai.png"
+        Title="匯入現有 Job"
+        Width="600" Height="450"
+        WindowStartupLocation="CenterOwner"
+        CanResize="True">
+
+    <Design.DataContext>
+        <vm:ImportJobWindowViewModel/>
+    </Design.DataContext>
+
+    <Grid RowDefinitions="Auto,*,Auto,Auto" Margin="15">
+        <!-- 說明文字 -->
+        <TextBlock Grid.Row="0" Text="選取要匯入的 Job，匯入後會在其描述中加上 [Specurai] 標記，以便本程式管理。"
+                   TextWrapping="Wrap" Margin="0,0,0,10"/>
+
+        <!-- Job 清單 -->
+        <DataGrid Grid.Row="1"
+                  x:Name="JobsGrid"
+                  ItemsSource="{Binding AvailableJobs}"
+                  AutoGenerateColumns="False"
+                  CanUserSortColumns="True"
+                  IsReadOnly="True"
+                  SelectionMode="Extended"
+                  GridLinesVisibility="Horizontal"
+                  Margin="0,0,0,10">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="名稱" Binding="{Binding Name}" Width="*"/>
+                <DataGridTextColumn Header="描述" Binding="{Binding Description}" Width="*"/>
+                <DataGridTextColumn Header="狀態" Binding="{Binding StatusText}" Width="80"/>
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <!-- 狀態列 -->
+        <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="10" Margin="0,0,0,10">
+            <ProgressBar IsIndeterminate="True" Width="100" IsVisible="{Binding IsLoading}"/>
+            <TextBlock Text="{Binding StatusMessage}" VerticalAlignment="Center"/>
+        </StackPanel>
+
+        <!-- 按鈕列 -->
+        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+            <Button Content="匯入選取的 Job" Click="OnImportClick"
+                    IsEnabled="{Binding !IsLoading}"/>
+            <Button Content="關閉" Click="OnCloseClick"/>
+        </StackPanel>
+    </Grid>
+</Window>

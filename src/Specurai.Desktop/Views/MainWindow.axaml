@@ -1,0 +1,404 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Specurai.Desktop.ViewModels"
+        xmlns:views="using:Specurai.Desktop.Views"
+        xmlns:domain="using:Specurai.Domain.Entities"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="1200" d:DesignHeight="700"
+        x:Class="Specurai.Desktop.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Icon="/Assets/Specurai.png"
+        Title="Specurai - 資料庫規格查詢工具"
+        Width="1200" Height="700"
+        MinWidth="800" MinHeight="500">
+
+    <Design.DataContext>
+        <vm:MainWindowViewModel/>
+    </Design.DataContext>
+
+    <!-- 快速鍵綁定 -->
+    <Window.KeyBindings>
+        <KeyBinding Gesture="Ctrl+L" Command="{Binding OpenConnectionSettingsCommand}"/>
+        <KeyBinding Gesture="Ctrl+D" Command="{Binding ToggleThemeCommand}"/>
+        <KeyBinding Gesture="Ctrl+Shift+E" Command="{Binding ExportConnectionsCommand}"/>
+        <KeyBinding Gesture="Ctrl+Shift+I" Command="{Binding ImportConnectionsCommand}"/>
+        <KeyBinding Gesture="Ctrl+E" Command="{Binding ExportToExcelCommand}"/>
+        <KeyBinding Gesture="Ctrl+W" Command="{Binding CloseCurrentDocumentCommand}"/>
+        <KeyBinding Gesture="Ctrl+Shift+W" Command="{Binding CloseAllDocumentsCommand}"/>
+        <KeyBinding Gesture="Ctrl+Q" Command="{Binding OpenSqlQueryCommand}"/>
+        <KeyBinding Gesture="Ctrl+F" Command="{Binding OpenColumnSearchCommand}"/>
+        <KeyBinding Gesture="Ctrl+B" Command="{Binding ToggleSidebarCommand}"/>
+        <KeyBinding Gesture="Ctrl+Shift+B" Command="{Binding OpenBackupRestoreCommand}"/>
+        <KeyBinding Gesture="Ctrl+M" Command="{Binding OpenSchemaCompareCommand}"/>
+        <KeyBinding Gesture="Ctrl+H" Command="{Binding OpenHealthMonitoringCommand}"/>
+        <KeyBinding Gesture="Ctrl+P" Command="{Binding OpenPerformanceDiagnosticsCommand}"/>
+        <KeyBinding Gesture="Ctrl+U" Command="{Binding OpenColumnUsageCommand}"/>
+        <KeyBinding Gesture="Ctrl+T" Command="{Binding OpenTableStatisticsCommand}"/>
+        <KeyBinding Gesture="Ctrl+I" Command="{Binding OpenMissingIndexReportCommand}"/>
+        <KeyBinding Gesture="Ctrl+J" Command="{Binding OpenUnusedIndexReportCommand}"/>
+        <KeyBinding Gesture="Ctrl+Shift+D" Command="{Binding OpenMaintenancePlanCommand}"/>
+    </Window.KeyBindings>
+
+    <DockPanel>
+        <!-- 功能表列 + 主題切換 -->
+        <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto">
+            <Menu Grid.Column="0">
+                <MenuItem Header="檔案(_F)">
+                    <MenuItem Header="連線設定(_C)" Command="{Binding OpenConnectionSettingsCommand}" InputGesture="Ctrl+L"
+                              ToolTip.Tip="管理資料庫連線設定檔">
+                        <MenuItem.Icon>
+                            <TextBlock Text="🔌" FontSize="14"/>
+                        </MenuItem.Icon>
+                    </MenuItem>
+                    <MenuItem Header="匯出連線設定(_X)" Command="{Binding ExportConnectionsCommand}" InputGesture="Ctrl+Shift+E"
+                              ToolTip.Tip="將連線設定匯出為 JSON 或加密檔案">
+                        <MenuItem.Icon>
+                            <TextBlock Text="📁" FontSize="14"/>
+                        </MenuItem.Icon>
+                    </MenuItem>
+                    <MenuItem Header="匯入連線設定(_I)" Command="{Binding ImportConnectionsCommand}" InputGesture="Ctrl+Shift+I"
+                              ToolTip.Tip="從 JSON 或加密檔案匯入連線設定">
+                        <MenuItem.Icon>
+                            <TextBlock Text="📂" FontSize="14"/>
+                        </MenuItem.Icon>
+                    </MenuItem>
+                    <Separator/>
+                    <MenuItem Header="匯出 Excel(_E)" Command="{Binding ExportToExcelCommand}" InputGesture="Ctrl+E" IsEnabled="{Binding IsConnected}"
+                              ToolTip.Tip="將目前資料庫的所有物件規格匯出為 Excel 檔案">
+                        <MenuItem.Icon>
+                            <TextBlock Text="📤" FontSize="14"/>
+                        </MenuItem.Icon>
+                    </MenuItem>
+                    <Separator/>
+                    <MenuItem Header="結束(_X)" Command="{Binding ExitCommand}" InputGesture="Alt+F4"
+                              ToolTip.Tip="關閉應用程式">
+                        <MenuItem.Icon>
+                            <TextBlock Text="🚪" FontSize="14"/>
+                        </MenuItem.Icon>
+                    </MenuItem>
+                </MenuItem>
+                <MenuItem Header="檢視(_V)">
+                    <MenuItem Header="切換側邊欄(_S)" Command="{Binding ToggleSidebarCommand}" InputGesture="Ctrl+B"
+                              ToolTip.Tip="顯示或隱藏左側物件面板">
+                        <MenuItem.Icon>
+                            <TextBlock Text="☰" FontSize="14"/>
+                        </MenuItem.Icon>
+                    </MenuItem>
+                    <Separator/>
+                    <MenuItem Header="深色模式(_D)" Command="{Binding ToggleThemeCommand}" InputGesture="Ctrl+D"
+                              ToolTip.Tip="切換深色/淺色主題">
+                        <MenuItem.Icon>
+                            <CheckBox IsChecked="{Binding IsDarkMode}" BorderThickness="0" IsHitTestVisible="False"/>
+                        </MenuItem.Icon>
+                    </MenuItem>
+                    <Separator/>
+                    <MenuItem Header="關閉目前分頁(_C)" Command="{Binding CloseCurrentDocumentCommand}" InputGesture="Ctrl+W"
+                              ToolTip.Tip="關閉目前選取的分頁">
+                        <MenuItem.Icon>
+                            <TextBlock Text="✕" FontSize="14"/>
+                        </MenuItem.Icon>
+                    </MenuItem>
+                    <MenuItem Header="關閉所有分頁(_A)" Command="{Binding CloseAllDocumentsCommand}" InputGesture="Ctrl+Shift+W"
+                              ToolTip.Tip="關閉所有已開啟的分頁">
+                        <MenuItem.Icon>
+                            <TextBlock Text="✕✕" FontSize="12"/>
+                        </MenuItem.Icon>
+                    </MenuItem>
+                </MenuItem>
+                <MenuItem Header="工具(_T)">
+                    <MenuItem Header="SQL 查詢(_S)" Command="{Binding OpenSqlQueryCommand}" InputGesture="Ctrl+Q" IsEnabled="{Binding IsConnected}"
+                              ToolTip.Tip="開啟 SQL 查詢編輯器，執行自訂查詢">
+                        <MenuItem.Icon>
+                            <TextBlock Text="📝" FontSize="14"/>
+                        </MenuItem.Icon>
+                    </MenuItem>
+                    <MenuItem Header="欄位搜尋(_F)" Command="{Binding OpenColumnSearchCommand}" InputGesture="Ctrl+F" IsEnabled="{Binding IsConnected}"
+                              ToolTip.Tip="搜尋欄位名稱，分析型態一致性">
+                        <MenuItem.Icon>
+                            <TextBlock Text="🔍" FontSize="14"/>
+                        </MenuItem.Icon>
+                    </MenuItem>
+                    <Separator/>
+                    <MenuItem Header="備份與還原(_B)" Command="{Binding OpenBackupRestoreCommand}" InputGesture="Ctrl+Shift+B" IsEnabled="{Binding IsConnected}"
+                              ToolTip.Tip="備份或還原資料庫">
+                        <MenuItem.Icon>
+                            <TextBlock Text="💾" FontSize="14"/>
+                        </MenuItem.Icon>
+                    </MenuItem>
+                    <MenuItem Header="結構比對(_M)" Command="{Binding OpenSchemaCompareCommand}" InputGesture="Ctrl+M"
+                              ToolTip.Tip="比對不同環境的資料庫結構差異">
+                        <MenuItem.Icon>
+                            <TextBlock Text="🔄" FontSize="14"/>
+                        </MenuItem.Icon>
+                    </MenuItem>
+                    <MenuItem Header="健康監控(_H)" Command="{Binding OpenHealthMonitoringCommand}" InputGesture="Ctrl+H" IsEnabled="{Binding IsConnected}"
+                              ToolTip.Tip="監控資料庫健康狀態與效能指標">
+                        <MenuItem.Icon>
+                            <TextBlock Text="🩺" FontSize="14"/>
+                        </MenuItem.Icon>
+                    </MenuItem>
+                    <MenuItem Header="效能診斷(_P)" Command="{Binding OpenPerformanceDiagnosticsCommand}" InputGesture="Ctrl+P" IsEnabled="{Binding IsConnected}"
+                              ToolTip.Tip="分析 SQL Server 效能，包含等候事件、耗時查詢、索引狀態">
+                        <MenuItem.Icon>
+                            <TextBlock Text="⚡" FontSize="14"/>
+                        </MenuItem.Icon>
+                    </MenuItem>
+                    <MenuItem Header="缺少索引報表(_I)" Command="{Binding OpenMissingIndexReportCommand}" InputGesture="Ctrl+I" IsEnabled="{Binding IsConnected}"
+                              ToolTip.Tip="分析缺少的索引建議，可直接執行建立索引">
+                        <MenuItem.Icon>
+                            <TextBlock Text="📋" FontSize="14"/>
+                        </MenuItem.Icon>
+                    </MenuItem>
+                    <MenuItem Header="未使用索引報表(_J)" Command="{Binding OpenUnusedIndexReportCommand}" InputGesture="Ctrl+J" IsEnabled="{Binding IsConnected}"
+                              ToolTip.Tip="分析未使用但持續維護的索引，可直接刪除以節省資源">
+                        <MenuItem.Icon>
+                            <TextBlock Text="🗑️" FontSize="14"/>
+                        </MenuItem.Icon>
+                    </MenuItem>
+                    <MenuItem Header="欄位統計(_U)" Command="{Binding OpenColumnUsageCommand}" InputGesture="Ctrl+U" IsEnabled="{Binding IsConnected}"
+                              ToolTip.Tip="統計欄位使用情況，分析型態一致性">
+                        <MenuItem.Icon>
+                            <TextBlock Text="📊" FontSize="14"/>
+                        </MenuItem.Icon>
+                    </MenuItem>
+                    <MenuItem Header="資料表統計(_T)" Command="{Binding OpenTableStatisticsCommand}" InputGesture="Ctrl+T" IsEnabled="{Binding IsConnected}"
+                              ToolTip.Tip="檢視資料庫中所有資料表的統計資訊，包含資料列數、空間使用等">
+                        <MenuItem.Icon>
+                            <TextBlock Text="📈" FontSize="14"/>
+                        </MenuItem.Icon>
+                    </MenuItem>
+                    <Separator/>
+                    <MenuItem Header="資料庫維護計劃(_N)" Command="{Binding OpenMaintenancePlanCommand}" InputGesture="Ctrl+Shift+D" IsEnabled="{Binding IsConnected}"
+                              ToolTip.Tip="管理資料庫自動備份與還原排程">
+                        <MenuItem.Icon>
+                            <TextBlock Text="&#x1F527;" FontSize="14"/>
+                        </MenuItem.Icon>
+                    </MenuItem>
+                    <MenuItem Header="使用狀態分析(_A)" Command="{Binding OpenUsageAnalysisCommand}" IsEnabled="{Binding IsConnected}"
+                              ToolTip.Tip="分析資料表與欄位的使用狀態，支援多環境比對，可刪除未使用項目">
+                        <MenuItem.Icon>
+                            <TextBlock Text="🔬" FontSize="14"/>
+                        </MenuItem.Icon>
+                    </MenuItem>
+                </MenuItem>
+                <MenuItem Header="說明(_H)">
+                    <MenuItem Header="關於 Specurai(_A)" Command="{Binding ShowAboutCommand}"
+                              ToolTip.Tip="顯示應用程式版本與相關資訊">
+                        <MenuItem.Icon>
+                            <TextBlock Text="ℹ️" FontSize="14"/>
+                        </MenuItem.Icon>
+                    </MenuItem>
+                </MenuItem>
+            </Menu>
+
+            <!-- 右側：側邊欄切換 + 主題切換 -->
+            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                <Button Content="☰"
+                        Command="{Binding ToggleSidebarCommand}"
+                        ToolTip.Tip="切換側邊欄 (Ctrl+B)"
+                        FontSize="16"
+                        Padding="10,4"
+                        Margin="5,0"
+                        Background="Transparent"
+                        BorderThickness="0"/>
+                <Button Content="{Binding ThemeIcon}"
+                        Command="{Binding ToggleThemeCommand}"
+                        ToolTip.Tip="切換深色/淺色模式"
+                        FontSize="16"
+                        Padding="10,4"
+                        Margin="5,0"
+                        Background="Transparent"
+                        BorderThickness="0"/>
+            </StackPanel>
+        </Grid>
+
+        <!-- 底部狀態列 -->
+        <Border DockPanel.Dock="Bottom" Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}" Padding="10,5">
+            <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Grid.Column="0" Text="{Binding StatusMessage}" VerticalAlignment="Center"/>
+                <ProgressBar Grid.Column="1" IsIndeterminate="True" Width="100"
+                             IsVisible="{Binding IsExporting}" VerticalAlignment="Center"/>
+            </Grid>
+        </Border>
+
+        <!-- 主內容區域 -->
+        <Grid ColumnDefinitions="Auto,Auto,*">
+            <!-- 左側：物件樹 -->
+            <Border Grid.Column="0" Background="{DynamicResource SystemControlBackgroundAltMediumLowBrush}"
+                    Width="280" ClipToBounds="True"
+                    IsVisible="{Binding IsSidebarOpen}">
+                <Border.Transitions>
+                    <Transitions>
+                        <DoubleTransition Property="Width" Duration="0:0:0.2" Easing="CubicEaseOut"/>
+                    </Transitions>
+                </Border.Transitions>
+                <DockPanel>
+                    <!-- 連線選擇區 -->
+                    <Border DockPanel.Dock="Top" Padding="10" Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}">
+                        <StackPanel Spacing="8">
+                            <ComboBox ItemsSource="{Binding ConnectionProfiles}"
+                                      SelectedItem="{Binding SelectedProfile}"
+                                      PlaceholderText="請選擇連線..."
+                                      HorizontalAlignment="Stretch">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate x:DataType="domain:ConnectionProfile">
+                                        <TextBlock Text="{Binding Name}"/>
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                            <Button Content="設定連線"
+                                    Command="{Binding OpenConnectionSettingsCommand}"
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- 搜尋框 -->
+                    <Border DockPanel.Dock="Top" Padding="10,10,10,5">
+                        <TextBox Watermark="搜尋物件..."
+                                 Text="{Binding ObjectTree.SearchText, Mode=TwoWay}"/>
+                    </Border>
+
+                    <!-- 物件清單 -->
+                    <TreeView x:Name="ObjectTreeView"
+                              ItemsSource="{Binding ObjectTree.Groups}" Margin="5"
+                              SelectionMode="Single"
+                              SelectionChanged="OnTreeViewSelectionChanged">
+                        <TreeView.DataTemplates>
+                            <!-- 群組模板 -->
+                            <TreeDataTemplate DataType="{x:Type vm:ObjectGroupViewModel}"
+                                              ItemsSource="{Binding Items}">
+                                <StackPanel Orientation="Horizontal" Spacing="5">
+                                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold"/>
+                                    <TextBlock Text="{Binding VisibleCount, StringFormat='({0})'}"
+                                               Foreground="Gray"/>
+                                </StackPanel>
+                            </TreeDataTemplate>
+                            <!-- 項目模板 -->
+                            <DataTemplate DataType="{x:Type vm:ObjectItemViewModel}">
+                                <TextBlock Text="{Binding DisplayName}"/>
+                            </DataTemplate>
+                        </TreeView.DataTemplates>
+                        <TreeView.Styles>
+                            <Style Selector="TreeViewItem">
+                                <Setter Property="IsExpanded" Value="True"/>
+                            </Style>
+                            <!-- 隱藏不可見的項目 -->
+                            <Style Selector="TreeViewItem" x:DataType="vm:ObjectItemViewModel">
+                                <Setter Property="IsVisible" Value="{Binding IsVisible}"/>
+                            </Style>
+                        </TreeView.Styles>
+                    </TreeView>
+                </DockPanel>
+            </Border>
+
+            <!-- 分隔線 -->
+            <GridSplitter Grid.Column="1" Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
+                          ResizeDirection="Columns"
+                          IsVisible="{Binding IsSidebarOpen}"/>
+
+            <!-- 右側：MDI TabControl 區域 -->
+            <Border Grid.Column="2" Padding="5">
+                <Grid>
+                    <!-- 空白提示 -->
+                    <TextBlock Text="請從左側選擇物件，或使用選單開啟 SQL 查詢"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"
+                               Foreground="Gray"
+                               FontSize="14"
+                               IsVisible="{Binding !Documents.Count}"/>
+
+                    <!-- MDI TabControl -->
+                    <TabControl ItemsSource="{Binding Documents}"
+                                SelectedItem="{Binding SelectedDocument}"
+                                IsVisible="{Binding Documents.Count}">
+                        <TabControl.Styles>
+                            <Style Selector="TabItem">
+                                <Setter Property="Padding" Value="10,6"/>
+                            </Style>
+                            <!-- 關閉按鈕樣式 -->
+                            <Style Selector="Button.tab-close">
+                                <Setter Property="Background" Value="Transparent"/>
+                                <Setter Property="BorderThickness" Value="0"/>
+                                <Setter Property="Padding" Value="4,2"/>
+                                <Setter Property="Margin" Value="4,0,0,0"/>
+                                <Setter Property="CornerRadius" Value="3"/>
+                                <Setter Property="Opacity" Value="0.6"/>
+                            </Style>
+                            <Style Selector="Button.tab-close:pointerover">
+                                <Setter Property="Background" Value="#40FF0000"/>
+                                <Setter Property="Opacity" Value="1"/>
+                            </Style>
+                            <Style Selector="Button.tab-close:pressed">
+                                <Setter Property="Background" Value="#80FF0000"/>
+                            </Style>
+                        </TabControl.Styles>
+                        <TabControl.ItemTemplate>
+                            <DataTemplate DataType="{x:Type vm:DocumentViewModel}">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <TextBlock Text="{Binding Icon}" FontSize="14" VerticalAlignment="Center"/>
+                                    <TextBlock Text="{Binding Title}" VerticalAlignment="Center"/>
+                                    <Button Classes="tab-close"
+                                            Command="{Binding $parent[TabControl].((vm:MainWindowViewModel)DataContext).CloseDocumentCommand}"
+                                            CommandParameter="{Binding}"
+                                            IsVisible="{Binding CanClose}"
+                                            ToolTip.Tip="關閉分頁 (Ctrl+W)">
+                                        <TextBlock Text="✕" FontSize="12" VerticalAlignment="Center"/>
+                                    </Button>
+                                </StackPanel>
+                            </DataTemplate>
+                        </TabControl.ItemTemplate>
+                        <TabControl.ContentTemplate>
+                            <DataTemplate>
+                                <ContentControl Content="{Binding}">
+                                    <ContentControl.DataTemplates>
+                                        <DataTemplate DataType="{x:Type vm:TableDetailDocumentViewModel}">
+                                            <views:TableDetailDocumentView/>
+                                        </DataTemplate>
+                                        <DataTemplate DataType="{x:Type vm:SqlQueryDocumentViewModel}">
+                                            <views:SqlQueryDocumentView/>
+                                        </DataTemplate>
+                                        <DataTemplate DataType="{x:Type vm:ColumnSearchDocumentViewModel}">
+                                            <views:ColumnSearchDocumentView/>
+                                        </DataTemplate>
+                                        <DataTemplate DataType="{x:Type vm:BackupRestoreDocumentViewModel}">
+                                            <views:BackupRestoreDocumentView/>
+                                        </DataTemplate>
+                                        <DataTemplate DataType="{x:Type vm:MaintenancePlanDocumentViewModel}">
+                                            <views:MaintenancePlanDocumentView/>
+                                        </DataTemplate>
+                                        <DataTemplate DataType="{x:Type vm:SchemaCompareDocumentViewModel}">
+                                            <views:SchemaCompareDocumentView/>
+                                        </DataTemplate>
+                                        <DataTemplate DataType="{x:Type vm:HealthMonitoringDocumentViewModel}">
+                                            <views:HealthMonitoringDocumentView/>
+                                        </DataTemplate>
+                                        <DataTemplate DataType="{x:Type vm:PerformanceDiagnosticsDocumentViewModel}">
+                                            <views:PerformanceDiagnosticsDocumentView/>
+                                        </DataTemplate>
+                                        <DataTemplate DataType="{x:Type vm:AboutDocumentViewModel}">
+                                            <views:AboutDocumentView/>
+                                        </DataTemplate>
+                                        <DataTemplate DataType="{x:Type vm:ColumnUsageDocumentViewModel}">
+                                            <views:ColumnUsageDocumentView/>
+                                        </DataTemplate>
+                                        <DataTemplate DataType="{x:Type vm:TableStatisticsDocumentViewModel}">
+                                            <views:TableStatisticsDocumentView/>
+                                        </DataTemplate>
+                                        <DataTemplate DataType="{x:Type vm:MissingIndexReportDocumentViewModel}">
+                                            <views:MissingIndexReportDocumentView/>
+                                        </DataTemplate>
+                                        <DataTemplate DataType="{x:Type vm:UnusedIndexReportDocumentViewModel}">
+                                            <views:UnusedIndexReportDocumentView/>
+                                        </DataTemplate>
+                                    </ContentControl.DataTemplates>
+                                </ContentControl>
+                            </DataTemplate>
+                        </TabControl.ContentTemplate>
+                    </TabControl>
+                </Grid>
+            </Border>
+        </Grid>
+    </DockPanel>
+</Window>

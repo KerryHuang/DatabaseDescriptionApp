@@ -14,16 +14,16 @@ description: 建立新的 Application Service
 
 1. 確認 Service 名稱，如果未提供則詢問使用者
 
-2. 在 `src/TableSpec.Application/Services/` 建立介面檔案 `I{ServiceName}.cs`
+2. 在 `src/Specurai.Application/Services/` 建立介面檔案 `I{ServiceName}.cs`
 
-3. 在 `src/TableSpec.Application/Services/` 建立實作檔案 `{ServiceName}.cs`
+3. 在 `src/Specurai.Application/Services/` 建立實作檔案 `{ServiceName}.cs`
 
-4. 在 `src/TableSpec.Desktop/Program.cs` 的 `ConfigureServices()` 方法中註冊服務
+4. 在 `src/Specurai.Desktop/Program.cs` 的 `ConfigureServices()` 方法中註冊服務
 
 ## 介面範本
 
 ```csharp
-namespace TableSpec.Application.Services;
+namespace Specurai.Application.Services;
 
 /// <summary>
 /// {Service 說明}
@@ -42,7 +42,7 @@ public interface I{ServiceName}
 ## 實作範本
 
 ```csharp
-namespace TableSpec.Application.Services;
+namespace Specurai.Application.Services;
 
 /// <summary>
 /// {Service 說明}

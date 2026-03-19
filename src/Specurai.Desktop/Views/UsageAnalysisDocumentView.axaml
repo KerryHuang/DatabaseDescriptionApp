@@ -1,0 +1,350 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Specurai.Desktop.ViewModels"
+             xmlns:domain="using:Specurai.Domain.Entities"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="1200" d:DesignHeight="700"
+             x:Class="Specurai.Desktop.Views.UsageAnalysisDocumentView"
+             x:DataType="vm:UsageAnalysisDocumentViewModel">
+
+    <Design.DataContext>
+        <vm:UsageAnalysisDocumentViewModel/>
+    </Design.DataContext>
+
+    <Grid RowDefinitions="Auto,Auto,Auto,Auto,*,Auto">
+
+        <!-- 第一行：工具列 -->
+        <Border Grid.Row="0" Padding="10,8"
+                Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}">
+            <StackPanel Spacing="8">
+                <!-- 模式切換 + 年份 + 按鈕 -->
+                <WrapPanel Orientation="Horizontal">
+                    <RadioButton Content="單環境分析"
+                                 IsChecked="{Binding !IsCompareMode}"
+                                 Margin="0,0,8,0" GroupName="Mode"/>
+                    <RadioButton Content="多環境比對"
+                                 IsChecked="{Binding IsCompareMode}"
+                                 Margin="0,0,16,0" GroupName="Mode"/>
+
+                    <TextBlock Text="近" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                    <NumericUpDown Value="{Binding YearsThreshold}"
+                                   Minimum="1" Maximum="10"
+                                   Width="120" Margin="0,0,4,0"
+                                   FormatString="0"/>
+                    <TextBlock Text="年未使用" VerticalAlignment="Center" Margin="0,0,16,0"/>
+
+                    <Button Content="開始掃描" Command="{Binding ScanCommand}"
+                            Margin="0,0,8,0"/>
+                    <Button Content="取消" Command="{Binding CancelScanCommand}"
+                            IsVisible="{Binding IsScanning}"
+                            Margin="0,0,8,0"/>
+                    <ProgressBar IsIndeterminate="True" Width="100" Height="16"
+                                 VerticalAlignment="Center"
+                                 IsVisible="{Binding IsScanning}"/>
+                    <TextBlock Text="{Binding ProgressMessage}"
+                               VerticalAlignment="Center" Margin="8,0,0,0"
+                               IsVisible="{Binding IsScanning}"/>
+                </WrapPanel>
+
+                <!-- 多環境比對設定（僅在比對模式時顯示） -->
+                <WrapPanel Orientation="Horizontal" IsVisible="{Binding IsCompareMode}">
+                    <TextBlock Text="基準環境：" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                    <ComboBox ItemsSource="{Binding AvailableProfiles}"
+                              SelectedItem="{Binding SelectedBaseProfile}"
+                              MinWidth="150" Margin="0,0,16,0"
+                              PlaceholderText="選擇基準環境">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate x:DataType="domain:ConnectionProfile">
+                                <TextBlock Text="{Binding Name}"/>
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+
+                    <TextBlock Text="目標環境：" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                    <ItemsControl ItemsSource="{Binding TargetProfileItems}" Margin="0,0,0,0">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel Orientation="Horizontal"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:SelectableProfile">
+                                <CheckBox Content="{Binding Profile.Name}"
+                                          IsChecked="{Binding IsSelected}"
+                                          Margin="0,0,12,0"/>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </WrapPanel>
+            </StackPanel>
+        </Border>
+
+        <!-- 第二行：摘要列 -->
+        <Border Grid.Row="1" Padding="10,6"
+                Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
+                IsVisible="{Binding HasData}">
+            <WrapPanel Orientation="Horizontal">
+                <TextBlock Margin="0,0,20,0">
+                    <Run Text="資料表："/>
+                    <Run Text="{Binding TotalTableCount}" FontWeight="Bold"/>
+                    <Run Text=" 張（未使用 "/>
+                    <Run Text="{Binding UnusedTableCount}" FontWeight="Bold" Foreground="Red"/>
+                    <Run Text=" 張）"/>
+                </TextBlock>
+                <TextBlock>
+                    <Run Text="欄位："/>
+                    <Run Text="{Binding TotalColumnCount}" FontWeight="Bold"/>
+                    <Run Text=" 個（未使用 "/>
+                    <Run Text="{Binding UnusedColumnCount}" FontWeight="Bold" Foreground="Red"/>
+                    <Run Text=" 個）"/>
+                </TextBlock>
+            </WrapPanel>
+        </Border>
+
+        <!-- 第三行：維度切換 -->
+        <Border Grid.Row="2" Padding="10,4"
+                IsVisible="{Binding HasData}">
+            <WrapPanel Orientation="Horizontal">
+                <RadioButton Content="資料表維度"
+                             IsChecked="{Binding !IsColumnDimension}"
+                             Margin="0,0,8,0" GroupName="Dimension"/>
+                <RadioButton Content="欄位維度"
+                             IsChecked="{Binding IsColumnDimension}"
+                             Margin="0,0,16,0" GroupName="Dimension"/>
+            </WrapPanel>
+        </Border>
+
+        <!-- 第四行：篩選列 -->
+        <Border Grid.Row="3" Padding="10,4"
+                IsVisible="{Binding HasData}">
+            <WrapPanel Orientation="Horizontal">
+                <TextBlock Text="搜尋：" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                <TextBox Text="{Binding SearchText, Mode=TwoWay}"
+                         Watermark="輸入資料表或欄位名稱..."
+                         Width="250" Margin="0,0,16,0"/>
+
+                <TextBlock Text="狀態：" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                <ComboBox SelectedIndex="{Binding StatusFilter}" MinWidth="120">
+                    <ComboBoxItem Content="全部"/>
+                    <ComboBoxItem Content="僅未使用"/>
+                    <ComboBoxItem Content="僅使用中"/>
+                </ComboBox>
+            </WrapPanel>
+        </Border>
+
+        <!-- 第五行：結果區域 -->
+        <Grid Grid.Row="4">
+
+            <!-- 單環境 - 資料表維度 -->
+            <DataGrid Name="TableDataGrid"
+                      ItemsSource="{Binding TableResults}"
+                      AutoGenerateColumns="False"
+                      IsReadOnly="True"
+                      CanUserReorderColumns="True"
+                      CanUserResizeColumns="True"
+                      CanUserSortColumns="True"
+                      GridLinesVisibility="Horizontal"
+                      IsVisible="{Binding ShowSingleTableGrid}">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Binding="{Binding SchemaName}" Width="80">
+                        <DataGridTextColumn.Header>
+                            <TextBlock Text="Schema" ToolTip.Tip="資料表所屬的結構描述（Schema）"/>
+                        </DataGridTextColumn.Header>
+                    </DataGridTextColumn>
+                    <DataGridTextColumn Binding="{Binding TableName}" Width="200">
+                        <DataGridTextColumn.Header>
+                            <TextBlock Text="資料表" ToolTip.Tip="資料表名稱"/>
+                        </DataGridTextColumn.Header>
+                    </DataGridTextColumn>
+                    <DataGridTextColumn Binding="{Binding UserSeeks, StringFormat=N0}" Width="100">
+                        <DataGridTextColumn.Header>
+                            <TextBlock Text="Seeks" ToolTip.Tip="索引搜尋次數：透過索引精確查找資料的次數，數值越高代表該表越常被查詢"/>
+                        </DataGridTextColumn.Header>
+                    </DataGridTextColumn>
+                    <DataGridTextColumn Binding="{Binding UserScans, StringFormat=N0}" Width="100">
+                        <DataGridTextColumn.Header>
+                            <TextBlock Text="Scans" ToolTip.Tip="索引掃描次數：完整掃描索引的次數（僅供參考，不列入使用判斷，因分析工具本身也會產生掃描）"/>
+                        </DataGridTextColumn.Header>
+                    </DataGridTextColumn>
+                    <DataGridTextColumn Binding="{Binding UserLookups, StringFormat=N0}" Width="100">
+                        <DataGridTextColumn.Header>
+                            <TextBlock Text="Lookups" ToolTip.Tip="書籤查閱次數：透過索引查找後回到資料表取得其他欄位的次數"/>
+                        </DataGridTextColumn.Header>
+                    </DataGridTextColumn>
+                    <DataGridTextColumn Binding="{Binding UserUpdates, StringFormat=N0}" Width="100">
+                        <DataGridTextColumn.Header>
+                            <TextBlock Text="更新次數" ToolTip.Tip="透過 INSERT、UPDATE、DELETE 等操作更新索引的次數"/>
+                        </DataGridTextColumn.Header>
+                    </DataGridTextColumn>
+                    <DataGridTextColumn Binding="{Binding LastUserSeek, StringFormat=yyyy-MM-dd HH:mm}" Width="140">
+                        <DataGridTextColumn.Header>
+                            <TextBlock Text="最後查詢" ToolTip.Tip="最後一次使用索引搜尋或掃描資料的時間"/>
+                        </DataGridTextColumn.Header>
+                    </DataGridTextColumn>
+                    <DataGridTextColumn Binding="{Binding LastUserUpdate, StringFormat=yyyy-MM-dd HH:mm}" Width="140">
+                        <DataGridTextColumn.Header>
+                            <TextBlock Text="最後更新" ToolTip.Tip="最後一次透過 INSERT、UPDATE、DELETE 更新資料的時間"/>
+                        </DataGridTextColumn.Header>
+                    </DataGridTextColumn>
+                    <DataGridTemplateColumn Width="80">
+                        <DataGridTemplateColumn.Header>
+                            <TextBlock Text="狀態" ToolTip.Tip="是否有查詢活動：依 Seeks + Lookups 判斷（排除 Scans，避免工具掃描干擾）"/>
+                        </DataGridTemplateColumn.Header>
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate x:DataType="domain:TableUsageInfo">
+                                <TextBlock Text="{Binding HasQueryActivity}"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"/>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTemplateColumn Width="80">
+                        <DataGridTemplateColumn.Header>
+                            <TextBlock Text="操作" ToolTip.Tip="對未使用的資料表執行刪除操作（會先預覽 SQL 並確認）"/>
+                        </DataGridTemplateColumn.Header>
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate x:DataType="domain:TableUsageInfo">
+                                <Button Content="刪除"
+                                        Command="{Binding #TableDataGrid.((vm:UsageAnalysisDocumentViewModel)DataContext).DeleteTableCommand}"
+                                        CommandParameter="{Binding}"
+                                        IsEnabled="{Binding !HasQueryActivity}"
+                                        Padding="4,2"/>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                </DataGrid.Columns>
+            </DataGrid>
+
+            <!-- 單環境 - 欄位維度 -->
+            <DataGrid Name="ColumnDataGrid"
+                      ItemsSource="{Binding ColumnResults}"
+                      AutoGenerateColumns="False"
+                      IsReadOnly="True"
+                      CanUserReorderColumns="True"
+                      CanUserResizeColumns="True"
+                      CanUserSortColumns="True"
+                      GridLinesVisibility="Horizontal"
+                      IsVisible="{Binding ShowSingleColumnGrid}">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Binding="{Binding SchemaName}" Width="80">
+                        <DataGridTextColumn.Header>
+                            <TextBlock Text="Schema" ToolTip.Tip="資料表所屬的結構描述（Schema）"/>
+                        </DataGridTextColumn.Header>
+                    </DataGridTextColumn>
+                    <DataGridTextColumn Binding="{Binding TableName}" Width="160">
+                        <DataGridTextColumn.Header>
+                            <TextBlock Text="資料表" ToolTip.Tip="欄位所屬的資料表名稱"/>
+                        </DataGridTextColumn.Header>
+                    </DataGridTextColumn>
+                    <DataGridTextColumn Binding="{Binding ColumnName}" Width="160">
+                        <DataGridTextColumn.Header>
+                            <TextBlock Text="欄位" ToolTip.Tip="欄位名稱"/>
+                        </DataGridTextColumn.Header>
+                    </DataGridTextColumn>
+                    <DataGridTextColumn Binding="{Binding DataType}" Width="120">
+                        <DataGridTextColumn.Header>
+                            <TextBlock Text="資料型別" ToolTip.Tip="欄位的 SQL Server 資料類型"/>
+                        </DataGridTextColumn.Header>
+                    </DataGridTextColumn>
+                    <DataGridCheckBoxColumn Binding="{Binding IsReferencedInQueries}" Width="80">
+                        <DataGridCheckBoxColumn.Header>
+                            <TextBlock Text="查詢引用" ToolTip.Tip="該欄位是否在快取的查詢計畫中被引用（SELECT、WHERE、JOIN 等）"/>
+                        </DataGridCheckBoxColumn.Header>
+                    </DataGridCheckBoxColumn>
+                    <DataGridCheckBoxColumn Binding="{Binding IsAllNull}" Width="80">
+                        <DataGridCheckBoxColumn.Header>
+                            <TextBlock Text="全為NULL" ToolTip.Tip="該欄位所有資料列的值是否皆為 NULL"/>
+                        </DataGridCheckBoxColumn.Header>
+                    </DataGridCheckBoxColumn>
+                    <DataGridCheckBoxColumn Binding="{Binding IsAllDefault}" Width="90">
+                        <DataGridCheckBoxColumn.Header>
+                            <TextBlock Text="全為預設值" ToolTip.Tip="該欄位所有資料列的值是否皆等於預設值（代表可能從未被有效寫入）"/>
+                        </DataGridCheckBoxColumn.Header>
+                    </DataGridCheckBoxColumn>
+                    <DataGridCheckBoxColumn Binding="{Binding IsPrimaryKey}" Width="50">
+                        <DataGridCheckBoxColumn.Header>
+                            <TextBlock Text="PK" ToolTip.Tip="是否為主鍵（Primary Key），主鍵欄位一律視為使用中"/>
+                        </DataGridCheckBoxColumn.Header>
+                    </DataGridCheckBoxColumn>
+                    <DataGridCheckBoxColumn Binding="{Binding IsForeignKey}" Width="50">
+                        <DataGridCheckBoxColumn.Header>
+                            <TextBlock Text="FK" ToolTip.Tip="是否為外鍵（Foreign Key），外鍵欄位一律視為使用中"/>
+                        </DataGridCheckBoxColumn.Header>
+                    </DataGridCheckBoxColumn>
+                    <DataGridCheckBoxColumn Binding="{Binding IsIdentity}" Width="70">
+                        <DataGridCheckBoxColumn.Header>
+                            <TextBlock Text="Identity" ToolTip.Tip="是否為自動編號欄位（Identity），Identity 欄位一律視為使用中"/>
+                        </DataGridCheckBoxColumn.Header>
+                    </DataGridCheckBoxColumn>
+                    <DataGridTemplateColumn Width="80">
+                        <DataGridTemplateColumn.Header>
+                            <TextBlock Text="狀態" ToolTip.Tip="綜合判斷：PK/FK/Identity 一律使用中；否則依查詢引用、NULL、預設值判斷"/>
+                        </DataGridTemplateColumn.Header>
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate x:DataType="domain:ColumnUsageStatus">
+                                <TextBlock HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"
+                                           Text="{Binding IsUsed}"
+                                           FontWeight="Bold"/>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTemplateColumn Width="80">
+                        <DataGridTemplateColumn.Header>
+                            <TextBlock Text="操作" ToolTip.Tip="對未使用的欄位執行刪除操作（會先預覽 SQL 並確認）"/>
+                        </DataGridTemplateColumn.Header>
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate x:DataType="domain:ColumnUsageStatus">
+                                <Button Content="刪除"
+                                        Command="{Binding #ColumnDataGrid.((vm:UsageAnalysisDocumentViewModel)DataContext).DeleteColumnCommand}"
+                                        CommandParameter="{Binding}"
+                                        IsEnabled="{Binding !IsUsed}"
+                                        Padding="4,2"/>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                </DataGrid.Columns>
+            </DataGrid>
+
+            <!-- 多環境比對 - 資料表維度 -->
+            <DataGrid ItemsSource="{Binding ComparisonTableRows}"
+                      AutoGenerateColumns="False"
+                      IsReadOnly="True"
+                      CanUserSortColumns="True"
+                      GridLinesVisibility="Horizontal"
+                      IsVisible="{Binding ShowCompareTableGrid}">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Schema" Binding="{Binding SchemaName}" Width="80"/>
+                    <DataGridTextColumn Header="資料表" Binding="{Binding TableName}" Width="200"/>
+                </DataGrid.Columns>
+            </DataGrid>
+
+            <!-- 多環境比對 - 欄位維度 -->
+            <DataGrid ItemsSource="{Binding ComparisonColumnRows}"
+                      AutoGenerateColumns="False"
+                      IsReadOnly="True"
+                      CanUserSortColumns="True"
+                      GridLinesVisibility="Horizontal"
+                      IsVisible="{Binding ShowCompareColumnGrid}">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Schema" Binding="{Binding SchemaName}" Width="80"/>
+                    <DataGridTextColumn Header="資料表" Binding="{Binding TableName}" Width="160"/>
+                    <DataGridTextColumn Header="欄位" Binding="{Binding ColumnName}" Width="160"/>
+                </DataGrid.Columns>
+            </DataGrid>
+
+            <!-- 無資料提示 -->
+            <TextBlock Text="尚無資料，請點擊「開始掃描」"
+                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                       FontSize="16" Opacity="0.5"
+                       IsVisible="{Binding !HasData}"/>
+        </Grid>
+
+        <!-- 第六行：狀態列 -->
+        <Border Grid.Row="5" Padding="10,6"
+                Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}">
+            <TextBlock Text="{Binding StatusMessage}"/>
+        </Border>
+    </Grid>
+</UserControl>

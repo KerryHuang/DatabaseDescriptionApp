@@ -2,7 +2,7 @@
 
 ## 概述
 
-在 TableSpec 應用程式中新增「資料庫維護計劃」功能，透過「工具」選單開啟管理視窗，可使用建立精靈設定新的維護計劃，並在管理面板中檢視、管理現有的 SQL Agent Job。
+在 Specurai 應用程式中新增「資料庫維護計劃」功能，透過「工具」選單開啟管理視窗，可使用建立精靈設定新的維護計劃，並在管理面板中檢視、管理現有的 SQL Agent Job。
 
 ## 前置條件
 
@@ -105,7 +105,7 @@
 
 ## 管理面板
 
-開啟後顯示目前連線的 SQL Agent Job 清單。使用 Job 的 `description` 欄位包含 `[TableSpec]` 標記來識別由本程式建立的 Job，避免誤列入其他 Job。
+開啟後顯示目前連線的 SQL Agent Job 清單。使用 Job 的 `description` 欄位包含 `[Specurai]` 標記來識別由本程式建立的 Job，避免誤列入其他 Job。
 
 DataGrid 欄位：
 

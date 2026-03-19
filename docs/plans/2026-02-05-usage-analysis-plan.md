@@ -15,16 +15,16 @@
 ## Task 1: Domain 層 — TableUsageInfo 實體
 
 **Files:**
-- Create: `src/TableSpec.Domain/Entities/TableUsageInfo.cs`
-- Test: `tests/TableSpec.Domain.Tests/Entities/TableUsageInfoTests.cs`
+- Create: `src/Specurai.Domain/Entities/TableUsageInfo.cs`
+- Test: `tests/Specurai.Domain.Tests/Entities/TableUsageInfoTests.cs`
 
 **Step 1: 寫失敗測試**
 
 ```csharp
-// tests/TableSpec.Domain.Tests/Entities/TableUsageInfoTests.cs
+// tests/Specurai.Domain.Tests/Entities/TableUsageInfoTests.cs
 using FluentAssertions;
 
-namespace TableSpec.Domain.Tests.Entities;
+namespace Specurai.Domain.Tests.Entities;
 
 public class TableUsageInfoTests
 {
@@ -133,14 +133,14 @@ public class TableUsageInfoTests
 
 **Step 2: 執行測試，確認失敗**
 
-Run: `dotnet test tests/TableSpec.Domain.Tests --filter "FullyQualifiedName~TableUsageInfoTests" -v n`
+Run: `dotnet test tests/Specurai.Domain.Tests --filter "FullyQualifiedName~TableUsageInfoTests" -v n`
 Expected: FAIL — `TableUsageInfo` 不存在
 
 **Step 3: 寫最小實作**
 
 ```csharp
-// src/TableSpec.Domain/Entities/TableUsageInfo.cs
-namespace TableSpec.Domain.Entities;
+// src/Specurai.Domain/Entities/TableUsageInfo.cs
+namespace Specurai.Domain.Entities;
 
 /// <summary>
 /// 資料表使用狀態資訊
@@ -191,13 +191,13 @@ public class TableUsageInfo
 
 **Step 4: 執行測試，確認通過**
 
-Run: `dotnet test tests/TableSpec.Domain.Tests --filter "FullyQualifiedName~TableUsageInfoTests" -v n`
+Run: `dotnet test tests/Specurai.Domain.Tests --filter "FullyQualifiedName~TableUsageInfoTests" -v n`
 Expected: PASS（全部 7 個測試通過）
 
 **Step 5: Commit**
 
 ```bash
-git add src/TableSpec.Domain/Entities/TableUsageInfo.cs tests/TableSpec.Domain.Tests/Entities/TableUsageInfoTests.cs
+git add src/Specurai.Domain/Entities/TableUsageInfo.cs tests/Specurai.Domain.Tests/Entities/TableUsageInfoTests.cs
 git commit -m "新增 TableUsageInfo 實體與測試"
 ```
 
@@ -206,16 +206,16 @@ git commit -m "新增 TableUsageInfo 實體與測試"
 ## Task 2: Domain 層 — ColumnUsageStatus 實體
 
 **Files:**
-- Create: `src/TableSpec.Domain/Entities/ColumnUsageStatus.cs`
-- Test: `tests/TableSpec.Domain.Tests/Entities/ColumnUsageStatusTests.cs`
+- Create: `src/Specurai.Domain/Entities/ColumnUsageStatus.cs`
+- Test: `tests/Specurai.Domain.Tests/Entities/ColumnUsageStatusTests.cs`
 
 **Step 1: 寫失敗測試**
 
 ```csharp
-// tests/TableSpec.Domain.Tests/Entities/ColumnUsageStatusTests.cs
+// tests/Specurai.Domain.Tests/Entities/ColumnUsageStatusTests.cs
 using FluentAssertions;
 
-namespace TableSpec.Domain.Tests.Entities;
+namespace Specurai.Domain.Tests.Entities;
 
 public class ColumnUsageStatusTests
 {
@@ -378,14 +378,14 @@ public class ColumnUsageStatusTests
 
 **Step 2: 執行測試，確認失敗**
 
-Run: `dotnet test tests/TableSpec.Domain.Tests --filter "FullyQualifiedName~ColumnUsageStatusTests" -v n`
+Run: `dotnet test tests/Specurai.Domain.Tests --filter "FullyQualifiedName~ColumnUsageStatusTests" -v n`
 Expected: FAIL — `ColumnUsageStatus` 不存在
 
 **Step 3: 寫最小實作**
 
 ```csharp
-// src/TableSpec.Domain/Entities/ColumnUsageStatus.cs
-namespace TableSpec.Domain.Entities;
+// src/Specurai.Domain/Entities/ColumnUsageStatus.cs
+namespace Specurai.Domain.Entities;
 
 /// <summary>
 /// 欄位使用狀態資訊
@@ -443,13 +443,13 @@ public class ColumnUsageStatus
 
 **Step 4: 執行測試，確認通過**
 
-Run: `dotnet test tests/TableSpec.Domain.Tests --filter "FullyQualifiedName~ColumnUsageStatusTests" -v n`
+Run: `dotnet test tests/Specurai.Domain.Tests --filter "FullyQualifiedName~ColumnUsageStatusTests" -v n`
 Expected: PASS（全部 8 個測試通過）
 
 **Step 5: Commit**
 
 ```bash
-git add src/TableSpec.Domain/Entities/ColumnUsageStatus.cs tests/TableSpec.Domain.Tests/Entities/ColumnUsageStatusTests.cs
+git add src/Specurai.Domain/Entities/ColumnUsageStatus.cs tests/Specurai.Domain.Tests/Entities/ColumnUsageStatusTests.cs
 git commit -m "新增 ColumnUsageStatus 實體與測試"
 ```
 
@@ -458,17 +458,17 @@ git commit -m "新增 ColumnUsageStatus 實體與測試"
 ## Task 3: Domain 層 — UsageComparison 相關實體與 UsageScanResult
 
 **Files:**
-- Create: `src/TableSpec.Domain/Entities/UsageComparison.cs`
-- Create: `src/TableSpec.Domain/Entities/UsageScanResult.cs`
-- Test: `tests/TableSpec.Domain.Tests/Entities/UsageComparisonTests.cs`
+- Create: `src/Specurai.Domain/Entities/UsageComparison.cs`
+- Create: `src/Specurai.Domain/Entities/UsageScanResult.cs`
+- Test: `tests/Specurai.Domain.Tests/Entities/UsageComparisonTests.cs`
 
 **Step 1: 寫失敗測試**
 
 ```csharp
-// tests/TableSpec.Domain.Tests/Entities/UsageComparisonTests.cs
+// tests/Specurai.Domain.Tests/Entities/UsageComparisonTests.cs
 using FluentAssertions;
 
-namespace TableSpec.Domain.Tests.Entities;
+namespace Specurai.Domain.Tests.Entities;
 
 public class UsageComparisonTests
 {
@@ -548,14 +548,14 @@ public class UsageComparisonTests
 
 **Step 2: 執行測試，確認失敗**
 
-Run: `dotnet test tests/TableSpec.Domain.Tests --filter "FullyQualifiedName~UsageComparisonTests" -v n`
+Run: `dotnet test tests/Specurai.Domain.Tests --filter "FullyQualifiedName~UsageComparisonTests" -v n`
 Expected: FAIL
 
 **Step 3: 寫最小實作**
 
 ```csharp
-// src/TableSpec.Domain/Entities/UsageScanResult.cs
-namespace TableSpec.Domain.Entities;
+// src/Specurai.Domain/Entities/UsageScanResult.cs
+namespace Specurai.Domain.Entities;
 
 /// <summary>
 /// 使用狀態掃描結果
@@ -588,8 +588,8 @@ public class UsageScanResult
 ```
 
 ```csharp
-// src/TableSpec.Domain/Entities/UsageComparison.cs
-namespace TableSpec.Domain.Entities;
+// src/Specurai.Domain/Entities/UsageComparison.cs
+namespace Specurai.Domain.Entities;
 
 /// <summary>
 /// 多環境使用狀態比對結果
@@ -637,13 +637,13 @@ public class ColumnUsageComparisonRow
 
 **Step 4: 執行測試，確認通過**
 
-Run: `dotnet test tests/TableSpec.Domain.Tests --filter "FullyQualifiedName~UsageComparisonTests" -v n`
+Run: `dotnet test tests/Specurai.Domain.Tests --filter "FullyQualifiedName~UsageComparisonTests" -v n`
 Expected: PASS（全部 4 個測試通過）
 
 **Step 5: Commit**
 
 ```bash
-git add src/TableSpec.Domain/Entities/UsageScanResult.cs src/TableSpec.Domain/Entities/UsageComparison.cs tests/TableSpec.Domain.Tests/Entities/UsageComparisonTests.cs
+git add src/Specurai.Domain/Entities/UsageScanResult.cs src/Specurai.Domain/Entities/UsageComparison.cs tests/Specurai.Domain.Tests/Entities/UsageComparisonTests.cs
 git commit -m "新增 UsageScanResult 與 UsageComparison 實體與測試"
 ```
 
@@ -652,15 +652,15 @@ git commit -m "新增 UsageScanResult 與 UsageComparison 實體與測試"
 ## Task 4: Domain 層 — IUsageAnalysisRepository 介面
 
 **Files:**
-- Create: `src/TableSpec.Domain/Interfaces/IUsageAnalysisRepository.cs`
+- Create: `src/Specurai.Domain/Interfaces/IUsageAnalysisRepository.cs`
 
 **Step 1: 建立介面**
 
 ```csharp
-// src/TableSpec.Domain/Interfaces/IUsageAnalysisRepository.cs
-using TableSpec.Domain.Entities;
+// src/Specurai.Domain/Interfaces/IUsageAnalysisRepository.cs
+using Specurai.Domain.Entities;
 
-namespace TableSpec.Domain.Interfaces;
+namespace Specurai.Domain.Interfaces;
 
 /// <summary>
 /// 使用狀態分析 Repository 介面
@@ -681,13 +681,13 @@ public interface IUsageAnalysisRepository
 
 **Step 2: 確認編譯通過**
 
-Run: `dotnet build src/TableSpec.Domain`
+Run: `dotnet build src/Specurai.Domain`
 Expected: BUILD SUCCEEDED
 
 **Step 3: Commit**
 
 ```bash
-git add src/TableSpec.Domain/Interfaces/IUsageAnalysisRepository.cs
+git add src/Specurai.Domain/Interfaces/IUsageAnalysisRepository.cs
 git commit -m "新增 IUsageAnalysisRepository 介面"
 ```
 
@@ -696,20 +696,20 @@ git commit -m "新增 IUsageAnalysisRepository 介面"
 ## Task 5: Application 層 — UsageAnalysisService（單環境掃描）
 
 **Files:**
-- Create: `src/TableSpec.Application/Services/IUsageAnalysisService.cs`
-- Create: `src/TableSpec.Application/Services/UsageAnalysisService.cs`
-- Test: `tests/TableSpec.Application.Tests/Services/UsageAnalysisServiceTests.cs`
+- Create: `src/Specurai.Application/Services/IUsageAnalysisService.cs`
+- Create: `src/Specurai.Application/Services/UsageAnalysisService.cs`
+- Test: `tests/Specurai.Application.Tests/Services/UsageAnalysisServiceTests.cs`
 
 **Step 1: 寫失敗測試 — ScanAsync**
 
 ```csharp
-// tests/TableSpec.Application.Tests/Services/UsageAnalysisServiceTests.cs
+// tests/Specurai.Application.Tests/Services/UsageAnalysisServiceTests.cs
 using FluentAssertions;
 using NSubstitute;
-using TableSpec.Domain.Entities;
-using TableSpec.Domain.Interfaces;
+using Specurai.Domain.Entities;
+using Specurai.Domain.Interfaces;
 
-namespace TableSpec.Application.Tests.Services;
+namespace Specurai.Application.Tests.Services;
 
 public class UsageAnalysisServiceTests
 {
@@ -808,16 +808,16 @@ public class UsageAnalysisServiceTests
 
 **Step 2: 執行測試，確認失敗**
 
-Run: `dotnet test tests/TableSpec.Application.Tests --filter "FullyQualifiedName~UsageAnalysisServiceTests" -v n`
+Run: `dotnet test tests/Specurai.Application.Tests --filter "FullyQualifiedName~UsageAnalysisServiceTests" -v n`
 Expected: FAIL — `UsageAnalysisService` 不存在
 
 **Step 3: 寫最小實作**
 
 ```csharp
-// src/TableSpec.Application/Services/IUsageAnalysisService.cs
-using TableSpec.Domain.Entities;
+// src/Specurai.Application/Services/IUsageAnalysisService.cs
+using Specurai.Domain.Entities;
 
-namespace TableSpec.Application.Services;
+namespace Specurai.Application.Services;
 
 /// <summary>
 /// 使用狀態分析服務介面
@@ -847,11 +847,11 @@ public interface IUsageAnalysisService
 ```
 
 ```csharp
-// src/TableSpec.Application/Services/UsageAnalysisService.cs
-using TableSpec.Domain.Entities;
-using TableSpec.Domain.Interfaces;
+// src/Specurai.Application/Services/UsageAnalysisService.cs
+using Specurai.Domain.Entities;
+using Specurai.Domain.Interfaces;
 
-namespace TableSpec.Application.Services;
+namespace Specurai.Application.Services;
 
 /// <summary>
 /// 使用狀態分析服務實作
@@ -913,13 +913,13 @@ public class UsageAnalysisService : IUsageAnalysisService
 
 **Step 4: 執行測試，確認通過**
 
-Run: `dotnet test tests/TableSpec.Application.Tests --filter "FullyQualifiedName~UsageAnalysisServiceTests" -v n`
+Run: `dotnet test tests/Specurai.Application.Tests --filter "FullyQualifiedName~UsageAnalysisServiceTests" -v n`
 Expected: PASS（全部 6 個測試通過）
 
 **Step 5: Commit**
 
 ```bash
-git add src/TableSpec.Application/Services/IUsageAnalysisService.cs src/TableSpec.Application/Services/UsageAnalysisService.cs tests/TableSpec.Application.Tests/Services/UsageAnalysisServiceTests.cs
+git add src/Specurai.Application/Services/IUsageAnalysisService.cs src/Specurai.Application/Services/UsageAnalysisService.cs tests/Specurai.Application.Tests/Services/UsageAnalysisServiceTests.cs
 git commit -m "新增 UsageAnalysisService 單環境掃描與刪除功能及測試"
 ```
 
@@ -928,23 +928,23 @@ git commit -m "新增 UsageAnalysisService 單環境掃描與刪除功能及測�
 ## Task 6: Application 層 — UsageAnalysisService（多環境比對）
 
 **Files:**
-- Modify: `src/TableSpec.Application/Services/IUsageAnalysisService.cs`
-- Modify: `src/TableSpec.Application/Services/UsageAnalysisService.cs`
-- Test: `tests/TableSpec.Application.Tests/Services/UsageAnalysisServiceCompareTests.cs`
+- Modify: `src/Specurai.Application/Services/IUsageAnalysisService.cs`
+- Modify: `src/Specurai.Application/Services/UsageAnalysisService.cs`
+- Test: `tests/Specurai.Application.Tests/Services/UsageAnalysisServiceCompareTests.cs`
 
 **注意：** 多環境比對需要 `IConnectionManager` 來取得各環境的連線字串，並動態建立 Repository。Service 建構函式需增加 `IConnectionManager` 與 `Func<string?, IUsageAnalysisRepository>` 工廠參數。
 
 **Step 1: 寫失敗測試**
 
 ```csharp
-// tests/TableSpec.Application.Tests/Services/UsageAnalysisServiceCompareTests.cs
+// tests/Specurai.Application.Tests/Services/UsageAnalysisServiceCompareTests.cs
 using FluentAssertions;
 using NSubstitute;
-using TableSpec.Application.Services;
-using TableSpec.Domain.Entities;
-using TableSpec.Domain.Interfaces;
+using Specurai.Application.Services;
+using Specurai.Domain.Entities;
+using Specurai.Domain.Interfaces;
 
-namespace TableSpec.Application.Tests.Services;
+namespace Specurai.Application.Tests.Services;
 
 public class UsageAnalysisServiceCompareTests
 {
@@ -1020,7 +1020,7 @@ public class UsageAnalysisServiceCompareTests
 
 **Step 2: 執行測試，確認失敗**
 
-Run: `dotnet test tests/TableSpec.Application.Tests --filter "FullyQualifiedName~UsageAnalysisServiceCompareTests" -v n`
+Run: `dotnet test tests/Specurai.Application.Tests --filter "FullyQualifiedName~UsageAnalysisServiceCompareTests" -v n`
 Expected: FAIL — 建構函式不匹配或 `CompareAsync` 拋 `NotImplementedException`
 
 **Step 3: 修改 UsageAnalysisService 加入多環境比對邏輯**
@@ -1138,13 +1138,13 @@ public class UsageAnalysisService : IUsageAnalysisService
 
 **Step 4: 執行測試，確認通過**
 
-Run: `dotnet test tests/TableSpec.Application.Tests --filter "FullyQualifiedName~UsageAnalysisService" -v n`
+Run: `dotnet test tests/Specurai.Application.Tests --filter "FullyQualifiedName~UsageAnalysisService" -v n`
 Expected: PASS（Task 5 + Task 6 的所有測試皆通過）
 
 **Step 5: Commit**
 
 ```bash
-git add src/TableSpec.Application/Services/UsageAnalysisService.cs tests/TableSpec.Application.Tests/Services/UsageAnalysisServiceCompareTests.cs
+git add src/Specurai.Application/Services/UsageAnalysisService.cs tests/Specurai.Application.Tests/Services/UsageAnalysisServiceCompareTests.cs
 git commit -m "新增 UsageAnalysisService 多環境比對功能及測試"
 ```
 
@@ -1153,22 +1153,22 @@ git commit -m "新增 UsageAnalysisService 多環境比對功能及測試"
 ## Task 7: Infrastructure 層 — UsageAnalysisRepository
 
 **Files:**
-- Create: `src/TableSpec.Infrastructure/Repositories/UsageAnalysisRepository.cs`
+- Create: `src/Specurai.Infrastructure/Repositories/UsageAnalysisRepository.cs`
 
 **注意：** 此 Repository 涉及實際 SQL Server DMV 查詢，屬於整合測試範疇，不適合純 Unit Test。先建立實作，後續手動測試。
 
 **Step 1: 建立 Repository 實作**
 
 ```csharp
-// src/TableSpec.Infrastructure/Repositories/UsageAnalysisRepository.cs
+// src/Specurai.Infrastructure/Repositories/UsageAnalysisRepository.cs
 using System.Data;
 using System.Text;
 using Dapper;
 using Microsoft.Data.SqlClient;
-using TableSpec.Domain.Entities;
-using TableSpec.Domain.Interfaces;
+using Specurai.Domain.Entities;
+using Specurai.Domain.Interfaces;
 
-namespace TableSpec.Infrastructure.Repositories;
+namespace Specurai.Infrastructure.Repositories;
 
 /// <summary>
 /// 使用狀態分析 Repository 實作
@@ -1453,7 +1453,7 @@ ORDER BY s.name, t.name, c.column_id";
 
 **Step 2: 確認編譯通過**
 
-Run: `dotnet build src/TableSpec.Infrastructure`
+Run: `dotnet build src/Specurai.Infrastructure`
 Expected: BUILD SUCCEEDED
 
 **Step 3: 確認所有現有測試仍通過**
@@ -1464,7 +1464,7 @@ Expected: 全部 PASS
 **Step 4: Commit**
 
 ```bash
-git add src/TableSpec.Infrastructure/Repositories/UsageAnalysisRepository.cs
+git add src/Specurai.Infrastructure/Repositories/UsageAnalysisRepository.cs
 git commit -m "新增 UsageAnalysisRepository DMV 查詢實作"
 ```
 
@@ -1473,8 +1473,8 @@ git commit -m "新增 UsageAnalysisRepository DMV 查詢實作"
 ## Task 8: IConnectionManager 擴充（GetProfileName 方法）
 
 **Files:**
-- Modify: `src/TableSpec.Application/Services/IConnectionManager.cs` (或 Domain 層，視現有位置)
-- Modify: `src/TableSpec.Infrastructure/Services/ConnectionManager.cs`
+- Modify: `src/Specurai.Application/Services/IConnectionManager.cs` (或 Domain 層，視現有位置)
+- Modify: `src/Specurai.Infrastructure/Services/ConnectionManager.cs`
 - Test: 在現有 ConnectionManager 測試中新增
 
 **注意：** Task 6 的多環境比對需要 `GetProfileName(Guid id)` 方法。檢查現有 `IConnectionManager` 是否已有此方法，若無則新增。
@@ -1515,7 +1515,7 @@ git commit -m "擴充 IConnectionManager 新增 GetProfileName 方法"
 ## Task 9: DI 註冊
 
 **Files:**
-- Modify: `src/TableSpec.Desktop/Program.cs`
+- Modify: `src/Specurai.Desktop/Program.cs`
 
 **Step 1: 新增 DI 註冊**
 
@@ -1549,7 +1549,7 @@ Expected: BUILD SUCCEEDED
 **Step 3: Commit**
 
 ```bash
-git add src/TableSpec.Desktop/Program.cs
+git add src/Specurai.Desktop/Program.cs
 git commit -m "註冊使用狀態分析相關服務至 DI 容器"
 ```
 
@@ -1558,19 +1558,19 @@ git commit -m "註冊使用狀態分析相關服務至 DI 容器"
 ## Task 10: Desktop 層 — UsageAnalysisDocumentViewModel（基本結構與單環境掃描）
 
 **Files:**
-- Create: `src/TableSpec.Desktop/ViewModels/UsageAnalysisDocumentViewModel.cs`
-- Test: `tests/TableSpec.Desktop.Tests/ViewModels/UsageAnalysisDocumentViewModelTests.cs`
+- Create: `src/Specurai.Desktop/ViewModels/UsageAnalysisDocumentViewModel.cs`
+- Test: `tests/Specurai.Desktop.Tests/ViewModels/UsageAnalysisDocumentViewModelTests.cs`
 
 **Step 1: 寫失敗測試**
 
 ```csharp
-// tests/TableSpec.Desktop.Tests/ViewModels/UsageAnalysisDocumentViewModelTests.cs
+// tests/Specurai.Desktop.Tests/ViewModels/UsageAnalysisDocumentViewModelTests.cs
 using FluentAssertions;
 using NSubstitute;
-using TableSpec.Application.Services;
-using TableSpec.Domain.Entities;
+using Specurai.Application.Services;
+using Specurai.Domain.Entities;
 
-namespace TableSpec.Desktop.Tests.ViewModels;
+namespace Specurai.Desktop.Tests.ViewModels;
 
 public class UsageAnalysisDocumentViewModelTests
 {
@@ -1641,21 +1641,21 @@ public class UsageAnalysisDocumentViewModelTests
 
 **Step 2: 執行測試，確認失敗**
 
-Run: `dotnet test tests/TableSpec.Desktop.Tests --filter "FullyQualifiedName~UsageAnalysisDocumentViewModelTests" -v n`
+Run: `dotnet test tests/Specurai.Desktop.Tests --filter "FullyQualifiedName~UsageAnalysisDocumentViewModelTests" -v n`
 Expected: FAIL
 
 **Step 3: 寫最小 ViewModel 實作**
 
 ```csharp
-// src/TableSpec.Desktop/ViewModels/UsageAnalysisDocumentViewModel.cs
+// src/Specurai.Desktop/ViewModels/UsageAnalysisDocumentViewModel.cs
 using System.Collections.ObjectModel;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using TableSpec.Application.Services;
-using TableSpec.Domain.Entities;
+using Specurai.Application.Services;
+using Specurai.Domain.Entities;
 
-namespace TableSpec.Desktop.ViewModels;
+namespace Specurai.Desktop.ViewModels;
 
 /// <summary>
 /// 使用狀態分析文件 ViewModel
@@ -2000,13 +2000,13 @@ public partial class SelectableProfile : ObservableObject
 
 **Step 4: 執行測試，確認通過**
 
-Run: `dotnet test tests/TableSpec.Desktop.Tests --filter "FullyQualifiedName~UsageAnalysisDocumentViewModelTests" -v n`
+Run: `dotnet test tests/Specurai.Desktop.Tests --filter "FullyQualifiedName~UsageAnalysisDocumentViewModelTests" -v n`
 Expected: PASS
 
 **Step 5: Commit**
 
 ```bash
-git add src/TableSpec.Desktop/ViewModels/UsageAnalysisDocumentViewModel.cs tests/TableSpec.Desktop.Tests/ViewModels/UsageAnalysisDocumentViewModelTests.cs
+git add src/Specurai.Desktop/ViewModels/UsageAnalysisDocumentViewModel.cs tests/Specurai.Desktop.Tests/ViewModels/UsageAnalysisDocumentViewModelTests.cs
 git commit -m "新增 UsageAnalysisDocumentViewModel 及測試"
 ```
 
@@ -2015,8 +2015,8 @@ git commit -m "新增 UsageAnalysisDocumentViewModel 及測試"
 ## Task 11: Desktop 層 — View（AXAML）
 
 **Files:**
-- Create: `src/TableSpec.Desktop/Views/UsageAnalysisDocumentView.axaml`
-- Create: `src/TableSpec.Desktop/Views/UsageAnalysisDocumentView.axaml.cs`
+- Create: `src/Specurai.Desktop/Views/UsageAnalysisDocumentView.axaml`
+- Create: `src/Specurai.Desktop/Views/UsageAnalysisDocumentView.axaml.cs`
 
 **Step 1: 建立 View**
 
@@ -2032,13 +2032,13 @@ AXAML 包含：
 
 **Step 2: 確認編譯通過**
 
-Run: `dotnet build src/TableSpec.Desktop`
+Run: `dotnet build src/Specurai.Desktop`
 Expected: BUILD SUCCEEDED
 
 **Step 3: Commit**
 
 ```bash
-git add src/TableSpec.Desktop/Views/UsageAnalysisDocumentView.axaml src/TableSpec.Desktop/Views/UsageAnalysisDocumentView.axaml.cs
+git add src/Specurai.Desktop/Views/UsageAnalysisDocumentView.axaml src/Specurai.Desktop/Views/UsageAnalysisDocumentView.axaml.cs
 git commit -m "新增使用狀態分析 View（AXAML）"
 ```
 
@@ -2047,8 +2047,8 @@ git commit -m "新增使用狀態分析 View（AXAML）"
 ## Task 12: MainWindow 整合 — 選單入口
 
 **Files:**
-- Modify: `src/TableSpec.Desktop/ViewModels/MainWindowViewModel.cs`
-- Modify: `src/TableSpec.Desktop/Views/MainWindow.axaml`
+- Modify: `src/Specurai.Desktop/ViewModels/MainWindowViewModel.cs`
+- Modify: `src/Specurai.Desktop/Views/MainWindow.axaml`
 
 **Step 1: 在 MainWindowViewModel 新增開啟命令**
 
@@ -2083,13 +2083,13 @@ private void OpenUsageAnalysis()
 
 **Step 3: 確認編譯通過**
 
-Run: `dotnet build src/TableSpec.Desktop`
+Run: `dotnet build src/Specurai.Desktop`
 Expected: BUILD SUCCEEDED
 
 **Step 4: Commit**
 
 ```bash
-git add src/TableSpec.Desktop/ViewModels/MainWindowViewModel.cs src/TableSpec.Desktop/Views/MainWindow.axaml
+git add src/Specurai.Desktop/ViewModels/MainWindowViewModel.cs src/Specurai.Desktop/Views/MainWindow.axaml
 git commit -m "整合使用狀態分析至主視窗選單"
 ```
 
@@ -2104,7 +2104,7 @@ Expected: 全部 PASS
 
 **Step 2: 執行應用程式確認**
 
-Run: `dotnet run --project src/TableSpec.Desktop/TableSpec.Desktop.csproj`
+Run: `dotnet run --project src/Specurai.Desktop/Specurai.Desktop.csproj`
 
 驗證：
 - [ ] 選單中可看到「使用狀態分析」入口

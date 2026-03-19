@@ -66,12 +66,12 @@
 
 | 技能 | 建立的檔案位置 |
 |------|---------------|
-| `new-entity` | `src/TableSpec.Domain/Entities/{Name}.cs` |
-| `new-repository` | `src/TableSpec.Domain/Interfaces/I{Name}Repository.cs`、`src/TableSpec.Infrastructure/Repositories/{Name}Repository.cs` |
-| `new-service` | `src/TableSpec.Application/Services/I{Name}.cs`、`src/TableSpec.Application/Services/{Name}.cs` |
-| `new-viewmodel` | `src/TableSpec.Desktop/ViewModels/{Name}ViewModel.cs` |
-| `new-view` | `src/TableSpec.Desktop/Views/{Name}.axaml`、`Views/{Name}.axaml.cs`、`ViewModels/{Name}ViewModel.cs` |
-| `new-test` | `tests/TableSpec.{Layer}.Tests/{Name}Tests.cs` |
+| `new-entity` | `src/Specurai.Domain/Entities/{Name}.cs` |
+| `new-repository` | `src/Specurai.Domain/Interfaces/I{Name}Repository.cs`、`src/Specurai.Infrastructure/Repositories/{Name}Repository.cs` |
+| `new-service` | `src/Specurai.Application/Services/I{Name}.cs`、`src/Specurai.Application/Services/{Name}.cs` |
+| `new-viewmodel` | `src/Specurai.Desktop/ViewModels/{Name}ViewModel.cs` |
+| `new-view` | `src/Specurai.Desktop/Views/{Name}.axaml`、`Views/{Name}.axaml.cs`、`ViewModels/{Name}ViewModel.cs` |
+| `new-test` | `tests/Specurai.{Layer}.Tests/{Name}Tests.cs` |
 | `new-feature` | 上述所有對應檔案 + DI 註冊 + 測試 |
 
 ---

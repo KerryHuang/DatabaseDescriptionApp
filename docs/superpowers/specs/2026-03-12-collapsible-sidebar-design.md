@@ -79,9 +79,9 @@ private void ToggleSidebar()
 
 | 檔案 | 變更類型 |
 |------|----------|
-| `src/TableSpec.Desktop/ViewModels/MainWindowViewModel.cs` | 新增 `IsSidebarOpen` 屬性、`ToggleSidebarCommand`、狀態持久化 |
-| `src/TableSpec.Desktop/Views/MainWindow.axaml` | 標題列按鈕、快捷鍵、寬度綁定、動畫、GridSplitter 可見性 |
-| `src/TableSpec.Desktop/Views/MainWindow.axaml.cs` | 可能需要快捷鍵註冊的 code-behind |
+| `src/Specurai.Desktop/ViewModels/MainWindowViewModel.cs` | 新增 `IsSidebarOpen` 屬性、`ToggleSidebarCommand`、狀態持久化 |
+| `src/Specurai.Desktop/Views/MainWindow.axaml` | 標題列按鈕、快捷鍵、寬度綁定、動畫、GridSplitter 可見性 |
+| `src/Specurai.Desktop/Views/MainWindow.axaml.cs` | 可能需要快捷鍵註冊的 code-behind |
 
 ## 測試計畫
 

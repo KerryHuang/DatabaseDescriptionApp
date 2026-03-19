@@ -22,32 +22,32 @@ description: 端對端建立新功能（Entity → Repository → ViewModel）
 ### 2. Domain 層
 
 建立 Entity：
-- `src/TableSpec.Domain/Entities/{Name}Info.cs`
+- `src/Specurai.Domain/Entities/{Name}Info.cs`
 
 建立 Repository 介面：
-- `src/TableSpec.Domain/Interfaces/I{Name}Repository.cs`
+- `src/Specurai.Domain/Interfaces/I{Name}Repository.cs`
 
 ### 3. Infrastructure 層
 
 建立 Repository 實作：
-- `src/TableSpec.Infrastructure/Repositories/{Name}Repository.cs`
+- `src/Specurai.Infrastructure/Repositories/{Name}Repository.cs`
 
 ### 4. Desktop 層
 
 建立 ViewModel（如果需要獨立畫面）：
-- `src/TableSpec.Desktop/ViewModels/{Name}ViewModel.cs`
+- `src/Specurai.Desktop/ViewModels/{Name}ViewModel.cs`
 
 ### 5. DI 註冊
 
-更新 `src/TableSpec.Desktop/Program.cs`：
+更新 `src/Specurai.Desktop/Program.cs`：
 - 註冊 Repository
 - 註冊 ViewModel（如果有）
 
 ### 6. 測試
 
 建立對應的測試檔案：
-- `tests/TableSpec.Domain.Tests/{Name}InfoTests.cs`
-- `tests/TableSpec.Infrastructure.Tests/{Name}RepositoryTests.cs`
+- `tests/Specurai.Domain.Tests/{Name}InfoTests.cs`
+- `tests/Specurai.Infrastructure.Tests/{Name}RepositoryTests.cs`
 
 ## 檢查清單
 

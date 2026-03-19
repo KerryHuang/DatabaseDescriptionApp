@@ -34,7 +34,7 @@ command > NUL        # ❌ 只適用於 Windows CMD
 
 **正確寫法**：統一使用 `/`
 ```bash
-dotnet run --project src/TableSpec.Desktop/TableSpec.Desktop.csproj  # ✅
+dotnet run --project src/Specurai.Desktop/Specurai.Desktop.csproj  # ✅
 ```
 
 ## 換行符號

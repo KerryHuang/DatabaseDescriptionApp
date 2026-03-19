@@ -1,4 +1,4 @@
-# TableSpec 使用手冊
+# Specurai 使用手冊
 
 ## 目錄
 
@@ -27,7 +27,7 @@
 
 ## 簡介
 
-TableSpec 是一個資料庫規格查詢工具，可以幫助您：
+Specurai 是一個資料庫規格查詢工具，可以幫助您：
 
 - 瀏覽 SQL Server 資料庫的結構
 - 查看資料表、檢視表、預存程序、函數的詳細資訊
@@ -53,10 +53,10 @@ TableSpec 是一個資料庫規格查詢工具，可以幫助您：
 
 | 作業系統 | 下載連結 | 說明 |
 |---------|----------|------|
-| Windows x64 | [TableSpec-win-Setup.exe](https://github.com/KerryHuang/DatabaseDescriptionApp/releases/latest/download/TableSpec-win-Setup.exe) | 安裝程式（推薦） |
-| Windows x64 | [TableSpec-win-Portable.zip](https://github.com/KerryHuang/DatabaseDescriptionApp/releases/latest/download/TableSpec-win-Portable.zip) | 可攜式版本 |
-| macOS (Apple Silicon) | [TableSpec-osx-arm64.zip](https://github.com/KerryHuang/DatabaseDescriptionApp/releases/latest) | 從 Releases 頁面下載 |
-| Linux x64 | [TableSpec.AppImage](https://github.com/KerryHuang/DatabaseDescriptionApp/releases/latest/download/TableSpec.AppImage) | AppImage 格式 |
+| Windows x64 | [Specurai-win-Setup.exe](https://github.com/KerryHuang/DatabaseDescriptionApp/releases/latest/download/Specurai-win-Setup.exe) | 安裝程式（推薦） |
+| Windows x64 | [Specurai-win-Portable.zip](https://github.com/KerryHuang/DatabaseDescriptionApp/releases/latest/download/Specurai-win-Portable.zip) | 可攜式版本 |
+| macOS (Apple Silicon) | [Specurai-osx-arm64.zip](https://github.com/KerryHuang/DatabaseDescriptionApp/releases/latest) | 從 Releases 頁面下載 |
+| Linux x64 | [Specurai.AppImage](https://github.com/KerryHuang/DatabaseDescriptionApp/releases/latest/download/Specurai.AppImage) | AppImage 格式 |
 
 ### 系統需求
 
@@ -71,8 +71,8 @@ TableSpec 是一個資料庫規格查詢工具，可以幫助您：
 
 ### 啟動程式
 
-1. 找到解壓縮後的 TableSpec 執行檔
-2. 雙擊執行（macOS/Linux 可能需要先賦予執行權限：`chmod +x TableSpec`）
+1. 找到解壓縮後的 Specurai 執行檔
+2. 雙擊執行（macOS/Linux 可能需要先賦予執行權限：`chmod +x Specurai`）
 
 首次啟動時，程式會顯示空白畫面，您需要先設定資料庫連線。
 
@@ -235,7 +235,7 @@ TableSpec 是一個資料庫規格查詢工具，可以幫助您：
 
 ## 編輯欄位說明
 
-TableSpec 可以讓您直接編輯資料表或檢視表的欄位說明。
+Specurai 可以讓您直接編輯資料表或檢視表的欄位說明。
 
 ### 步驟
 
@@ -254,7 +254,7 @@ TableSpec 可以讓您直接編輯資料表或檢視表的欄位說明。
 
 ## SQL 查詢工具
 
-TableSpec 內建 SQL 查詢工具，可以執行自訂查詢。
+Specurai 內建 SQL 查詢工具，可以執行自訂查詢。
 
 ### 開啟查詢視窗
 
@@ -286,7 +286,7 @@ SELECT TOP 100 * FROM Customers WHERE Country = 'Taiwan'
 
 ## 欄位搜尋與一致性分析
 
-這是 TableSpec 最強大的功能之一，可以幫助您：
+這是 Specurai 最強大的功能之一，可以幫助您：
 - 搜尋資料庫中所有包含特定名稱的欄位
 - 檢查同名欄位的型態是否一致
 - 批次更新欄位長度
@@ -464,7 +464,7 @@ SELECT TOP 100 * FROM Customers WHERE Country = 'Taiwan'
 
 ## 匯出 Excel 報表
 
-TableSpec 可以將整個資料庫的規格匯出為 Excel 檔案。
+Specurai 可以將整個資料庫的規格匯出為 Excel 檔案。
 
 ### 匯出步驟
 
@@ -490,7 +490,7 @@ Excel 檔案包含多個工作表：
 
 ## 備份與還原
 
-TableSpec 提供資料庫備份與還原功能，支援完整備份、差異備份和交易記錄備份。
+Specurai 提供資料庫備份與還原功能，支援完整備份、差異備份和交易記錄備份。
 
 ### 開啟備份與還原
 
@@ -1006,9 +1006,9 @@ TableSpec 提供資料庫備份與還原功能，支援完整備份、差異備�
 
 | 作業系統 | 位置 |
 |---------|------|
-| Windows | `%APPDATA%\TableSpec\connections.json` |
-| macOS | `~/.config/TableSpec/connections.json` |
-| Linux | `~/.config/TableSpec/connections.json` |
+| Windows | `%APPDATA%\Specurai\connections.json` |
+| macOS | `~/.config/Specurai/connections.json` |
+| Linux | `~/.config/Specurai/connections.json` |
 
 > ⚠️ **注意**：連線設定包含密碼資訊，請妥善保管。
 
@@ -1040,5 +1040,5 @@ TableSpec 提供資料庫備份與還原功能，支援完整備份、差異備�
 
 ---
 
-*TableSpec 使用手冊 v2.0.0*
+*Specurai 使用手冊 v2.0.0*
 *最後更新：2026 年 2 月*

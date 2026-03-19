@@ -1,0 +1,36 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Specurai.Desktop.ViewModels"
+        x:Class="Specurai.Desktop.Views.ScheduleEditWindow"
+        x:DataType="vm:ScheduleEditViewModel"
+        Icon="/Assets/Specurai.png"
+        Title="修改排程"
+        Width="350" Height="250"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False">
+
+    <Design.DataContext>
+        <vm:ScheduleEditViewModel/>
+    </Design.DataContext>
+
+    <Grid RowDefinitions="Auto,Auto,Auto,*,Auto" Margin="20">
+        <StackPanel Grid.Row="0" Margin="0,0,0,10">
+            <TextBlock Text="排程時間" Margin="0,0,0,5"/>
+            <TimePicker SelectedTime="{Binding ScheduleTime}"/>
+        </StackPanel>
+
+        <StackPanel Grid.Row="1" Margin="0,0,0,10">
+            <TextBlock Text="執行頻率" Margin="0,0,0,5"/>
+            <ComboBox SelectedIndex="0" x:Name="FreqTypeCombo"
+                      SelectionChanged="OnFreqTypeChanged">
+                <ComboBoxItem Content="每日" Tag="4"/>
+                <ComboBoxItem Content="每週" Tag="8"/>
+            </ComboBox>
+        </StackPanel>
+
+        <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+            <Button Content="儲存" Command="{Binding SaveCommand}"/>
+            <Button Content="取消" Click="OnCancelClick"/>
+        </StackPanel>
+    </Grid>
+</Window>

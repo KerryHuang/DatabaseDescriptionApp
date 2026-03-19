@@ -4,7 +4,7 @@
 
 ## 介面定義 (Domain 層)
 
-Repository 介面定義於 `TableSpec.Domain/Interfaces/`：
+Repository 介面定義於 `Specurai.Domain/Interfaces/`：
 
 ```csharp
 public interface ITableRepository
@@ -15,7 +15,7 @@ public interface ITableRepository
 
 ## 實作 (Infrastructure 層)
 
-Repository 實作於 `TableSpec.Infrastructure/Repositories/`：
+Repository 實作於 `Specurai.Infrastructure/Repositories/`：
 
 ```csharp
 public class TableRepository : ITableRepository

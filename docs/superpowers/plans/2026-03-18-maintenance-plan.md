@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 在 TableSpec 中新增資料庫維護計劃功能，包含建立精靈和 SQL Agent Job 管理面板。
+**Goal:** 在 Specurai 中新增資料庫維護計劃功能，包含建立精靈和 SQL Agent Job 管理面板。
 
 **Architecture:** Domain 層定義實體和 Repository 介面，Application 層提供服務介面和實作，Infrastructure 層實作 SQL 產生器和 Repository（查詢 msdb），Desktop 層實作精靈和管理視窗。
 
@@ -15,39 +15,39 @@
 ### Task 1: Domain 層 — 列舉與實體
 
 **Files:**
-- Create: `src/TableSpec.Domain/Enums/MaintenancePlanStep.cs`
-- Create: `src/TableSpec.Domain/Entities/AgentJobInfo.cs`
-- Create: `src/TableSpec.Domain/Entities/AgentJobHistory.cs`
-- Create: `src/TableSpec.Domain/Entities/MaintenancePlanConfig.cs`
-- Test: `tests/TableSpec.Domain.Tests/Entities/AgentJobInfoTests.cs`
-- Test: `tests/TableSpec.Domain.Tests/Entities/MaintenancePlanConfigTests.cs`
+- Create: `src/Specurai.Domain/Enums/MaintenancePlanStep.cs`
+- Create: `src/Specurai.Domain/Entities/AgentJobInfo.cs`
+- Create: `src/Specurai.Domain/Entities/AgentJobHistory.cs`
+- Create: `src/Specurai.Domain/Entities/MaintenancePlanConfig.cs`
+- Test: `tests/Specurai.Domain.Tests/Entities/AgentJobInfoTests.cs`
+- Test: `tests/Specurai.Domain.Tests/Entities/MaintenancePlanConfigTests.cs`
 
 > **注意**：`StepCheckResult` 含可變屬性 `SelectedAction`，放在 Application 層（Task 3）。
 
 - [ ] **Step 1: 撰寫 AgentJobInfo 測試（TDD：先寫測試）**
 
 ```csharp
-// tests/TableSpec.Domain.Tests/Entities/AgentJobInfoTests.cs
+// tests/Specurai.Domain.Tests/Entities/AgentJobInfoTests.cs
 // （測試內容同後方 Step 7，移至此處先寫）
 ```
 
 - [ ] **Step 2: 撰寫 MaintenancePlanConfig 測試（TDD：先寫測試）**
 
 ```csharp
-// tests/TableSpec.Domain.Tests/Entities/MaintenancePlanConfigTests.cs
+// tests/Specurai.Domain.Tests/Entities/MaintenancePlanConfigTests.cs
 // （測試內容同後方 Step 8，移至此處先寫）
 ```
 
 - [ ] **Step 3: 執行測試確認失敗**
 
-Run: `dotnet test tests/TableSpec.Domain.Tests --filter "AgentJobInfoTests|MaintenancePlanConfigTests" -v minimal`
+Run: `dotnet test tests/Specurai.Domain.Tests --filter "AgentJobInfoTests|MaintenancePlanConfigTests" -v minimal`
 Expected: FAIL (classes not found)
 
 - [ ] **Step 4: 建立 MaintenancePlanStep 列舉**
 
 ```csharp
-// src/TableSpec.Domain/Enums/MaintenancePlanStep.cs
-namespace TableSpec.Domain.Enums;
+// src/Specurai.Domain/Enums/MaintenancePlanStep.cs
+namespace Specurai.Domain.Enums;
 
 /// <summary>
 /// 維護計劃步驟
@@ -74,8 +74,8 @@ public enum MaintenancePlanStep
 - [ ] **Step 3: 建立 MaintenancePlanConfig 實體**
 
 ```csharp
-// src/TableSpec.Domain/Entities/MaintenancePlanConfig.cs
-namespace TableSpec.Domain.Entities;
+// src/Specurai.Domain/Entities/MaintenancePlanConfig.cs
+namespace Specurai.Domain.Entities;
 
 /// <summary>
 /// 維護計劃設定參數
@@ -123,8 +123,8 @@ public class MaintenancePlanConfig
 - [ ] **Step 4: 建立 AgentJobInfo 實體**
 
 ```csharp
-// src/TableSpec.Domain/Entities/AgentJobInfo.cs
-namespace TableSpec.Domain.Entities;
+// src/Specurai.Domain/Entities/AgentJobInfo.cs
+namespace Specurai.Domain.Entities;
 
 /// <summary>
 /// SQL Agent Job 資訊
@@ -158,8 +158,8 @@ public class AgentJobInfo
     /// <summary>排程頻率類型</summary>
     public int? ScheduleFreqType { get; init; }
 
-    /// <summary>是否由 TableSpec 建立</summary>
-    public bool IsTableSpecJob => Description?.Contains("[TableSpec]") == true;
+    /// <summary>是否由 Specurai 建立</summary>
+    public bool IsSpecuraiJob => Description?.Contains("[Specurai]") == true;
 
     /// <summary>上次執行結果文字</summary>
     public string LastRunOutcomeText => LastRunOutcome switch
@@ -179,8 +179,8 @@ public class AgentJobInfo
 - [ ] **Step 5: 建立 AgentJobHistory 實體**
 
 ```csharp
-// src/TableSpec.Domain/Entities/AgentJobHistory.cs
-namespace TableSpec.Domain.Entities;
+// src/Specurai.Domain/Entities/AgentJobHistory.cs
+namespace Specurai.Domain.Entities;
 
 /// <summary>
 /// SQL Agent Job 執行歷史
@@ -218,29 +218,29 @@ public class AgentJobHistory
 - [ ] **Step 6: 撰寫 AgentJobInfo 測試**
 
 ```csharp
-// tests/TableSpec.Domain.Tests/Entities/AgentJobInfoTests.cs
+// tests/Specurai.Domain.Tests/Entities/AgentJobInfoTests.cs
 using FluentAssertions;
-using TableSpec.Domain.Entities;
+using Specurai.Domain.Entities;
 
-namespace TableSpec.Domain.Tests.Entities;
+namespace Specurai.Domain.Tests.Entities;
 
 public class AgentJobInfoTests
 {
     [Fact]
-    public void IsTableSpecJob_Description包含TableSpec標記_應回傳True()
+    public void IsSpecuraiJob_Description包含Specurai標記_應回傳True()
     {
         var job = new AgentJobInfo
         {
             JobId = Guid.NewGuid(),
             Name = "TestJob",
-            Description = "[TableSpec] 每日全備份",
+            Description = "[Specurai] 每日全備份",
             IsEnabled = true
         };
-        job.IsTableSpecJob.Should().BeTrue();
+        job.IsSpecuraiJob.Should().BeTrue();
     }
 
     [Fact]
-    public void IsTableSpecJob_Description不包含標記_應回傳False()
+    public void IsSpecuraiJob_Description不包含標記_應回傳False()
     {
         var job = new AgentJobInfo
         {
@@ -249,11 +249,11 @@ public class AgentJobInfoTests
             Description = "一般的 Job",
             IsEnabled = true
         };
-        job.IsTableSpecJob.Should().BeFalse();
+        job.IsSpecuraiJob.Should().BeFalse();
     }
 
     [Fact]
-    public void IsTableSpecJob_Description為Null_應回傳False()
+    public void IsSpecuraiJob_Description為Null_應回傳False()
     {
         var job = new AgentJobInfo
         {
@@ -262,7 +262,7 @@ public class AgentJobInfoTests
             Description = null,
             IsEnabled = true
         };
-        job.IsTableSpecJob.Should().BeFalse();
+        job.IsSpecuraiJob.Should().BeFalse();
     }
 
     [Theory]
@@ -312,12 +312,12 @@ public class AgentJobInfoTests
 - [ ] **Step 7: 撰寫 MaintenancePlanConfig 測試**
 
 ```csharp
-// tests/TableSpec.Domain.Tests/Entities/MaintenancePlanConfigTests.cs
+// tests/Specurai.Domain.Tests/Entities/MaintenancePlanConfigTests.cs
 using FluentAssertions;
-using TableSpec.Domain.Entities;
-using TableSpec.Domain.Enums;
+using Specurai.Domain.Entities;
+using Specurai.Domain.Enums;
 
-namespace TableSpec.Domain.Tests.Entities;
+namespace Specurai.Domain.Tests.Entities;
 
 public class MaintenancePlanConfigTests
 {
@@ -372,13 +372,13 @@ public class MaintenancePlanConfigTests
 
 - [ ] **Step 8: 執行測試確認通過**
 
-Run: `dotnet test tests/TableSpec.Domain.Tests --filter "AgentJobInfoTests|MaintenancePlanConfigTests" -v minimal`
+Run: `dotnet test tests/Specurai.Domain.Tests --filter "AgentJobInfoTests|MaintenancePlanConfigTests" -v minimal`
 Expected: All tests PASS
 
 - [ ] **Step 9: Commit**
 
 ```bash
-git add src/TableSpec.Domain/Enums/MaintenancePlanStep.cs src/TableSpec.Domain/Entities/AgentJobInfo.cs src/TableSpec.Domain/Entities/AgentJobHistory.cs src/TableSpec.Domain/Entities/MaintenancePlanConfig.cs src/TableSpec.Domain/Entities/StepCheckResult.cs tests/TableSpec.Domain.Tests/Entities/AgentJobInfoTests.cs tests/TableSpec.Domain.Tests/Entities/MaintenancePlanConfigTests.cs
+git add src/Specurai.Domain/Enums/MaintenancePlanStep.cs src/Specurai.Domain/Entities/AgentJobInfo.cs src/Specurai.Domain/Entities/AgentJobHistory.cs src/Specurai.Domain/Entities/MaintenancePlanConfig.cs src/Specurai.Domain/Entities/StepCheckResult.cs tests/Specurai.Domain.Tests/Entities/AgentJobInfoTests.cs tests/Specurai.Domain.Tests/Entities/MaintenancePlanConfigTests.cs
 git commit -m "新增維護計劃 Domain 層實體與列舉"
 ```
 
@@ -387,24 +387,24 @@ git commit -m "新增維護計劃 Domain 層實體與列舉"
 ### Task 2: Domain 層 — Repository 介面
 
 **Files:**
-- Create: `src/TableSpec.Domain/Interfaces/IAgentJobRepository.cs`
-- Create: `src/TableSpec.Domain/Interfaces/IDatabaseInfoRepository.cs`
+- Create: `src/Specurai.Domain/Interfaces/IAgentJobRepository.cs`
+- Create: `src/Specurai.Domain/Interfaces/IDatabaseInfoRepository.cs`
 
 - [ ] **Step 1: 建立 IAgentJobRepository**
 
 ```csharp
-// src/TableSpec.Domain/Interfaces/IAgentJobRepository.cs
-using TableSpec.Domain.Entities;
+// src/Specurai.Domain/Interfaces/IAgentJobRepository.cs
+using Specurai.Domain.Entities;
 
-namespace TableSpec.Domain.Interfaces;
+namespace Specurai.Domain.Interfaces;
 
 /// <summary>
 /// SQL Agent Job 資料存取介面
 /// </summary>
 public interface IAgentJobRepository
 {
-    /// <summary>取得所有由 TableSpec 建立的 Job</summary>
-    Task<IReadOnlyList<AgentJobInfo>> GetTableSpecJobsAsync(CancellationToken ct = default);
+    /// <summary>取得所有由 Specurai 建立的 Job</summary>
+    Task<IReadOnlyList<AgentJobInfo>> GetSpecuraiJobsAsync(CancellationToken ct = default);
 
     /// <summary>取得指定 Job 的執行歷史</summary>
     Task<IReadOnlyList<AgentJobHistory>> GetJobHistoryAsync(Guid jobId, int maxRecords = 20, CancellationToken ct = default);
@@ -432,8 +432,8 @@ public interface IAgentJobRepository
 - [ ] **Step 2: 建立 IDatabaseInfoRepository**
 
 ```csharp
-// src/TableSpec.Domain/Interfaces/IDatabaseInfoRepository.cs
-namespace TableSpec.Domain.Interfaces;
+// src/Specurai.Domain/Interfaces/IDatabaseInfoRepository.cs
+namespace Specurai.Domain.Interfaces;
 
 /// <summary>
 /// 資料庫資訊查詢介面（用於維護計劃前置檢查）
@@ -475,7 +475,7 @@ public interface IDatabaseInfoRepository
 - [ ] **Step 3: Commit**
 
 ```bash
-git add src/TableSpec.Domain/Interfaces/IAgentJobRepository.cs src/TableSpec.Domain/Interfaces/IDatabaseInfoRepository.cs
+git add src/Specurai.Domain/Interfaces/IAgentJobRepository.cs src/Specurai.Domain/Interfaces/IDatabaseInfoRepository.cs
 git commit -m "新增維護計劃 Repository 介面"
 ```
 
@@ -484,20 +484,20 @@ git commit -m "新增維護計劃 Repository 介面"
 ### Task 3: Application 層 — 服務介面與實作
 
 **Files:**
-- Create: `src/TableSpec.Application/Services/IMaintenancePlanService.cs`
-- Create: `src/TableSpec.Application/Services/MaintenancePlanService.cs`
-- Create: `src/TableSpec.Application/Services/IAgentJobService.cs`
-- Create: `src/TableSpec.Application/Services/AgentJobService.cs`
-- Test: `tests/TableSpec.Application.Tests/Services/MaintenancePlanServiceTests.cs`
-- Test: `tests/TableSpec.Application.Tests/Services/AgentJobServiceTests.cs`
+- Create: `src/Specurai.Application/Services/IMaintenancePlanService.cs`
+- Create: `src/Specurai.Application/Services/MaintenancePlanService.cs`
+- Create: `src/Specurai.Application/Services/IAgentJobService.cs`
+- Create: `src/Specurai.Application/Services/AgentJobService.cs`
+- Test: `tests/Specurai.Application.Tests/Services/MaintenancePlanServiceTests.cs`
+- Test: `tests/Specurai.Application.Tests/Services/AgentJobServiceTests.cs`
 
 - [ ] **Step 0: 建立 StepCheckResult（Application 層 DTO）**
 
 ```csharp
-// src/TableSpec.Application/Models/StepCheckResult.cs
-using TableSpec.Domain.Enums;
+// src/Specurai.Application/Models/StepCheckResult.cs
+using Specurai.Domain.Enums;
 
-namespace TableSpec.Application.Models;
+namespace Specurai.Application.Models;
 
 /// <summary>
 /// 步驟前置檢查結果（含可變的使用者選擇）
@@ -524,11 +524,11 @@ public class StepCheckResult
 - [ ] **Step 1: 建立 IMaintenancePlanService 介面**
 
 ```csharp
-// src/TableSpec.Application/Services/IMaintenancePlanService.cs
-using TableSpec.Domain.Entities;
-using TableSpec.Domain.Enums;
+// src/Specurai.Application/Services/IMaintenancePlanService.cs
+using Specurai.Domain.Entities;
+using Specurai.Domain.Enums;
 
-namespace TableSpec.Application.Services;
+namespace Specurai.Application.Services;
 
 /// <summary>
 /// 維護計劃服務介面
@@ -552,11 +552,11 @@ public interface IMaintenancePlanService
 - [ ] **Step 2: 建立 IMaintenancePlanSqlGenerator 介面**
 
 ```csharp
-// src/TableSpec.Application/Services/IMaintenancePlanSqlGenerator.cs
-using TableSpec.Domain.Entities;
-using TableSpec.Domain.Enums;
+// src/Specurai.Application/Services/IMaintenancePlanSqlGenerator.cs
+using Specurai.Domain.Entities;
+using Specurai.Domain.Enums;
 
-namespace TableSpec.Application.Services;
+namespace Specurai.Application.Services;
 
 /// <summary>
 /// 維護計劃 SQL 產生器介面
@@ -574,17 +574,17 @@ public interface IMaintenancePlanSqlGenerator
 - [ ] **Step 3: 建立 IAgentJobService 介面**
 
 ```csharp
-// src/TableSpec.Application/Services/IAgentJobService.cs
-using TableSpec.Domain.Entities;
+// src/Specurai.Application/Services/IAgentJobService.cs
+using Specurai.Domain.Entities;
 
-namespace TableSpec.Application.Services;
+namespace Specurai.Application.Services;
 
 /// <summary>
 /// SQL Agent Job 管理服務介面
 /// </summary>
 public interface IAgentJobService
 {
-    /// <summary>取得所有由 TableSpec 建立的 Job</summary>
+    /// <summary>取得所有由 Specurai 建立的 Job</summary>
     Task<IReadOnlyList<AgentJobInfo>> GetJobsAsync(CancellationToken ct = default);
 
     /// <summary>啟用或停用 Job</summary>
@@ -607,11 +607,11 @@ public interface IAgentJobService
 - [ ] **Step 4: 實作 AgentJobService**
 
 ```csharp
-// src/TableSpec.Application/Services/AgentJobService.cs
-using TableSpec.Domain.Entities;
-using TableSpec.Domain.Interfaces;
+// src/Specurai.Application/Services/AgentJobService.cs
+using Specurai.Domain.Entities;
+using Specurai.Domain.Interfaces;
 
-namespace TableSpec.Application.Services;
+namespace Specurai.Application.Services;
 
 /// <summary>
 /// SQL Agent Job 管理服務實作
@@ -626,7 +626,7 @@ public class AgentJobService : IAgentJobService
     }
 
     public Task<IReadOnlyList<AgentJobInfo>> GetJobsAsync(CancellationToken ct = default)
-        => _repository.GetTableSpecJobsAsync(ct);
+        => _repository.GetSpecuraiJobsAsync(ct);
 
     public Task SetJobEnabledAsync(Guid jobId, bool enabled, CancellationToken ct = default)
         => _repository.SetJobEnabledAsync(jobId, enabled, ct);
@@ -648,12 +648,12 @@ public class AgentJobService : IAgentJobService
 - [ ] **Step 5: 實作 MaintenancePlanService**
 
 ```csharp
-// src/TableSpec.Application/Services/MaintenancePlanService.cs
-using TableSpec.Domain.Entities;
-using TableSpec.Domain.Enums;
-using TableSpec.Domain.Interfaces;
+// src/Specurai.Application/Services/MaintenancePlanService.cs
+using Specurai.Domain.Entities;
+using Specurai.Domain.Enums;
+using Specurai.Domain.Interfaces;
 
-namespace TableSpec.Application.Services;
+namespace Specurai.Application.Services;
 
 /// <summary>
 /// 維護計劃服務實作
@@ -674,7 +674,7 @@ public class MaintenancePlanService : IMaintenancePlanService
         _sqlGenerator = sqlGenerator;
     }
 
-    // 注意：StepCheckResult 從 TableSpec.Application.Models 引用
+    // 注意：StepCheckResult 從 Specurai.Application.Models 引用
 
     public async Task<(bool IsReady, string? ErrorMessage)> CheckPrerequisitesAsync(CancellationToken ct = default)
     {
@@ -836,14 +836,14 @@ public class MaintenancePlanService : IMaintenancePlanService
 - [ ] **Step 6: 撰寫 AgentJobService 測試**
 
 ```csharp
-// tests/TableSpec.Application.Tests/Services/AgentJobServiceTests.cs
+// tests/Specurai.Application.Tests/Services/AgentJobServiceTests.cs
 using FluentAssertions;
 using NSubstitute;
-using TableSpec.Application.Services;
-using TableSpec.Domain.Entities;
-using TableSpec.Domain.Interfaces;
+using Specurai.Application.Services;
+using Specurai.Domain.Entities;
+using Specurai.Domain.Interfaces;
 
-namespace TableSpec.Application.Tests.Services;
+namespace Specurai.Application.Tests.Services;
 
 public class AgentJobServiceTests
 {
@@ -861,14 +861,14 @@ public class AgentJobServiceTests
     {
         var jobs = new List<AgentJobInfo>
         {
-            new() { JobId = Guid.NewGuid(), Name = "TestJob", IsEnabled = true, Description = "[TableSpec]" }
+            new() { JobId = Guid.NewGuid(), Name = "TestJob", IsEnabled = true, Description = "[Specurai]" }
         };
-        _repository.GetTableSpecJobsAsync(Arg.Any<CancellationToken>()).Returns(jobs);
+        _repository.GetSpecuraiJobsAsync(Arg.Any<CancellationToken>()).Returns(jobs);
 
         var result = await _service.GetJobsAsync();
 
         result.Should().BeEquivalentTo(jobs);
-        await _repository.Received(1).GetTableSpecJobsAsync(Arg.Any<CancellationToken>());
+        await _repository.Received(1).GetSpecuraiJobsAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -906,15 +906,15 @@ public class AgentJobServiceTests
 - [ ] **Step 7: 撰寫 MaintenancePlanService 測試**
 
 ```csharp
-// tests/TableSpec.Application.Tests/Services/MaintenancePlanServiceTests.cs
+// tests/Specurai.Application.Tests/Services/MaintenancePlanServiceTests.cs
 using FluentAssertions;
 using NSubstitute;
-using TableSpec.Application.Services;
-using TableSpec.Domain.Entities;
-using TableSpec.Domain.Enums;
-using TableSpec.Domain.Interfaces;
+using Specurai.Application.Services;
+using Specurai.Domain.Entities;
+using Specurai.Domain.Enums;
+using Specurai.Domain.Interfaces;
 
-namespace TableSpec.Application.Tests.Services;
+namespace Specurai.Application.Tests.Services;
 
 public class MaintenancePlanServiceTests
 {
@@ -1061,13 +1061,13 @@ public class MaintenancePlanServiceTests
 
 - [ ] **Step 8: 執行測試確認通過**
 
-Run: `dotnet test tests/TableSpec.Application.Tests --filter "AgentJobServiceTests|MaintenancePlanServiceTests" -v minimal`
+Run: `dotnet test tests/Specurai.Application.Tests --filter "AgentJobServiceTests|MaintenancePlanServiceTests" -v minimal`
 Expected: All tests PASS
 
 - [ ] **Step 9: Commit**
 
 ```bash
-git add src/TableSpec.Application/Services/IMaintenancePlanService.cs src/TableSpec.Application/Services/MaintenancePlanService.cs src/TableSpec.Application/Services/IMaintenancePlanSqlGenerator.cs src/TableSpec.Application/Services/IAgentJobService.cs src/TableSpec.Application/Services/AgentJobService.cs tests/TableSpec.Application.Tests/Services/AgentJobServiceTests.cs tests/TableSpec.Application.Tests/Services/MaintenancePlanServiceTests.cs
+git add src/Specurai.Application/Services/IMaintenancePlanService.cs src/Specurai.Application/Services/MaintenancePlanService.cs src/Specurai.Application/Services/IMaintenancePlanSqlGenerator.cs src/Specurai.Application/Services/IAgentJobService.cs src/Specurai.Application/Services/AgentJobService.cs tests/Specurai.Application.Tests/Services/AgentJobServiceTests.cs tests/Specurai.Application.Tests/Services/MaintenancePlanServiceTests.cs
 git commit -m "新增維護計劃 Application 層服務"
 ```
 
@@ -1076,19 +1076,19 @@ git commit -m "新增維護計劃 Application 層服務"
 ### Task 4: Infrastructure 層 — SQL 產生器
 
 **Files:**
-- Create: `src/TableSpec.Infrastructure/Services/MaintenancePlanSqlGenerator.cs`
-- Test: `tests/TableSpec.Infrastructure.Tests/Services/MaintenancePlanSqlGeneratorTests.cs`
+- Create: `src/Specurai.Infrastructure/Services/MaintenancePlanSqlGenerator.cs`
+- Test: `tests/Specurai.Infrastructure.Tests/Services/MaintenancePlanSqlGeneratorTests.cs`
 
 - [ ] **Step 1: 撰寫 SQL 產生器測試**
 
 ```csharp
-// tests/TableSpec.Infrastructure.Tests/Services/MaintenancePlanSqlGeneratorTests.cs
+// tests/Specurai.Infrastructure.Tests/Services/MaintenancePlanSqlGeneratorTests.cs
 using FluentAssertions;
-using TableSpec.Domain.Entities;
-using TableSpec.Domain.Enums;
-using TableSpec.Infrastructure.Services;
+using Specurai.Domain.Entities;
+using Specurai.Domain.Enums;
+using Specurai.Infrastructure.Services;
 
-namespace TableSpec.Infrastructure.Tests.Services;
+namespace Specurai.Infrastructure.Tests.Services;
 
 public class MaintenancePlanSqlGeneratorTests
 {
@@ -1148,13 +1148,13 @@ public class MaintenancePlanSqlGeneratorTests
     }
 
     [Fact]
-    public void GenerateStepSql_CreateBackupJob_應包含Job名稱和TableSpec標記()
+    public void GenerateStepSql_CreateBackupJob_應包含Job名稱和Specurai標記()
     {
         var config = CreateConfig();
         var sql = _generator.GenerateStepSql(MaintenancePlanStep.CreateBackupJob, config);
 
         sql.Should().Contain("TestDB_FullBackup");
-        sql.Should().Contain("[TableSpec]");
+        sql.Should().Contain("[Specurai]");
         sql.Should().Contain("sp_add_job");
     }
 
@@ -1243,12 +1243,12 @@ public class MaintenancePlanSqlGeneratorTests
 
 - [ ] **Step 2: 執行測試確認失敗**
 
-Run: `dotnet test tests/TableSpec.Infrastructure.Tests --filter "MaintenancePlanSqlGeneratorTests" -v minimal`
+Run: `dotnet test tests/Specurai.Infrastructure.Tests --filter "MaintenancePlanSqlGeneratorTests" -v minimal`
 Expected: FAIL (class not found)
 
 - [ ] **Step 3: 實作 MaintenancePlanSqlGenerator**
 
-建立 `src/TableSpec.Infrastructure/Services/MaintenancePlanSqlGenerator.cs`，實作 `IMaintenancePlanSqlGenerator` 介面。
+建立 `src/Specurai.Infrastructure/Services/MaintenancePlanSqlGenerator.cs`，實作 `IMaintenancePlanSqlGenerator` 介面。
 
 各步驟的 SQL 基於參考範本（`資料庫檢查到備份計劃SIMPLE-範本.sql`）產生：
 
@@ -1263,19 +1263,19 @@ Expected: FAIL (class not found)
 - 資料庫名稱用 `[{name}]` 括號包裹（QUOTENAME 效果）
 - 密碼用 `EscapeSingleQuote()` 方法轉義
 - 路徑用 `EscapeSingleQuote()` 方法轉義
-- Job description 加入 `[TableSpec]` 標記
+- Job description 加入 `[Specurai]` 標記
 
 `GenerateFullSql` 方法將設定類步驟（1-4）包在 `BEGIN TRANSACTION...COMMIT`，備份和還原 Job 各自獨立交易。跳過的步驟不產生 SQL。
 
 - [ ] **Step 4: 執行測試確認通過**
 
-Run: `dotnet test tests/TableSpec.Infrastructure.Tests --filter "MaintenancePlanSqlGeneratorTests" -v minimal`
+Run: `dotnet test tests/Specurai.Infrastructure.Tests --filter "MaintenancePlanSqlGeneratorTests" -v minimal`
 Expected: All tests PASS
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/TableSpec.Infrastructure/Services/MaintenancePlanSqlGenerator.cs tests/TableSpec.Infrastructure.Tests/Services/MaintenancePlanSqlGeneratorTests.cs
+git add src/Specurai.Infrastructure/Services/MaintenancePlanSqlGenerator.cs tests/Specurai.Infrastructure.Tests/Services/MaintenancePlanSqlGeneratorTests.cs
 git commit -m "新增維護計劃 SQL 產生器"
 ```
 
@@ -1284,18 +1284,18 @@ git commit -m "新增維護計劃 SQL 產生器"
 ### Task 5: Infrastructure 層 — Repository 實作
 
 **Files:**
-- Create: `src/TableSpec.Infrastructure/Repositories/AgentJobRepository.cs`
-- Create: `src/TableSpec.Infrastructure/Repositories/DatabaseInfoRepository.cs`
+- Create: `src/Specurai.Infrastructure/Repositories/AgentJobRepository.cs`
+- Create: `src/Specurai.Infrastructure/Repositories/DatabaseInfoRepository.cs`
 
 - [ ] **Step 1: 實作 DatabaseInfoRepository**
 
 ```csharp
-// src/TableSpec.Infrastructure/Repositories/DatabaseInfoRepository.cs
+// src/Specurai.Infrastructure/Repositories/DatabaseInfoRepository.cs
 using Dapper;
 using Microsoft.Data.SqlClient;
-using TableSpec.Domain.Interfaces;
+using Specurai.Domain.Interfaces;
 
-namespace TableSpec.Infrastructure.Repositories;
+namespace Specurai.Infrastructure.Repositories;
 
 /// <summary>
 /// 資料庫資訊查詢 Repository 實作
@@ -1437,13 +1437,13 @@ WHERE r.name = 'db_owner' AND m.name = @UserName";
 - [ ] **Step 2: 實作 AgentJobRepository**
 
 ```csharp
-// src/TableSpec.Infrastructure/Repositories/AgentJobRepository.cs
+// src/Specurai.Infrastructure/Repositories/AgentJobRepository.cs
 using Dapper;
 using Microsoft.Data.SqlClient;
-using TableSpec.Domain.Entities;
-using TableSpec.Domain.Interfaces;
+using Specurai.Domain.Entities;
+using Specurai.Domain.Interfaces;
 
-namespace TableSpec.Infrastructure.Repositories;
+namespace Specurai.Infrastructure.Repositories;
 
 /// <summary>
 /// SQL Agent Job 資料存取實作
@@ -1457,7 +1457,7 @@ public class AgentJobRepository : IAgentJobRepository
         _connectionStringProvider = connectionStringProvider;
     }
 
-    public async Task<IReadOnlyList<AgentJobInfo>> GetTableSpecJobsAsync(CancellationToken ct = default)
+    public async Task<IReadOnlyList<AgentJobInfo>> GetSpecuraiJobsAsync(CancellationToken ct = default)
     {
         var connectionString = _connectionStringProvider();
         if (string.IsNullOrEmpty(connectionString)) return [];
@@ -1485,7 +1485,7 @@ LEFT JOIN (
 ) jh ON j.job_id = jh.job_id AND jh.rn = 1
 LEFT JOIN msdb.dbo.sysjobschedules js ON j.job_id = js.job_id
 LEFT JOIN msdb.dbo.sysschedules sch ON js.schedule_id = sch.schedule_id
-WHERE j.description LIKE '%[[]TableSpec]%'
+WHERE j.description LIKE '%[[]Specurai]%'
 ORDER BY j.name";
 
         await using var connection = new SqlConnection(connectionString);
@@ -1596,7 +1596,7 @@ AND m.name = SUSER_SNAME()";
 - [ ] **Step 3: Commit**
 
 ```bash
-git add src/TableSpec.Infrastructure/Repositories/AgentJobRepository.cs src/TableSpec.Infrastructure/Repositories/DatabaseInfoRepository.cs
+git add src/Specurai.Infrastructure/Repositories/AgentJobRepository.cs src/Specurai.Infrastructure/Repositories/DatabaseInfoRepository.cs
 git commit -m "新增維護計劃 Infrastructure 層 Repository 實作"
 ```
 
@@ -1605,20 +1605,20 @@ git commit -m "新增維護計劃 Infrastructure 層 Repository 實作"
 ### Task 6: Desktop 層 — 管理面板 ViewModel
 
 **Files:**
-- Create: `src/TableSpec.Desktop/ViewModels/MaintenancePlanManagerViewModel.cs`
-- Test: `tests/TableSpec.Desktop.Tests/ViewModels/MaintenancePlanManagerViewModelTests.cs`
+- Create: `src/Specurai.Desktop/ViewModels/MaintenancePlanManagerViewModel.cs`
+- Test: `tests/Specurai.Desktop.Tests/ViewModels/MaintenancePlanManagerViewModelTests.cs`
 
 - [ ] **Step 1: 撰寫 ViewModel 測試**
 
 ```csharp
-// tests/TableSpec.Desktop.Tests/ViewModels/MaintenancePlanManagerViewModelTests.cs
+// tests/Specurai.Desktop.Tests/ViewModels/MaintenancePlanManagerViewModelTests.cs
 using FluentAssertions;
 using NSubstitute;
-using TableSpec.Application.Services;
-using TableSpec.Desktop.ViewModels;
-using TableSpec.Domain.Entities;
+using Specurai.Application.Services;
+using Specurai.Desktop.ViewModels;
+using Specurai.Domain.Entities;
 
-namespace TableSpec.Desktop.Tests.ViewModels;
+namespace Specurai.Desktop.Tests.ViewModels;
 
 public class MaintenancePlanManagerViewModelTests
 {
@@ -1644,7 +1644,7 @@ public class MaintenancePlanManagerViewModelTests
     {
         var jobs = new List<AgentJobInfo>
         {
-            new() { JobId = Guid.NewGuid(), Name = "DB_FullBackup", IsEnabled = true, Description = "[TableSpec]" }
+            new() { JobId = Guid.NewGuid(), Name = "DB_FullBackup", IsEnabled = true, Description = "[Specurai]" }
         };
         _jobService.GetJobsAsync(Arg.Any<CancellationToken>()).Returns(jobs);
 
@@ -1661,7 +1661,7 @@ public class MaintenancePlanManagerViewModelTests
         var jobId = Guid.NewGuid();
         var jobs = new List<AgentJobInfo>
         {
-            new() { JobId = jobId, Name = "DB_FullBackup", IsEnabled = true, Description = "[TableSpec]" }
+            new() { JobId = jobId, Name = "DB_FullBackup", IsEnabled = true, Description = "[Specurai]" }
         };
         _jobService.GetJobsAsync(Arg.Any<CancellationToken>()).Returns(jobs, new List<AgentJobInfo>());
 
@@ -1680,7 +1680,7 @@ public class MaintenancePlanManagerViewModelTests
         var jobId = Guid.NewGuid();
         var jobs = new List<AgentJobInfo>
         {
-            new() { JobId = jobId, Name = "DB_FullBackup", IsEnabled = true, Description = "[TableSpec]" }
+            new() { JobId = jobId, Name = "DB_FullBackup", IsEnabled = true, Description = "[Specurai]" }
         };
         _jobService.GetJobsAsync(Arg.Any<CancellationToken>()).Returns(jobs);
 
@@ -1696,20 +1696,20 @@ public class MaintenancePlanManagerViewModelTests
 
 - [ ] **Step 2: 執行測試確認失敗**
 
-Run: `dotnet test tests/TableSpec.Desktop.Tests --filter "MaintenancePlanManagerViewModelTests" -v minimal`
+Run: `dotnet test tests/Specurai.Desktop.Tests --filter "MaintenancePlanManagerViewModelTests" -v minimal`
 Expected: FAIL
 
 - [ ] **Step 3: 實作 MaintenancePlanManagerViewModel**
 
 ```csharp
-// src/TableSpec.Desktop/ViewModels/MaintenancePlanManagerViewModel.cs
+// src/Specurai.Desktop/ViewModels/MaintenancePlanManagerViewModel.cs
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using TableSpec.Application.Services;
-using TableSpec.Domain.Entities;
+using Specurai.Application.Services;
+using Specurai.Domain.Entities;
 
-namespace TableSpec.Desktop.ViewModels;
+namespace Specurai.Desktop.ViewModels;
 
 /// <summary>
 /// 維護計劃管理面板 ViewModel
@@ -1837,13 +1837,13 @@ public partial class MaintenancePlanManagerViewModel : ViewModelBase
 
 - [ ] **Step 4: 執行測試確認通過**
 
-Run: `dotnet test tests/TableSpec.Desktop.Tests --filter "MaintenancePlanManagerViewModelTests" -v minimal`
+Run: `dotnet test tests/Specurai.Desktop.Tests --filter "MaintenancePlanManagerViewModelTests" -v minimal`
 Expected: All tests PASS
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/TableSpec.Desktop/ViewModels/MaintenancePlanManagerViewModel.cs tests/TableSpec.Desktop.Tests/ViewModels/MaintenancePlanManagerViewModelTests.cs
+git add src/Specurai.Desktop/ViewModels/MaintenancePlanManagerViewModel.cs tests/Specurai.Desktop.Tests/ViewModels/MaintenancePlanManagerViewModelTests.cs
 git commit -m "新增維護計劃管理面板 ViewModel"
 ```
 
@@ -1852,21 +1852,21 @@ git commit -m "新增維護計劃管理面板 ViewModel"
 ### Task 7: Desktop 層 — 精靈 ViewModel
 
 **Files:**
-- Create: `src/TableSpec.Desktop/ViewModels/MaintenancePlanWizardViewModel.cs`
-- Test: `tests/TableSpec.Desktop.Tests/ViewModels/MaintenancePlanWizardViewModelTests.cs`
+- Create: `src/Specurai.Desktop/ViewModels/MaintenancePlanWizardViewModel.cs`
+- Test: `tests/Specurai.Desktop.Tests/ViewModels/MaintenancePlanWizardViewModelTests.cs`
 
 - [ ] **Step 1: 撰寫精靈 ViewModel 測試**
 
 ```csharp
-// tests/TableSpec.Desktop.Tests/ViewModels/MaintenancePlanWizardViewModelTests.cs
+// tests/Specurai.Desktop.Tests/ViewModels/MaintenancePlanWizardViewModelTests.cs
 using FluentAssertions;
 using NSubstitute;
-using TableSpec.Application.Services;
-using TableSpec.Desktop.ViewModels;
-using TableSpec.Domain.Entities;
-using TableSpec.Domain.Enums;
+using Specurai.Application.Services;
+using Specurai.Desktop.ViewModels;
+using Specurai.Domain.Entities;
+using Specurai.Domain.Enums;
 
-namespace TableSpec.Desktop.Tests.ViewModels;
+namespace Specurai.Desktop.Tests.ViewModels;
 
 public class MaintenancePlanWizardViewModelTests
 {
@@ -1960,21 +1960,21 @@ public class MaintenancePlanWizardViewModelTests
 
 - [ ] **Step 2: 執行測試確認失敗**
 
-Run: `dotnet test tests/TableSpec.Desktop.Tests --filter "MaintenancePlanWizardViewModelTests" -v minimal`
+Run: `dotnet test tests/Specurai.Desktop.Tests --filter "MaintenancePlanWizardViewModelTests" -v minimal`
 Expected: FAIL
 
 - [ ] **Step 3: 實作 MaintenancePlanWizardViewModel**
 
 ```csharp
-// src/TableSpec.Desktop/ViewModels/MaintenancePlanWizardViewModel.cs
+// src/Specurai.Desktop/ViewModels/MaintenancePlanWizardViewModel.cs
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using TableSpec.Application.Services;
-using TableSpec.Domain.Entities;
-using TableSpec.Domain.Enums;
+using Specurai.Application.Services;
+using Specurai.Domain.Entities;
+using Specurai.Domain.Enums;
 
-namespace TableSpec.Desktop.ViewModels;
+namespace Specurai.Desktop.ViewModels;
 
 /// <summary>
 /// 維護計劃建立精靈 ViewModel
@@ -2181,13 +2181,13 @@ public partial class MaintenancePlanWizardViewModel : ViewModelBase
 
 - [ ] **Step 4: 執行測試確認通過**
 
-Run: `dotnet test tests/TableSpec.Desktop.Tests --filter "MaintenancePlanWizardViewModelTests" -v minimal`
+Run: `dotnet test tests/Specurai.Desktop.Tests --filter "MaintenancePlanWizardViewModelTests" -v minimal`
 Expected: All tests PASS
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/TableSpec.Desktop/ViewModels/MaintenancePlanWizardViewModel.cs tests/TableSpec.Desktop.Tests/ViewModels/MaintenancePlanWizardViewModelTests.cs
+git add src/Specurai.Desktop/ViewModels/MaintenancePlanWizardViewModel.cs tests/Specurai.Desktop.Tests/ViewModels/MaintenancePlanWizardViewModelTests.cs
 git commit -m "新增維護計劃精靈 ViewModel"
 ```
 
@@ -2196,19 +2196,19 @@ git commit -m "新增維護計劃精靈 ViewModel"
 ### Task 8: Desktop 層 — 管理視窗 View
 
 **Files:**
-- Create: `src/TableSpec.Desktop/Views/MaintenancePlanManagerWindow.axaml`
-- Create: `src/TableSpec.Desktop/Views/MaintenancePlanManagerWindow.axaml.cs`
+- Create: `src/Specurai.Desktop/Views/MaintenancePlanManagerWindow.axaml`
+- Create: `src/Specurai.Desktop/Views/MaintenancePlanManagerWindow.axaml.cs`
 
 - [ ] **Step 1: 建立管理視窗 AXAML**
 
 ```xml
-<!-- src/TableSpec.Desktop/Views/MaintenancePlanManagerWindow.axaml -->
+<!-- src/Specurai.Desktop/Views/MaintenancePlanManagerWindow.axaml -->
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:vm="using:TableSpec.Desktop.ViewModels"
-        x:Class="TableSpec.Desktop.Views.MaintenancePlanManagerWindow"
+        xmlns:vm="using:Specurai.Desktop.ViewModels"
+        x:Class="Specurai.Desktop.Views.MaintenancePlanManagerWindow"
         x:DataType="vm:MaintenancePlanManagerViewModel"
-        Icon="/Assets/TableSpec.png"
+        Icon="/Assets/Specurai.png"
         Title="資料庫維護計劃管理"
         Width="900" Height="600"
         WindowStartupLocation="CenterOwner">
@@ -2254,11 +2254,11 @@ git commit -m "新增維護計劃精靈 ViewModel"
 - [ ] **Step 2: 建立管理視窗 Code-Behind**
 
 ```csharp
-// src/TableSpec.Desktop/Views/MaintenancePlanManagerWindow.axaml.cs
+// src/Specurai.Desktop/Views/MaintenancePlanManagerWindow.axaml.cs
 using Avalonia.Controls;
-using TableSpec.Desktop.ViewModels;
+using Specurai.Desktop.ViewModels;
 
-namespace TableSpec.Desktop.Views;
+namespace Specurai.Desktop.Views;
 
 public partial class MaintenancePlanManagerWindow : Window
 {
@@ -2301,13 +2301,13 @@ public partial class MaintenancePlanManagerWindow : Window
 
 - [ ] **Step 3: 建置確認編譯通過**
 
-Run: `dotnet build src/TableSpec.Desktop`
+Run: `dotnet build src/Specurai.Desktop`
 Expected: Build succeeded
 
 - [ ] **Step 4: Commit**
 
 ```bash
-git add src/TableSpec.Desktop/Views/MaintenancePlanManagerWindow.axaml src/TableSpec.Desktop/Views/MaintenancePlanManagerWindow.axaml.cs
+git add src/Specurai.Desktop/Views/MaintenancePlanManagerWindow.axaml src/Specurai.Desktop/Views/MaintenancePlanManagerWindow.axaml.cs
 git commit -m "新增維護計劃管理視窗"
 ```
 
@@ -2316,8 +2316,8 @@ git commit -m "新增維護計劃管理視窗"
 ### Task 9: Desktop 層 — 精靈視窗 View
 
 **Files:**
-- Create: `src/TableSpec.Desktop/Views/MaintenancePlanWizardWindow.axaml`
-- Create: `src/TableSpec.Desktop/Views/MaintenancePlanWizardWindow.axaml.cs`
+- Create: `src/Specurai.Desktop/Views/MaintenancePlanWizardWindow.axaml`
+- Create: `src/Specurai.Desktop/Views/MaintenancePlanWizardWindow.axaml.cs`
 
 - [ ] **Step 1: 建立精靈視窗 AXAML**
 
@@ -2332,11 +2332,11 @@ git commit -m "新增維護計劃管理視窗"
 - [ ] **Step 2: 建立精靈視窗 Code-Behind**
 
 ```csharp
-// src/TableSpec.Desktop/Views/MaintenancePlanWizardWindow.axaml.cs
+// src/Specurai.Desktop/Views/MaintenancePlanWizardWindow.axaml.cs
 using Avalonia.Controls;
-using TableSpec.Desktop.ViewModels;
+using Specurai.Desktop.ViewModels;
 
-namespace TableSpec.Desktop.Views;
+namespace Specurai.Desktop.Views;
 
 public partial class MaintenancePlanWizardWindow : Window
 {
@@ -2360,13 +2360,13 @@ public partial class MaintenancePlanWizardWindow : Window
 
 - [ ] **Step 3: 建置確認編譯通過**
 
-Run: `dotnet build src/TableSpec.Desktop`
+Run: `dotnet build src/Specurai.Desktop`
 Expected: Build succeeded
 
 - [ ] **Step 4: Commit**
 
 ```bash
-git add src/TableSpec.Desktop/Views/MaintenancePlanWizardWindow.axaml src/TableSpec.Desktop/Views/MaintenancePlanWizardWindow.axaml.cs
+git add src/Specurai.Desktop/Views/MaintenancePlanWizardWindow.axaml src/Specurai.Desktop/Views/MaintenancePlanWizardWindow.axaml.cs
 git commit -m "新增維護計劃精靈視窗"
 ```
 
@@ -2375,19 +2375,19 @@ git commit -m "新增維護計劃精靈視窗"
 ### Task 10: Desktop 層 — 排程編輯對話框
 
 **Files:**
-- Create: `src/TableSpec.Desktop/ViewModels/ScheduleEditViewModel.cs`
-- Create: `src/TableSpec.Desktop/Views/ScheduleEditWindow.axaml`
-- Create: `src/TableSpec.Desktop/Views/ScheduleEditWindow.axaml.cs`
+- Create: `src/Specurai.Desktop/ViewModels/ScheduleEditViewModel.cs`
+- Create: `src/Specurai.Desktop/Views/ScheduleEditWindow.axaml`
+- Create: `src/Specurai.Desktop/Views/ScheduleEditWindow.axaml.cs`
 
 - [ ] **Step 1: 建立 ScheduleEditViewModel**
 
 ```csharp
-// src/TableSpec.Desktop/ViewModels/ScheduleEditViewModel.cs
+// src/Specurai.Desktop/ViewModels/ScheduleEditViewModel.cs
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using TableSpec.Application.Services;
+using Specurai.Application.Services;
 
-namespace TableSpec.Desktop.ViewModels;
+namespace Specurai.Desktop.ViewModels;
 
 /// <summary>
 /// 排程編輯 ViewModel
@@ -2437,11 +2437,11 @@ public partial class ScheduleEditViewModel : ViewModelBase
 - [ ] **Step 3: 建立排程編輯視窗 Code-Behind**
 
 ```csharp
-// src/TableSpec.Desktop/Views/ScheduleEditWindow.axaml.cs
+// src/Specurai.Desktop/Views/ScheduleEditWindow.axaml.cs
 using Avalonia.Controls;
-using TableSpec.Desktop.ViewModels;
+using Specurai.Desktop.ViewModels;
 
-namespace TableSpec.Desktop.Views;
+namespace Specurai.Desktop.Views;
 
 public partial class ScheduleEditWindow : Window
 {
@@ -2460,13 +2460,13 @@ public partial class ScheduleEditWindow : Window
 
 - [ ] **Step 4: 建置確認通過**
 
-Run: `dotnet build src/TableSpec.Desktop`
+Run: `dotnet build src/Specurai.Desktop`
 Expected: Build succeeded
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/TableSpec.Desktop/ViewModels/ScheduleEditViewModel.cs src/TableSpec.Desktop/Views/ScheduleEditWindow.axaml src/TableSpec.Desktop/Views/ScheduleEditWindow.axaml.cs
+git add src/Specurai.Desktop/ViewModels/ScheduleEditViewModel.cs src/Specurai.Desktop/Views/ScheduleEditWindow.axaml src/Specurai.Desktop/Views/ScheduleEditWindow.axaml.cs
 git commit -m "新增排程編輯對話框"
 ```
 
@@ -2475,9 +2475,9 @@ git commit -m "新增排程編輯對話框"
 ### Task 11: DI 註冊與選單整合
 
 **Files:**
-- Modify: `src/TableSpec.Desktop/Program.cs`
-- Modify: `src/TableSpec.Desktop/Views/MainWindow.axaml`
-- Modify: `src/TableSpec.Desktop/ViewModels/MainWindowViewModel.cs`
+- Modify: `src/Specurai.Desktop/Program.cs`
+- Modify: `src/Specurai.Desktop/Views/MainWindow.axaml`
+- Modify: `src/Specurai.Desktop/ViewModels/MainWindowViewModel.cs`
 
 - [ ] **Step 1: 在 Program.cs 註冊新服務**
 
@@ -2531,13 +2531,13 @@ private async Task OpenMaintenancePlanAsync()
 
 - [ ] **Step 4: 建置確認通過**
 
-Run: `dotnet build src/TableSpec.Desktop`
+Run: `dotnet build src/Specurai.Desktop`
 Expected: Build succeeded
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/TableSpec.Desktop/Program.cs src/TableSpec.Desktop/Views/MainWindow.axaml src/TableSpec.Desktop/ViewModels/MainWindowViewModel.cs
+git add src/Specurai.Desktop/Program.cs src/Specurai.Desktop/Views/MainWindow.axaml src/Specurai.Desktop/ViewModels/MainWindowViewModel.cs
 git commit -m "整合維護計劃功能至選單與 DI"
 ```
 
@@ -2559,7 +2559,7 @@ Expected: Build succeeded, 0 warnings (or existing warnings only)
 
 - [ ] **Step 3: 執行應用程式手動驗證**
 
-Run: `dotnet run --project src/TableSpec.Desktop/TableSpec.Desktop.csproj`
+Run: `dotnet run --project src/Specurai.Desktop/Specurai.Desktop.csproj`
 
 驗證項目：
 - 「工具」選單出現「資料庫維護計劃」

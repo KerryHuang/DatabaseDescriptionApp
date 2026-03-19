@@ -91,7 +91,7 @@ dotnet test --verbosity normal
 
 ### 執行特定測試專案
 ```bash
-dotnet test tests/TableSpec.Application.Tests
+dotnet test tests/Specurai.Application.Tests
 ```
 
 ### Mock 驗證

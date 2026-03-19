@@ -90,7 +90,7 @@
             </Border>
 
             <!-- 主要內容區域 -->
-            <ScrollViewer Padding="24,16"
+            <ScrollViewer Padding="24,16,24,60"
                           VerticalScrollBarVisibility="Auto"
                           HorizontalScrollBarVisibility="Disabled">
                 <StackPanel Spacing="16">

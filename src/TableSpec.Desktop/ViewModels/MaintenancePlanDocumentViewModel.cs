@@ -149,6 +149,32 @@ public partial class MaintenancePlanDocumentViewModel : DocumentViewModel
     [ObservableProperty]
     private bool _isCreateRestoreJobSelected;
 
+    /// <summary>步驟2的檢查狀態文字</summary>
+    [ObservableProperty]
+    private string _step2CheckStatus = string.Empty;
+
+    [ObservableProperty]
+    private string _recoveryModelStatus = string.Empty;
+
+    [ObservableProperty]
+    private string _logicalFilesStatus = string.Empty;
+
+    [ObservableProperty]
+    private string _loginAndUserStatus = string.Empty;
+
+    [ObservableProperty]
+    private string _dbOwnerStatus = string.Empty;
+
+    [ObservableProperty]
+    private string _backupJobStatus = string.Empty;
+
+    [ObservableProperty]
+    private string _restoreJobStatus = string.Empty;
+
+    /// <summary>是否正在檢查步驟狀態</summary>
+    [ObservableProperty]
+    private bool _isCheckingSteps;
+
     #endregion
 
     #region 精靈 - 步驟3 確認與執行
@@ -360,14 +386,26 @@ public partial class MaintenancePlanDocumentViewModel : DocumentViewModel
     [RelayCommand(CanExecute = nameof(CanNextStep))]
     private async Task NextStep()
     {
+        if (CurrentStep == 1 && _planService is not null)
+        {
+            // 從步驟1到步驟2時執行前置檢查，檢查所有步驟狀態
+            CurrentStep++;
+            await RunStep2ChecksAsync();
+            return;
+        }
+
         if (CurrentStep == 2 && _planService is not null)
         {
-            // 從步驟2到步驟3時執行前置檢查
+            // 從步驟2到步驟3時，根據勾選的步驟建立檢查結果
             var config = BuildConfig();
             var results = await _planService.CheckStepsAsync(config);
             CheckResults.Clear();
             foreach (var r in results)
+            {
+                // 根據步驟2的勾選預設 SelectedAction
+                r.SelectedAction = r.AlreadyExists ? "跳過" : "執行";
                 CheckResults.Add(r);
+            }
         }
 
         if (CurrentStep < 3)
@@ -396,6 +434,75 @@ public partial class MaintenancePlanDocumentViewModel : DocumentViewModel
     }
 
     private bool CanPreviousStep() => CurrentStep > 1;
+
+    /// <summary>進入步驟2時執行所有步驟的前置檢查</summary>
+    private async Task RunStep2ChecksAsync()
+    {
+        if (_planService is null) return;
+
+        IsCheckingSteps = true;
+        Step2CheckStatus = "正在檢查...";
+
+        try
+        {
+            // 建立包含所有步驟的 config 來檢查
+            var allStepsConfig = new MaintenancePlanConfig
+            {
+                DatabaseName = DatabaseName,
+                BackupPath = BackupPath,
+                RestorePath = RestorePath,
+                TestDatabaseName = TestDatabaseName,
+                LoginName = LoginName,
+                LoginPassword = LoginPassword,
+                BackupTime = (int)(BackupTime.Hours * 10000 + BackupTime.Minutes * 100),
+                RestoreTime = (int)(RestoreTime.Hours * 10000 + RestoreTime.Minutes * 100),
+                SelectedSteps = Enum.GetValues<MaintenancePlanStep>().ToList()
+            };
+
+            var results = await _planService.CheckStepsAsync(allStepsConfig);
+
+            foreach (var r in results)
+            {
+                switch (r.Step)
+                {
+                    case MaintenancePlanStep.SetRecoveryModel:
+                        RecoveryModelStatus = r.CurrentStatus;
+                        IsSetRecoveryModelSelected = !r.AlreadyExists;
+                        break;
+                    case MaintenancePlanStep.RenameLogicalFiles:
+                        LogicalFilesStatus = r.CurrentStatus;
+                        IsRenameLogicalFilesSelected = !r.AlreadyExists;
+                        break;
+                    case MaintenancePlanStep.CreateLoginAndUser:
+                        LoginAndUserStatus = r.CurrentStatus;
+                        IsCreateLoginAndUserSelected = !r.AlreadyExists;
+                        break;
+                    case MaintenancePlanStep.AddToDbOwner:
+                        DbOwnerStatus = r.CurrentStatus;
+                        IsAddToDbOwnerSelected = !r.AlreadyExists;
+                        break;
+                    case MaintenancePlanStep.CreateBackupJob:
+                        BackupJobStatus = r.CurrentStatus;
+                        IsCreateBackupJobSelected = !r.AlreadyExists;
+                        break;
+                    case MaintenancePlanStep.CreateRestoreJob:
+                        RestoreJobStatus = r.CurrentStatus;
+                        IsCreateRestoreJobSelected = !r.AlreadyExists;
+                        break;
+                }
+            }
+
+            Step2CheckStatus = "檢查完成";
+        }
+        catch (Exception ex)
+        {
+            Step2CheckStatus = $"檢查失敗：{ex.Message}";
+        }
+        finally
+        {
+            IsCheckingSteps = false;
+        }
+    }
 
     [RelayCommand]
     private async Task ExecuteAsync()

@@ -32,7 +32,7 @@
         <KeyBinding Gesture="Ctrl+T" Command="{Binding OpenTableStatisticsCommand}"/>
         <KeyBinding Gesture="Ctrl+I" Command="{Binding OpenMissingIndexReportCommand}"/>
         <KeyBinding Gesture="Ctrl+J" Command="{Binding OpenUnusedIndexReportCommand}"/>
-        <KeyBinding Gesture="Ctrl+D" Command="{Binding OpenMaintenancePlanCommand}"/>
+        <KeyBinding Gesture="Ctrl+Shift+D" Command="{Binding OpenMaintenancePlanCommand}"/>
     </Window.KeyBindings>
 
     <DockPanel>
@@ -164,7 +164,7 @@
                         </MenuItem.Icon>
                     </MenuItem>
                     <Separator/>
-                    <MenuItem Header="資料庫維護計劃(_D)" Command="{Binding OpenMaintenancePlanCommand}" InputGesture="Ctrl+D" IsEnabled="{Binding IsConnected}"
+                    <MenuItem Header="資料庫維護計劃(_N)" Command="{Binding OpenMaintenancePlanCommand}" InputGesture="Ctrl+Shift+D" IsEnabled="{Binding IsConnected}"
                               ToolTip.Tip="管理資料庫自動備份與還原排程">
                         <MenuItem.Icon>
                             <TextBlock Text="&#x1F527;" FontSize="14"/>

@@ -15,9 +15,9 @@ description: 建立新的單元測試
 1. 確認要測試的類別名稱，如果未提供則詢問使用者
 
 2. 確定類別所屬的層級，對應到測試專案：
-   - Domain → `tests/TableSpec.Domain.Tests/`
-   - Application → `tests/TableSpec.Application.Tests/`
-   - Infrastructure → `tests/TableSpec.Infrastructure.Tests/`
+   - Domain → `tests/Specurai.Domain.Tests/`
+   - Application → `tests/Specurai.Application.Tests/`
+   - Infrastructure → `tests/Specurai.Infrastructure.Tests/`
 
 3. 建立測試檔案 `{ClassName}Tests.cs`
 
@@ -30,7 +30,7 @@ using FluentAssertions;
 using NSubstitute;
 using Xunit;
 
-namespace TableSpec.{Layer}.Tests;
+namespace Specurai.{Layer}.Tests;
 
 /// <summary>
 /// {ClassName} 的單元測試

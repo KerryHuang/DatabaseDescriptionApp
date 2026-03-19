@@ -14,12 +14,12 @@ description: 建立新的 Repository（介面 + 實作）
 
 1. 確認 Repository 名稱，如果未提供則詢問使用者
 
-2. 在 `src/TableSpec.Domain/Interfaces/` 建立 `I{Name}Repository.cs`：
+2. 在 `src/Specurai.Domain/Interfaces/` 建立 `I{Name}Repository.cs`：
 
 ```csharp
-using TableSpec.Domain.Entities;
+using Specurai.Domain.Entities;
 
-namespace TableSpec.Domain.Interfaces;
+namespace Specurai.Domain.Interfaces;
 
 /// <summary>
 /// {Name} Repository 介面
@@ -30,15 +30,15 @@ public interface I{Name}Repository
 }
 ```
 
-3. 在 `src/TableSpec.Infrastructure/Repositories/` 建立 `{Name}Repository.cs`：
+3. 在 `src/Specurai.Infrastructure/Repositories/` 建立 `{Name}Repository.cs`：
 
 ```csharp
 using Dapper;
 using Microsoft.Data.SqlClient;
-using TableSpec.Domain.Entities;
-using TableSpec.Domain.Interfaces;
+using Specurai.Domain.Entities;
+using Specurai.Domain.Interfaces;
 
-namespace TableSpec.Infrastructure.Repositories;
+namespace Specurai.Infrastructure.Repositories;
 
 /// <summary>
 /// {Name} Repository 實作

@@ -14,13 +14,13 @@ description: 建立新的 ViewModel
 
 1. 確認 ViewModel 名稱，如果未提供則詢問使用者
 
-2. 在 `src/TableSpec.Desktop/ViewModels/` 建立 `{Name}ViewModel.cs`：
+2. 在 `src/Specurai.Desktop/ViewModels/` 建立 `{Name}ViewModel.cs`：
 
 ```csharp
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
-namespace TableSpec.Desktop.ViewModels;
+namespace Specurai.Desktop.ViewModels;
 
 /// <summary>
 /// {Name} ViewModel

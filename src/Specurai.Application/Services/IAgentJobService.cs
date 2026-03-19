@@ -1,0 +1,33 @@
+using Specurai.Domain.Entities;
+
+namespace Specurai.Application.Services;
+
+/// <summary>
+/// SQL Agent Job 管理服務介面
+/// </summary>
+public interface IAgentJobService
+{
+    /// <summary>取得 Specurai 相關的 Agent Job 清單</summary>
+    Task<IReadOnlyList<AgentJobInfo>> GetJobsAsync(CancellationToken ct = default);
+
+    /// <summary>設定 Job 啟用或停用</summary>
+    Task SetJobEnabledAsync(Guid jobId, bool enabled, CancellationToken ct = default);
+
+    /// <summary>立即執行 Job</summary>
+    Task StartJobAsync(Guid jobId, CancellationToken ct = default);
+
+    /// <summary>刪除 Job</summary>
+    Task DeleteJobAsync(Guid jobId, CancellationToken ct = default);
+
+    /// <summary>更新 Job 排程</summary>
+    Task UpdateScheduleAsync(Guid jobId, int freqType, int freqInterval, int activeStartTime, CancellationToken ct = default);
+
+    /// <summary>取得 Job 執行歷史</summary>
+    Task<IReadOnlyList<AgentJobHistory>> GetJobHistoryAsync(Guid jobId, int maxRecords = 20, CancellationToken ct = default);
+
+    /// <summary>取得所有未標記 [Specurai] 的 Job</summary>
+    Task<IReadOnlyList<AgentJobInfo>> GetNonSpecuraiJobsAsync(CancellationToken ct = default);
+
+    /// <summary>匯入 Job（加上 [Specurai] 標記）</summary>
+    Task ImportJobAsync(Guid jobId, CancellationToken ct = default);
+}

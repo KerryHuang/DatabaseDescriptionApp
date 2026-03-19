@@ -1,12 +1,12 @@
 # Gemini Context
 
-This document provides context for the Gemini AI assistant to understand the TableSpec project.
+This document provides context for the Gemini AI assistant to understand the Specurai project.
 
 <law>一律以繁體中文回答使用者。</law>
 
 ## Project Overview
 
-TableSpec is a cross-platform desktop application for querying and managing SQL Server database schemas. It is built using .NET 8 and Avalonia UI, following a clean architecture pattern (Domain, Application, Infrastructure, Desktop). The application allows users to connect to multiple SQL Server instances, browse database objects (tables, views, stored procedures, etc.), view detailed information about these objects, and execute custom SQL queries.
+Specurai is a cross-platform desktop application for querying and managing SQL Server database schemas. It is built using .NET 8 and Avalonia UI, following a clean architecture pattern (Domain, Application, Infrastructure, Desktop). The application allows users to connect to multiple SQL Server instances, browse database objects (tables, views, stored procedures, etc.), view detailed information about these objects, and execute custom SQL queries.
 
 ## Quick Commands
 
@@ -29,10 +29,10 @@ TableSpec is a cross-platform desktop application for querying and managing SQL 
 
 The project is organized into four main layers, following the principles of clean architecture:
 
-*   `TableSpec.Domain`: Contains the core business logic and entities of the application. It has no dependencies on other layers.
-*   `TableSpec.Application`: Contains the application logic and services. It depends on the Domain layer.
-*   `TableSpec.Infrastructure`: Contains the implementation of services defined in the Application layer, such as data access and file I/O. It depends on the Domain and Application layers.
-*   `TableSpec.Desktop`: The main application project, containing the UI and view models. It depends on all other layers.
+*   `Specurai.Domain`: Contains the core business logic and entities of the application. It has no dependencies on other layers.
+*   `Specurai.Application`: Contains the application logic and services. It depends on the Domain layer.
+*   `Specurai.Infrastructure`: Contains the implementation of services defined in the Application layer, such as data access and file I/O. It depends on the Domain and Application layers.
+*   `Specurai.Desktop`: The main application project, containing the UI and view models. It depends on all other layers.
 
 The solution also includes a comprehensive set of unit tests for each layer.
 
@@ -51,7 +51,7 @@ dotnet build
 To run the application, use the following command:
 
 ```bash
-dotnet run --project src/TableSpec.Desktop/TableSpec.Desktop.csproj
+dotnet run --project src/Specurai.Desktop/Specurai.Desktop.csproj
 ```
 
 ### Test

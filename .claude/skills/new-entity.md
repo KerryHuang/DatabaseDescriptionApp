@@ -14,12 +14,12 @@ description: 建立新的 Domain Entity
 
 1. 確認 Entity 名稱，如果未提供則詢問使用者
 
-2. 在 `src/TableSpec.Domain/Entities/` 建立新檔案 `{EntityName}.cs`
+2. 在 `src/Specurai.Domain/Entities/` 建立新檔案 `{EntityName}.cs`
 
 3. 使用以下範本：
 
 ```csharp
-namespace TableSpec.Domain.Entities;
+namespace Specurai.Domain.Entities;
 
 /// <summary>
 /// {Entity 說明}

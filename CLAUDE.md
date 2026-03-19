@@ -38,28 +38,28 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 dotnet build
 
 # Run desktop application
-dotnet run --project src/TableSpec.Desktop/TableSpec.Desktop.csproj
+dotnet run --project src/Specurai.Desktop/Specurai.Desktop.csproj
 
 # Run all tests
 dotnet test
 
 # Run specific test project
-dotnet test tests/TableSpec.Application.Tests
-dotnet test tests/TableSpec.Domain.Tests
-dotnet test tests/TableSpec.Infrastructure.Tests
+dotnet test tests/Specurai.Application.Tests
+dotnet test tests/Specurai.Domain.Tests
+dotnet test tests/Specurai.Infrastructure.Tests
 
 # Run single test by filter
 dotnet test --filter "FullyQualifiedName~TestMethodName"
 
 # Publish single executable (cross-platform)
 # Windows x64
-dotnet publish src/TableSpec.Desktop -c Release -r win-x64 --self-contained -p:PublishSingleFile=true
+dotnet publish src/Specurai.Desktop -c Release -r win-x64 --self-contained -p:PublishSingleFile=true
 # macOS (Apple Silicon)
-dotnet publish src/TableSpec.Desktop -c Release -r osx-arm64 --self-contained -p:PublishSingleFile=true
+dotnet publish src/Specurai.Desktop -c Release -r osx-arm64 --self-contained -p:PublishSingleFile=true
 # macOS (Intel)
-dotnet publish src/TableSpec.Desktop -c Release -r osx-x64 --self-contained -p:PublishSingleFile=true
+dotnet publish src/Specurai.Desktop -c Release -r osx-x64 --self-contained -p:PublishSingleFile=true
 # Linux x64
-dotnet publish src/TableSpec.Desktop -c Release -r linux-x64 --self-contained -p:PublishSingleFile=true
+dotnet publish src/Specurai.Desktop -c Release -r linux-x64 --self-contained -p:PublishSingleFile=true
 ```
 
 ## Architecture

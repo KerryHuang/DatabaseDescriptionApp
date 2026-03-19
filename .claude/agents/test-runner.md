@@ -24,9 +24,9 @@ name: test-runner
 
 | 專案 | 測試對象 |
 |------|---------|
-| TableSpec.Domain.Tests | Domain 實體和介面 |
-| TableSpec.Application.Tests | Application 服務 |
-| TableSpec.Infrastructure.Tests | Infrastructure 實作 |
+| Specurai.Domain.Tests | Domain 實體和介面 |
+| Specurai.Application.Tests | Application 服務 |
+| Specurai.Infrastructure.Tests | Infrastructure 實作 |
 
 ## 命令
 
@@ -37,7 +37,7 @@ dotnet test
 
 ### 執行特定專案測試
 ```bash
-dotnet test tests/TableSpec.Domain.Tests
+dotnet test tests/Specurai.Domain.Tests
 ```
 
 ### 執行特定測試方法

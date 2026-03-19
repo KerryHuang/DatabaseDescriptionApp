@@ -26,7 +26,7 @@ description: 發布單一執行檔（跨平台）
 ### 2. 執行發布指令
 
 ```bash
-dotnet publish src/TableSpec.Desktop -c Release -r {rid} --self-contained -p:PublishSingleFile=true
+dotnet publish src/Specurai.Desktop -c Release -r {rid} --self-contained -p:PublishSingleFile=true
 ```
 
 其中 `{rid}` 為 Runtime Identifier：
@@ -44,7 +44,7 @@ dotnet publish src/TableSpec.Desktop -c Release -r {rid} --self-contained -p:Pub
 
 發布的執行檔位於：
 ```
-src/TableSpec.Desktop/bin/Release/net8.0/{rid}/publish/
+src/Specurai.Desktop/bin/Release/net8.0/{rid}/publish/
 ```
 
 ## 範例

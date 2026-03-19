@@ -52,6 +52,13 @@
                     </StackPanel>
                 </Button>
                 <Separator/>
+                <Button Command="{Binding ExportSqlCommand}">
+                    <StackPanel Orientation="Horizontal" Spacing="5">
+                        <TextBlock Text="📄" FontSize="14"/>
+                        <TextBlock Text="匯出 SQL"/>
+                    </StackPanel>
+                </Button>
+                <Separator/>
                 <Button Command="{Binding CancelOperationCommand}" IsVisible="{Binding IsProcessing}">
                     <StackPanel Orientation="Horizontal" Spacing="5">
                         <TextBlock Text="✕" FontSize="14"/>

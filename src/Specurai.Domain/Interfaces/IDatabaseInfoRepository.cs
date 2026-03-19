@@ -55,6 +55,16 @@ public interface IDatabaseInfoRepository
     Task<bool> AgentJobExistsAsync(string jobName, CancellationToken ct = default);
 
     /// <summary>
+    /// 取得指定資料庫的相容性層級
+    /// </summary>
+    Task<int> GetCompatibilityLevelAsync(string databaseName, CancellationToken ct = default);
+
+    /// <summary>
+    /// 取得當前 SQL Server 版本對應的相容性層級
+    /// </summary>
+    Task<int> GetServerCompatibilityLevelAsync(CancellationToken ct = default);
+
+    /// <summary>
     /// 檢查是否為 Azure SQL Database 環境
     /// </summary>
     Task<bool> IsAzureSqlDatabaseAsync(CancellationToken ct = default);

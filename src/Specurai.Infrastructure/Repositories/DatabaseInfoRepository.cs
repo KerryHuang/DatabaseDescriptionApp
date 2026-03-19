@@ -119,6 +119,31 @@ WHERE r.name = 'db_owner' AND m.name = @UserName";
         return count > 0;
     }
 
+    public async Task<int> GetCompatibilityLevelAsync(string databaseName, CancellationToken ct = default)
+    {
+        var connectionString = _connectionStringProvider();
+        if (string.IsNullOrEmpty(connectionString))
+            return 0;
+
+        const string sql = "SELECT compatibility_level FROM sys.databases WHERE name = @DatabaseName";
+
+        await using var connection = new SqlConnection(connectionString);
+        return await connection.ExecuteScalarAsync<int>(new CommandDefinition(sql, new { DatabaseName = databaseName }, cancellationToken: ct));
+    }
+
+    public async Task<int> GetServerCompatibilityLevelAsync(CancellationToken ct = default)
+    {
+        var connectionString = _connectionStringProvider();
+        if (string.IsNullOrEmpty(connectionString))
+            return 0;
+
+        // SQL Server 版本主版號 × 10 = 相容性層級（例如 16.x → 160）
+        const string sql = "SELECT CAST(SERVERPROPERTY('ProductMajorVersion') AS INT) * 10";
+
+        await using var connection = new SqlConnection(connectionString);
+        return await connection.ExecuteScalarAsync<int>(new CommandDefinition(sql, cancellationToken: ct));
+    }
+
     public async Task<bool> IsAzureSqlDatabaseAsync(CancellationToken ct = default)
     {
         var connectionString = _connectionStringProvider();

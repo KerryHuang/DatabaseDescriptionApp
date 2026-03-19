@@ -79,6 +79,9 @@ public partial class MaintenancePlanDocumentViewModel : DocumentViewModel
     /// <summary>匯入 Job 回呼（由 View 層提供對話框實作）</summary>
     public Func<Task>? ImportJobCallback { get; set; }
 
+    /// <summary>匯出 SQL 腳本回呼（由 View 提供檔案儲存對話框）</summary>
+    public Func<string, Task<string?>>? SaveFileCallback { get; set; }
+
     #endregion
 
     #region 精靈 - 步驟1 基本設定
@@ -147,6 +150,9 @@ public partial class MaintenancePlanDocumentViewModel : DocumentViewModel
     #region 精靈 - 步驟2 選擇步驟
 
     [ObservableProperty]
+    private bool _isSetCompatibilityLevelSelected = true;
+
+    [ObservableProperty]
     private bool _isSetRecoveryModelSelected = true;
 
     [ObservableProperty]
@@ -167,6 +173,9 @@ public partial class MaintenancePlanDocumentViewModel : DocumentViewModel
     /// <summary>步驟2的檢查狀態文字</summary>
     [ObservableProperty]
     private string _step2CheckStatus = string.Empty;
+
+    [ObservableProperty]
+    private string _compatibilityLevelStatus = string.Empty;
 
     [ObservableProperty]
     private string _recoveryModelStatus = string.Empty;
@@ -503,6 +512,10 @@ public partial class MaintenancePlanDocumentViewModel : DocumentViewModel
             {
                 switch (r.Step)
                 {
+                    case MaintenancePlanStep.SetCompatibilityLevel:
+                        CompatibilityLevelStatus = r.CurrentStatus;
+                        IsSetCompatibilityLevelSelected = !r.AlreadyExists;
+                        break;
                     case MaintenancePlanStep.SetRecoveryModel:
                         RecoveryModelStatus = r.CurrentStatus;
                         IsSetRecoveryModelSelected = !r.AlreadyExists;
@@ -559,9 +572,7 @@ public partial class MaintenancePlanDocumentViewModel : DocumentViewModel
             await _planService.ExecutePlanAsync(config, CheckResults.ToList(), progress, _executionCts.Token);
             StatusMessage = "執行完成";
 
-            // 執行完成後切回管理模式並重新載入
-            IsWizardMode = false;
-            await LoadJobsAsync();
+            // 執行完成後停留在精靈畫面，讓使用者查看結果
         }
         catch (OperationCanceledException)
         {
@@ -583,6 +594,26 @@ public partial class MaintenancePlanDocumentViewModel : DocumentViewModel
     private void CancelExecution()
     {
         _executionCts?.Cancel();
+    }
+
+    /// <summary>匯出 SQL 腳本至檔案</summary>
+    [RelayCommand]
+    private async Task ExportSqlAsync()
+    {
+        if (_sqlGenerator is null || SaveFileCallback is null) return;
+
+        var config = BuildConfig();
+        var sql = _sqlGenerator.GenerateExportSql(config, CheckResults.ToList());
+
+        if (string.IsNullOrEmpty(sql))
+        {
+            StatusMessage = "沒有選取任何步驟";
+            return;
+        }
+
+        var filePath = await SaveFileCallback(sql);
+        if (filePath != null)
+            StatusMessage = $"已匯出 SQL 腳本至 {filePath}";
     }
 
     [RelayCommand]
@@ -627,6 +658,7 @@ public partial class MaintenancePlanDocumentViewModel : DocumentViewModel
     private List<MaintenancePlanStep> GetSelectedSteps()
     {
         var steps = new List<MaintenancePlanStep>();
+        if (IsSetCompatibilityLevelSelected) steps.Add(MaintenancePlanStep.SetCompatibilityLevel);
         if (IsSetRecoveryModelSelected) steps.Add(MaintenancePlanStep.SetRecoveryModel);
         if (IsRenameLogicalFilesSelected) steps.Add(MaintenancePlanStep.RenameLogicalFiles);
         if (IsCreateLoginAndUserSelected) steps.Add(MaintenancePlanStep.CreateLoginAndUser);

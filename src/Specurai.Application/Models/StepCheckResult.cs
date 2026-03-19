@@ -21,4 +21,17 @@ public class StepCheckResult
 
     /// <summary>使用者選擇的操作</summary>
     public string? SelectedAction { get; set; }
+
+    /// <summary>步驟中文名稱</summary>
+    public string StepName => Step switch
+    {
+        MaintenancePlanStep.SetCompatibilityLevel => "更新相容性層級",
+        MaintenancePlanStep.SetRecoveryModel => "設定 Recovery Model",
+        MaintenancePlanStep.RenameLogicalFiles => "重新命名邏輯檔名",
+        MaintenancePlanStep.CreateLoginAndUser => "建立登入帳號與使用者",
+        MaintenancePlanStep.AddToDbOwner => "加入 db_owner 角色",
+        MaintenancePlanStep.CreateBackupJob => "建立備份排程",
+        MaintenancePlanStep.CreateRestoreJob => "建立還原排程",
+        _ => Step.ToString()
+    };
 }

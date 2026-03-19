@@ -51,6 +51,7 @@ public class MaintenancePlanService : IMaintenancePlanService
         {
             var result = step switch
             {
+                MaintenancePlanStep.SetCompatibilityLevel => await CheckCompatibilityLevelAsync(config, ct),
                 MaintenancePlanStep.SetRecoveryModel => await CheckRecoveryModelAsync(config, ct),
                 MaintenancePlanStep.RenameLogicalFiles => await CheckLogicalFilesAsync(config, ct),
                 MaintenancePlanStep.CreateLoginAndUser => await CheckLoginAndUserAsync(config, ct),
@@ -68,7 +69,19 @@ public class MaintenancePlanService : IMaintenancePlanService
     /// <inheritdoc />
     public async Task ExecutePlanAsync(MaintenancePlanConfig config, IReadOnlyList<StepCheckResult> checkResults, IProgress<string>? progress = null, CancellationToken ct = default)
     {
-        // 交易群組 1：步驟 1-4（資料庫設定）
+        // 獨立步驟：更新相容性層級（ALTER DATABASE 不能在交易中執行）
+        var compatStep = checkResults.FirstOrDefault(r => r.Step == MaintenancePlanStep.SetCompatibilityLevel && r.SelectedAction != "跳過");
+        if (compatStep != null)
+        {
+            progress?.Report("正在更新相容性層級...");
+            var sql = _sqlGenerator.GenerateStepSql(MaintenancePlanStep.SetCompatibilityLevel, config, compatStep.SelectedAction);
+            await _dbInfoRepo.ExecuteSqlAsync(sql, ct);
+            progress?.Report("相容性層級更新完成。");
+        }
+
+        ct.ThrowIfCancellationRequested();
+
+        // 交易群組：資料庫設定步驟
         var dbSteps = checkResults.Where(r =>
             r.Step is MaintenancePlanStep.SetRecoveryModel
                 or MaintenancePlanStep.RenameLogicalFiles
@@ -116,6 +129,22 @@ public class MaintenancePlanService : IMaintenancePlanService
     {
         var sql = _sqlGenerator.GenerateFullSql(config, checkResults);
         return Task.FromResult(sql);
+    }
+
+    private async Task<StepCheckResult> CheckCompatibilityLevelAsync(MaintenancePlanConfig config, CancellationToken ct)
+    {
+        var currentLevel = await _dbInfoRepo.GetCompatibilityLevelAsync(config.DatabaseName, ct);
+        var serverLevel = await _dbInfoRepo.GetServerCompatibilityLevelAsync(ct);
+        var isMatch = currentLevel >= serverLevel;
+        return new StepCheckResult
+        {
+            Step = MaintenancePlanStep.SetCompatibilityLevel,
+            AlreadyExists = isMatch,
+            CurrentStatus = isMatch
+                ? $"相容性層級已為最新（{currentLevel}）"
+                : $"目前：{currentLevel}，伺服器：{serverLevel}",
+            AvailableActions = isMatch ? ["跳過"] : ["執行", "跳過"]
+        };
     }
 
     private async Task<StepCheckResult> CheckRecoveryModelAsync(MaintenancePlanConfig config, CancellationToken ct)

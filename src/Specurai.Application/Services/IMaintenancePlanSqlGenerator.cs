@@ -23,4 +23,11 @@ public interface IMaintenancePlanSqlGenerator
     /// <param name="config">維護計劃設定</param>
     /// <param name="checkResults">步驟檢查結果清單</param>
     string GenerateFullSql(MaintenancePlanConfig config, IReadOnlyList<StepCheckResult> checkResults);
+
+    /// <summary>
+    /// 產生可匯出的 SQL 腳本（含變數宣告和說明，方便使用者修改後執行）
+    /// </summary>
+    /// <param name="config">維護計劃設定</param>
+    /// <param name="checkResults">步驟檢查結果清單</param>
+    string GenerateExportSql(MaintenancePlanConfig config, IReadOnlyList<StepCheckResult> checkResults);
 }

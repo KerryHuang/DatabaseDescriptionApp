@@ -120,10 +120,63 @@
                 </Grid>
             </Border>
 
-            <!-- 主要內容區域 -->
+            <!-- ===== 步驟 3：確認與執行（獨立佈局，填滿空間） ===== -->
+            <Grid IsVisible="{Binding IsStep3Visible}" RowDefinitions="Auto,Auto,*,5,Auto,*" Margin="24,16">
+                <TextBlock Grid.Row="0" Text="步驟 3：確認與執行" FontSize="18" FontWeight="Bold" Margin="0,0,0,8"/>
+
+                <!-- 檢查結果 -->
+                <TextBlock Grid.Row="1" Text="前置檢查結果" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                <DataGrid Grid.Row="2"
+                          ItemsSource="{Binding CheckResults}"
+                          AutoGenerateColumns="False"
+                          IsReadOnly="False"
+                          CanUserResizeColumns="True">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="步驟" Binding="{Binding StepName}" IsReadOnly="True" Width="180"/>
+                        <DataGridTextColumn Header="目前狀態" Binding="{Binding CurrentStatus}" IsReadOnly="True" Width="*"/>
+                        <DataGridTemplateColumn Header="處理方式" Width="100">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <ComboBox ItemsSource="{Binding AvailableActions}"
+                                              SelectedItem="{Binding SelectedAction}"
+                                              HorizontalAlignment="Stretch"
+                                              Margin="2"/>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                    </DataGrid.Columns>
+                </DataGrid>
+
+                <!-- 分隔線 -->
+                <GridSplitter Grid.Row="3" ResizeDirection="Rows"
+                              Background="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
+                              HorizontalAlignment="Stretch" Height="5"/>
+
+                <!-- SQL 預覽 / 執行日誌 標題列 -->
+                <DockPanel Grid.Row="4" Margin="0,4,0,4">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBlock Text="SQL 預覽 / 執行日誌" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                        <Button Content="產生 SQL" Command="{Binding GeneratePreviewCommand}"/>
+                        <Button Content="匯出 SQL" Command="{Binding ExportSqlCommand}"/>
+                    </StackPanel>
+                </DockPanel>
+
+                <!-- SQL 預覽 + 執行日誌 共用區域 -->
+                <Grid Grid.Row="5" RowDefinitions="*,Auto,*">
+                    <TextBox Grid.Row="0"
+                             Text="{Binding PreviewSql}"
+                             AcceptsReturn="True" IsReadOnly="True"
+                             FontFamily="Consolas,Menlo,monospace"/>
+                    <TextBlock Grid.Row="1" Text="執行日誌" FontWeight="SemiBold" Margin="0,4,0,4"/>
+                    <ListBox Grid.Row="2" ItemsSource="{Binding ExecutionLog}"/>
+                </Grid>
+            </Grid>
+
+            <!-- 主要內容區域（步驟 1、2） -->
             <ScrollViewer Padding="24,16,24,60"
                           VerticalScrollBarVisibility="Auto"
-                          HorizontalScrollBarVisibility="Disabled">
+                          HorizontalScrollBarVisibility="Disabled"
+                          IsVisible="{Binding !IsStep3Visible}">
                 <StackPanel Spacing="16">
 
                     <!-- ===== 步驟 1：基本設定 ===== -->
@@ -207,6 +260,12 @@
 
                         <StackPanel Spacing="6">
                             <Grid ColumnDefinitions="*,*">
+                                <CheckBox Grid.Column="0" IsChecked="{Binding IsSetCompatibilityLevelSelected}"
+                                          Content="更新相容性層級至當前版本"/>
+                                <TextBlock Grid.Column="1" Text="{Binding CompatibilityLevelStatus}"
+                                           VerticalAlignment="Center" Opacity="0.6" FontSize="12"/>
+                            </Grid>
+                            <Grid ColumnDefinitions="*,*">
                                 <CheckBox Grid.Column="0" IsChecked="{Binding IsSetRecoveryModelSelected}"
                                           Content="設定 Recovery Model 為 SIMPLE"/>
                                 <TextBlock Grid.Column="1" Text="{Binding RecoveryModelStatus}"
@@ -243,50 +302,6 @@
                                            VerticalAlignment="Center" Opacity="0.6" FontSize="12"/>
                             </Grid>
                         </StackPanel>
-                    </StackPanel>
-
-                    <!-- ===== 步驟 3：確認與執行 ===== -->
-                    <StackPanel IsVisible="{Binding IsStep3Visible}" Spacing="12">
-                        <TextBlock Text="步驟 3：確認與執行" FontSize="18" FontWeight="Bold"/>
-
-                        <!-- 檢查結果 -->
-                        <TextBlock Text="前置檢查結果" FontWeight="SemiBold"/>
-                        <DataGrid ItemsSource="{Binding CheckResults}"
-                                  AutoGenerateColumns="False"
-                                  IsReadOnly="False"
-                                  Height="180"
-                                  CanUserResizeColumns="True">
-                            <DataGrid.Columns>
-                                <DataGridTextColumn Header="步驟" Binding="{Binding Step}" IsReadOnly="True" Width="*"/>
-                                <DataGridTextColumn Header="目前狀態" Binding="{Binding CurrentStatus}" IsReadOnly="True" Width="*"/>
-                                <DataGridTemplateColumn Header="處理方式" Width="*">
-                                    <DataGridTemplateColumn.CellTemplate>
-                                        <DataTemplate>
-                                            <ComboBox ItemsSource="{Binding AvailableActions}"
-                                                      SelectedItem="{Binding SelectedAction}"
-                                                      HorizontalAlignment="Stretch"
-                                                      Margin="2"/>
-                                        </DataTemplate>
-                                    </DataGridTemplateColumn.CellTemplate>
-                                </DataGridTemplateColumn>
-                            </DataGrid.Columns>
-                        </DataGrid>
-
-                        <!-- SQL 預覽 -->
-                        <StackPanel Spacing="4">
-                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                <TextBlock Text="SQL 預覽" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                                <Button Content="產生 SQL" Command="{Binding GeneratePreviewCommand}"/>
-                            </StackPanel>
-                            <TextBox Text="{Binding PreviewSql}"
-                                     AcceptsReturn="True" IsReadOnly="True"
-                                     Height="200"
-                                     FontFamily="Consolas,Menlo,monospace"/>
-                        </StackPanel>
-
-                        <!-- 執行日誌 -->
-                        <TextBlock Text="執行日誌" FontWeight="SemiBold"/>
-                        <ListBox ItemsSource="{Binding ExecutionLog}" Height="120"/>
                     </StackPanel>
 
                 </StackPanel>

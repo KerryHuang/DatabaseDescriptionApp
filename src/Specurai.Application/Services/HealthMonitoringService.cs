@@ -38,6 +38,12 @@ public class HealthMonitoringService : IHealthMonitoringService
     }
 
     /// <inheritdoc/>
+    public Task<string> GenerateExportSqlAsync(CancellationToken ct = default)
+    {
+        return _installer.GenerateExportSqlAsync(ct);
+    }
+
+    /// <inheritdoc/>
     public Task<IReadOnlyList<HealthStatusSummary>> GetStatusSummaryAsync(CancellationToken ct = default)
     {
         return _repository.GetStatusSummaryAsync(ct);

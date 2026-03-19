@@ -74,6 +74,21 @@ TableSpec 是一個跨平台桌面應用程式，用於查詢和管理 SQL Serve
 - **索引狀態** - 檢視索引使用效率與統計資訊
 - **錯誤記錄** - 檢視 SQL Server 錯誤日誌
 
+### 資料庫維護計劃
+- **自動化設定** - 透過精靈建立資料庫維護計劃 (Ctrl+Shift+D)
+- **前置檢查** - 自動檢查每個步驟的狀態，已完成的預設不執行
+- **步驟管理** - 可選擇執行的項目：
+  - 設定 Recovery Model 為 SIMPLE
+  - 重新命名邏輯檔名
+  - 建立登入帳號與使用者
+  - 將使用者加入 db_owner
+  - 建立每日全備份排程（可設定保留天數）
+  - 建立每日還原排程（選填）
+- **平台預設** - 支援 Windows/Linux 預設路徑，或自訂
+- **Job 管理** - 檢視、啟用/停用、立即執行、修改排程、刪除 SQL Agent Job
+- **執行歷史** - 選取 Job 即時顯示執行記錄和錯誤訊息
+- **SQL 預覽** - 執行前可預覽完整 SQL 腳本
+
 ### 索引報表
 - **缺少索引報表** - 分析 SQL Server 建議的缺少索引 (Ctrl+I)
   - 依改善指標排序，顯示嚴重度等級
@@ -94,9 +109,10 @@ TableSpec 是一個跨平台桌面應用程式，用於查詢和管理 SQL Serve
 | 快捷鍵 | 功能 |
 |--------|------|
 | Ctrl+L | 連線設定 |
+| Ctrl+D | 切換深色/淺色主題 |
 | Ctrl+Q | 開啟 SQL 查詢視窗 |
 | Ctrl+F | 開啟欄位搜尋視窗 |
-| Ctrl+B | 開啟備份與還原 |
+| Ctrl+Shift+B | 開啟備份與還原 |
 | Ctrl+M | 開啟結構比對 |
 | Ctrl+H | 開啟健康監控 |
 | Ctrl+P | 開啟效能診斷 |
@@ -104,7 +120,13 @@ TableSpec 是一個跨平台桌面應用程式，用於查詢和管理 SQL Serve
 | Ctrl+J | 開啟未使用索引報表 |
 | Ctrl+U | 開啟欄位統計 |
 | Ctrl+T | 開啟資料表統計 |
+| Ctrl+Shift+D | 開啟資料庫維護計劃 |
+| Ctrl+E | 匯出 Excel |
+| Ctrl+Shift+E | 匯出連線設定 |
+| Ctrl+Shift+I | 匯入連線設定 |
+| Ctrl+B | 切換側邊欄 |
 | Ctrl+W | 關閉目前分頁 |
+| Ctrl+Shift+W | 關閉所有分頁 |
 | F5 | 執行 SQL 查詢 |
 
 ## 技術架構
@@ -172,13 +194,16 @@ DatabaseDescriptionApp/
 │   │   │   ├── ITableStatisticsRepository.cs
 │   │   │   ├── IPerformanceDiagnosticsRepository.cs
 │   │   │   ├── IHealthMonitoringRepository.cs
+│   │   │   ├── IAgentJobRepository.cs
+│   │   │   ├── IDatabaseInfoRepository.cs
 │   │   │   └── ISchemaCollector.cs
 │   │   └── Enums/
 │   │       ├── BackupType.cs
 │   │       ├── RestoreMode.cs
 │   │       ├── DifferenceType.cs
 │   │       ├── RiskLevel.cs
-│   │       └── SyncAction.cs
+│   │       ├── SyncAction.cs
+│   │       └── MaintenancePlanStep.cs
 │   │
 │   ├── TableSpec.Application/     # 應用層：服務介面與實作
 │   │   └── Services/
@@ -197,7 +222,12 @@ DatabaseDescriptionApp/
 │   │       ├── SchemaCompareService.cs
 │   │       ├── IHealthMonitoringService.cs
 │   │       ├── HealthMonitoringService.cs
-│   │       └── IHealthMonitoringInstaller.cs
+│   │       ├── IHealthMonitoringInstaller.cs
+│   │       ├── IMaintenancePlanService.cs
+│   │       ├── MaintenancePlanService.cs
+│   │       ├── IMaintenancePlanSqlGenerator.cs
+│   │       ├── IAgentJobService.cs
+│   │       └── AgentJobService.cs
 │   │
 │   ├── TableSpec.Infrastructure/  # 基礎設施層：資料存取實作
 │   │   ├── Repositories/
@@ -211,12 +241,15 @@ DatabaseDescriptionApp/
 │   │   │   ├── SqlQueryRepository.cs
 │   │   │   ├── TableStatisticsRepository.cs
 │   │   │   ├── PerformanceDiagnosticsRepository.cs
-│   │   │   └── HealthMonitoringRepository.cs
+│   │   │   ├── HealthMonitoringRepository.cs
+│   │   │   ├── AgentJobRepository.cs
+│   │   │   └── DatabaseInfoRepository.cs
 │   │   ├── Services/
 │   │   │   ├── ConnectionManager.cs
 │   │   │   ├── ExcelExportService.cs
 │   │   │   ├── MssqlBackupService.cs
-│   │   │   └── HealthMonitoringInstaller.cs
+│   │   │   ├── HealthMonitoringInstaller.cs
+│   │   │   └── MaintenancePlanSqlGenerator.cs
 │   │   └── Scripts/
 │   │       ├── HealthMonitoringInstall.sql
 │   │       ├── HealthMonitoringUninstall.sql
@@ -249,6 +282,8 @@ DatabaseDescriptionApp/
 │       │   ├── PerformanceDiagnosticsDocumentView.axaml
 │       │   ├── MissingIndexReportDocumentView.axaml
 │       │   ├── UnusedIndexReportDocumentView.axaml
+│       │   ├── MaintenancePlanDocumentView.axaml
+│       │   ├── ScheduleEditWindow.axaml
 │       │   └── AboutDocumentView.axaml
 │       ├── ViewModels/
 │       │   ├── MainWindowViewModel.cs
@@ -268,6 +303,8 @@ DatabaseDescriptionApp/
 │       │   ├── PerformanceDiagnosticsDocumentViewModel.cs
 │       │   ├── MissingIndexReportDocumentViewModel.cs
 │       │   ├── UnusedIndexReportDocumentViewModel.cs
+│       │   ├── MaintenancePlanDocumentViewModel.cs
+│       │   ├── ScheduleEditViewModel.cs
 │       │   └── AboutDocumentViewModel.cs
 │       ├── Converters/
 │       │   ├── ConsistencyLevelConverters.cs
@@ -432,8 +469,18 @@ dotnet publish src/TableSpec.Desktop -c Release -r linux-x64 --self-contained -p
 3. 可依資料庫、資料表篩選
 4. 點擊「建立索引」直接執行建立
 
-### 14. 未使用索引報表
+### 14. 資料庫維護計劃
+1. 按 Ctrl+Shift+D 或選單「工具 > 資料庫維護計劃」
+2. **管理面板**：檢視現有的 SQL Agent Job，選取 Job 可查看執行歷史和錯誤訊息
+3. **新增計劃**：點擊「新增計劃」開啟精靈
+   - 步驟 1：基本設定（資料庫自動帶入、選擇平台、設定路徑和帳號密碼、保留天數）
+   - 步驟 2：選擇執行項目（自動檢查每個步驟狀態，已完成的不勾選）
+   - 步驟 3：確認與執行（可預覽 SQL、檢視檢查結果、執行）
+4. **Job 操作**：啟用/停用、立即執行、修改排程、刪除
+
+### 15. 未使用索引報表
 1. 按 Ctrl+J 或選單「工具 > 未使用索引報表」
+
 2. 檢視未被使用但持續維護的索引
 3. 可直接刪除不需要的索引以節省資源
 

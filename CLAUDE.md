@@ -82,14 +82,14 @@ Domain → Application → Infrastructure
 
 ### Key Patterns
 
-- **Repositories** (Domain interfaces, Infrastructure implementations): `ITableRepository`, `IColumnRepository`, `IIndexRepository`, `IRelationRepository`, `IParameterRepository`
-- **Services** (Application layer): `ITableQueryService`, `IConnectionManager`, `IExportService`
+- **Repositories** (Domain interfaces, Infrastructure implementations): `ITableRepository`, `IColumnRepository`, `IIndexRepository`, `IRelationRepository`, `IParameterRepository`, `IAgentJobRepository`, `IDatabaseInfoRepository`
+- **Services** (Application layer): `ITableQueryService`, `IConnectionManager`, `IExportService`, `IMaintenancePlanService`, `IAgentJobService`
 - **ViewModels** use `CommunityToolkit.Mvvm` source generators (`[ObservableProperty]`, `[RelayCommand]`)
 - **Dependency Injection**: `Microsoft.Extensions.DependencyInjection`
 
 ### Database Objects Handled
 
-Tables, Views, Stored Procedures, Functions - each with columns, indexes, relations, parameters, and SQL definitions.
+Tables, Views, Stored Procedures, Functions - each with columns, indexes, relations, parameters, and SQL definitions. Also manages SQL Agent Jobs for maintenance plans (backup/restore schedules).
 
 ## Testing
 

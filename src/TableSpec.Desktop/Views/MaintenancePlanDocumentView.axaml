@@ -96,51 +96,59 @@
                 <StackPanel Spacing="16">
 
                     <!-- ===== 步驟 1：基本設定 ===== -->
-                    <StackPanel IsVisible="{Binding IsStep1Visible}" Spacing="12">
+                    <StackPanel IsVisible="{Binding IsStep1Visible}" Spacing="10">
                         <TextBlock Text="步驟 1：基本設定" FontSize="18" FontWeight="Bold"/>
 
-                        <StackPanel Spacing="4">
-                            <TextBlock Text="資料庫名稱"/>
-                            <TextBox Text="{Binding DatabaseName}" IsReadOnly="True"
-                                     Watermark="自動從目前連線取得"/>
-                        </StackPanel>
+                        <!-- 第一列：資料庫名稱 + 平台 -->
+                        <Grid ColumnDefinitions="*,16,Auto">
+                            <StackPanel Grid.Column="0" Spacing="4">
+                                <TextBlock Text="資料庫名稱"/>
+                                <TextBox Text="{Binding DatabaseName}" IsReadOnly="True"
+                                         Watermark="自動從目前連線取得"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2" Spacing="4">
+                                <TextBlock Text="平台"/>
+                                <ComboBox ItemsSource="{Binding PlatformOptions}"
+                                          SelectedItem="{Binding SelectedPlatform}"
+                                          Width="150"/>
+                            </StackPanel>
+                        </Grid>
 
-                        <StackPanel Spacing="4">
-                            <TextBlock Text="平台"/>
-                            <ComboBox ItemsSource="{Binding PlatformOptions}"
-                                      SelectedItem="{Binding SelectedPlatform}"
-                                      Width="150"/>
-                        </StackPanel>
+                        <!-- 第二列：備份路徑 + 還原路徑 -->
+                        <Grid ColumnDefinitions="*,16,*">
+                            <StackPanel Grid.Column="0" Spacing="4">
+                                <TextBlock Text="備份路徑"/>
+                                <TextBox Text="{Binding BackupPath}"
+                                         IsReadOnly="{Binding !IsPathCustom}"
+                                         Watermark="例如: D:\SQLBackup\"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2" Spacing="4">
+                                <TextBlock Text="還原路徑"/>
+                                <TextBox Text="{Binding RestorePath}"
+                                         IsReadOnly="{Binding !IsPathCustom}"
+                                         Watermark="例如: D:\sql_data\"/>
+                            </StackPanel>
+                        </Grid>
 
-                        <StackPanel Spacing="4">
-                            <TextBlock Text="備份路徑"/>
-                            <TextBox Text="{Binding BackupPath}"
-                                     IsReadOnly="{Binding !IsPathCustom}"
-                                     Watermark="例如: D:\SQLBackup\"/>
-                        </StackPanel>
-
-                        <StackPanel Spacing="4">
-                            <TextBlock Text="還原路徑"/>
-                            <TextBox Text="{Binding RestorePath}"
-                                     IsReadOnly="{Binding !IsPathCustom}"
-                                     Watermark="例如: D:\sql_data\"/>
-                        </StackPanel>
-
+                        <!-- 第三列：測試資料庫名稱 -->
                         <StackPanel Spacing="4">
                             <TextBlock Text="測試資料庫名稱"/>
                             <TextBox Text="{Binding TestDatabaseName}"/>
                         </StackPanel>
 
-                        <StackPanel Spacing="4">
-                            <TextBlock Text="登入帳號"/>
-                            <TextBox Text="{Binding LoginName}"/>
-                        </StackPanel>
+                        <!-- 第四列：登入帳號 + 登入密碼 -->
+                        <Grid ColumnDefinitions="*,16,*">
+                            <StackPanel Grid.Column="0" Spacing="4">
+                                <TextBlock Text="登入帳號"/>
+                                <TextBox Text="{Binding LoginName}"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2" Spacing="4">
+                                <TextBlock Text="登入密碼"/>
+                                <TextBox Text="{Binding LoginPassword}" PasswordChar="*"/>
+                            </StackPanel>
+                        </Grid>
 
-                        <StackPanel Spacing="4">
-                            <TextBlock Text="登入密碼"/>
-                            <TextBox Text="{Binding LoginPassword}" PasswordChar="*"/>
-                        </StackPanel>
-
+                        <!-- 第五列：備份時間 + 還原時間 -->
                         <Grid ColumnDefinitions="*,16,*">
                             <StackPanel Grid.Column="0" Spacing="4">
                                 <TextBlock Text="備份時間"/>

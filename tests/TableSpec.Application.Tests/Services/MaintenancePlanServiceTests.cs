@@ -199,12 +199,27 @@ public class MaintenancePlanServiceTests
     }
 
     [Fact]
-    public async Task CheckStepsAsync_重新命名邏輯檔名_已有前綴_應標記AlreadyExists()
+    public async Task CheckStepsAsync_重新命名邏輯檔名_有shltw前綴_應標記需要重命名()
     {
         // Arrange
         var config = CreateConfig([MaintenancePlanStep.RenameLogicalFiles]);
         _dbInfoRepo.GetLogicalFileNamesAsync("TestDB", Arg.Any<CancellationToken>())
-            .Returns(new List<(string, string)> { ("shltw_TestDB", @"C:\Data\test.mdf") });
+            .Returns(new List<(string, string)> { ("shltw_Data", @"C:\Data\test.mdf") });
+
+        // Act
+        var results = await _sut.CheckStepsAsync(config);
+
+        // Assert
+        results[0].AlreadyExists.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task CheckStepsAsync_重新命名邏輯檔名_無shltw前綴_應標記已完成()
+    {
+        // Arrange
+        var config = CreateConfig([MaintenancePlanStep.RenameLogicalFiles]);
+        _dbInfoRepo.GetLogicalFileNamesAsync("TestDB", Arg.Any<CancellationToken>())
+            .Returns(new List<(string, string)> { ("TestDB", @"C:\Data\test.mdf"), ("TestDB_log", @"C:\Data\test.ldf") });
 
         // Act
         var results = await _sut.CheckStepsAsync(config);

@@ -134,13 +134,16 @@ public class MaintenancePlanService : IMaintenancePlanService
     private async Task<StepCheckResult> CheckLogicalFilesAsync(MaintenancePlanConfig config, CancellationToken ct)
     {
         var files = await _dbInfoRepo.GetLogicalFileNamesAsync(config.DatabaseName, ct);
-        var allRenamed = files.Count > 0 && files.All(f => f.LogicalName.StartsWith("shltw_"));
+        var hasOldNames = files.Any(f => f.LogicalName.StartsWith("shltw_", StringComparison.OrdinalIgnoreCase));
+        var alreadyRenamed = files.Count > 0 && !hasOldNames;
         return new StepCheckResult
         {
             Step = MaintenancePlanStep.RenameLogicalFiles,
-            AlreadyExists = allRenamed,
-            CurrentStatus = allRenamed ? "邏輯檔名已包含 shltw_ 前綴" : $"目前有 {files.Count} 個邏輯檔案待重新命名",
-            AvailableActions = allRenamed ? ["跳過"] : ["執行", "跳過"]
+            AlreadyExists = alreadyRenamed,
+            CurrentStatus = alreadyRenamed
+                ? $"邏輯檔名已正確（{string.Join(", ", files.Select(f => f.LogicalName))}）"
+                : "發現 shltw_ 開頭的邏輯檔名需重新命名",
+            AvailableActions = alreadyRenamed ? ["跳過"] : ["執行", "跳過"]
         };
     }
 

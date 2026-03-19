@@ -114,6 +114,10 @@ public partial class MaintenancePlanDocumentViewModel : DocumentViewModel
     [ObservableProperty]
     private TimeSpan _restoreTime = new(3, 0, 0);
 
+    /// <summary>備份保留天數</summary>
+    [ObservableProperty]
+    private int _retentionDays = 7;
+
     #endregion
 
     #region 精靈 - 步驟2 選擇步驟
@@ -484,7 +488,8 @@ public partial class MaintenancePlanDocumentViewModel : DocumentViewModel
                         break;
                     case MaintenancePlanStep.CreateRestoreJob:
                         RestoreJobStatus = r.CurrentStatus;
-                        IsCreateRestoreJobSelected = !r.AlreadyExists;
+                        // 還原排程預設不勾選，除非已存在需要重建
+                        IsCreateRestoreJobSelected = false;
                         break;
                 }
             }
@@ -576,6 +581,7 @@ public partial class MaintenancePlanDocumentViewModel : DocumentViewModel
             LoginPassword = LoginPassword,
             BackupTime = (int)BackupTime.TotalHours,
             RestoreTime = (int)RestoreTime.TotalHours,
+            RetentionDays = RetentionDays,
             SelectedSteps = GetSelectedSteps()
         };
     }

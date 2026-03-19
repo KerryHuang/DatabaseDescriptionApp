@@ -160,21 +160,49 @@
 
                     <!-- ===== 步驟 2：選擇步驟 ===== -->
                     <StackPanel IsVisible="{Binding IsStep2Visible}" Spacing="12">
-                        <TextBlock Text="步驟 2：選擇執行項目" FontSize="18" FontWeight="Bold"/>
+                        <StackPanel Orientation="Horizontal" Spacing="12">
+                            <TextBlock Text="步驟 2：選擇執行項目" FontSize="18" FontWeight="Bold"/>
+                            <ProgressBar IsIndeterminate="True" Width="80" IsVisible="{Binding IsCheckingSteps}"/>
+                            <TextBlock Text="{Binding Step2CheckStatus}" VerticalAlignment="Center" Opacity="0.7"/>
+                        </StackPanel>
 
-                        <StackPanel Spacing="8">
-                            <CheckBox IsChecked="{Binding IsSetRecoveryModelSelected}"
-                                      Content="設定 Recovery Model 為 SIMPLE"/>
-                            <CheckBox IsChecked="{Binding IsRenameLogicalFilesSelected}"
-                                      Content="重新命名邏輯檔名"/>
-                            <CheckBox IsChecked="{Binding IsCreateLoginAndUserSelected}"
-                                      Content="建立登入帳號與使用者"/>
-                            <CheckBox IsChecked="{Binding IsAddToDbOwnerSelected}"
-                                      Content="將使用者加入 db_owner"/>
-                            <CheckBox IsChecked="{Binding IsCreateBackupJobSelected}"
-                                      Content="建立每日全備份排程"/>
-                            <CheckBox IsChecked="{Binding IsCreateRestoreJobSelected}"
-                                      Content="建立每日還原排程（選填）"/>
+                        <StackPanel Spacing="6">
+                            <Grid ColumnDefinitions="*,*">
+                                <CheckBox Grid.Column="0" IsChecked="{Binding IsSetRecoveryModelSelected}"
+                                          Content="設定 Recovery Model 為 SIMPLE"/>
+                                <TextBlock Grid.Column="1" Text="{Binding RecoveryModelStatus}"
+                                           VerticalAlignment="Center" Opacity="0.6" FontSize="12"/>
+                            </Grid>
+                            <Grid ColumnDefinitions="*,*">
+                                <CheckBox Grid.Column="0" IsChecked="{Binding IsRenameLogicalFilesSelected}"
+                                          Content="重新命名邏輯檔名"/>
+                                <TextBlock Grid.Column="1" Text="{Binding LogicalFilesStatus}"
+                                           VerticalAlignment="Center" Opacity="0.6" FontSize="12"/>
+                            </Grid>
+                            <Grid ColumnDefinitions="*,*">
+                                <CheckBox Grid.Column="0" IsChecked="{Binding IsCreateLoginAndUserSelected}"
+                                          Content="建立登入帳號與使用者"/>
+                                <TextBlock Grid.Column="1" Text="{Binding LoginAndUserStatus}"
+                                           VerticalAlignment="Center" Opacity="0.6" FontSize="12"/>
+                            </Grid>
+                            <Grid ColumnDefinitions="*,*">
+                                <CheckBox Grid.Column="0" IsChecked="{Binding IsAddToDbOwnerSelected}"
+                                          Content="將使用者加入 db_owner"/>
+                                <TextBlock Grid.Column="1" Text="{Binding DbOwnerStatus}"
+                                           VerticalAlignment="Center" Opacity="0.6" FontSize="12"/>
+                            </Grid>
+                            <Grid ColumnDefinitions="*,*">
+                                <CheckBox Grid.Column="0" IsChecked="{Binding IsCreateBackupJobSelected}"
+                                          Content="建立每日全備份排程"/>
+                                <TextBlock Grid.Column="1" Text="{Binding BackupJobStatus}"
+                                           VerticalAlignment="Center" Opacity="0.6" FontSize="12"/>
+                            </Grid>
+                            <Grid ColumnDefinitions="*,*">
+                                <CheckBox Grid.Column="0" IsChecked="{Binding IsCreateRestoreJobSelected}"
+                                          Content="建立每日還原排程（選填）"/>
+                                <TextBlock Grid.Column="1" Text="{Binding RestoreJobStatus}"
+                                           VerticalAlignment="Center" Opacity="0.6" FontSize="12"/>
+                            </Grid>
                         </StackPanel>
                     </StackPanel>
 

@@ -20,7 +20,12 @@
     <!-- 快速鍵綁定 -->
     <Window.KeyBindings>
         <KeyBinding Gesture="Ctrl+L" Command="{Binding OpenConnectionSettingsCommand}"/>
+        <KeyBinding Gesture="Ctrl+D" Command="{Binding ToggleThemeCommand}"/>
+        <KeyBinding Gesture="Ctrl+Shift+E" Command="{Binding ExportConnectionsCommand}"/>
+        <KeyBinding Gesture="Ctrl+Shift+I" Command="{Binding ImportConnectionsCommand}"/>
+        <KeyBinding Gesture="Ctrl+E" Command="{Binding ExportToExcelCommand}"/>
         <KeyBinding Gesture="Ctrl+W" Command="{Binding CloseCurrentDocumentCommand}"/>
+        <KeyBinding Gesture="Ctrl+Shift+W" Command="{Binding CloseAllDocumentsCommand}"/>
         <KeyBinding Gesture="Ctrl+Q" Command="{Binding OpenSqlQueryCommand}"/>
         <KeyBinding Gesture="Ctrl+F" Command="{Binding OpenColumnSearchCommand}"/>
         <KeyBinding Gesture="Ctrl+B" Command="{Binding ToggleSidebarCommand}"/>
@@ -30,7 +35,9 @@
         <KeyBinding Gesture="Ctrl+P" Command="{Binding OpenPerformanceDiagnosticsCommand}"/>
         <KeyBinding Gesture="Ctrl+U" Command="{Binding OpenColumnUsageCommand}"/>
         <KeyBinding Gesture="Ctrl+T" Command="{Binding OpenTableStatisticsCommand}"/>
+        <KeyBinding Gesture="Ctrl+I" Command="{Binding OpenMissingIndexReportCommand}"/>
         <KeyBinding Gesture="Ctrl+J" Command="{Binding OpenUnusedIndexReportCommand}"/>
+        <KeyBinding Gesture="Ctrl+Shift+D" Command="{Binding OpenMaintenancePlanCommand}"/>
     </Window.KeyBindings>
 
     <DockPanel>
@@ -44,20 +51,20 @@
                             <TextBlock Text="🔌" FontSize="14"/>
                         </MenuItem.Icon>
                     </MenuItem>
-                    <MenuItem Header="匯出連線設定(_X)" Command="{Binding ExportConnectionsCommand}"
+                    <MenuItem Header="匯出連線設定(_X)" Command="{Binding ExportConnectionsCommand}" InputGesture="Ctrl+Shift+E"
                               ToolTip.Tip="將連線設定匯出為 JSON 或加密檔案">
                         <MenuItem.Icon>
                             <TextBlock Text="📁" FontSize="14"/>
                         </MenuItem.Icon>
                     </MenuItem>
-                    <MenuItem Header="匯入連線設定(_I)" Command="{Binding ImportConnectionsCommand}"
+                    <MenuItem Header="匯入連線設定(_I)" Command="{Binding ImportConnectionsCommand}" InputGesture="Ctrl+Shift+I"
                               ToolTip.Tip="從 JSON 或加密檔案匯入連線設定">
                         <MenuItem.Icon>
                             <TextBlock Text="📂" FontSize="14"/>
                         </MenuItem.Icon>
                     </MenuItem>
                     <Separator/>
-                    <MenuItem Header="匯出 Excel(_E)" Command="{Binding ExportToExcelCommand}" IsEnabled="{Binding IsConnected}"
+                    <MenuItem Header="匯出 Excel(_E)" Command="{Binding ExportToExcelCommand}" InputGesture="Ctrl+E" IsEnabled="{Binding IsConnected}"
                               ToolTip.Tip="將目前資料庫的所有物件規格匯出為 Excel 檔案">
                         <MenuItem.Icon>
                             <TextBlock Text="📤" FontSize="14"/>
@@ -79,7 +86,7 @@
                         </MenuItem.Icon>
                     </MenuItem>
                     <Separator/>
-                    <MenuItem Header="深色模式(_D)" Command="{Binding ToggleThemeCommand}"
+                    <MenuItem Header="深色模式(_D)" Command="{Binding ToggleThemeCommand}" InputGesture="Ctrl+D"
                               ToolTip.Tip="切換深色/淺色主題">
                         <MenuItem.Icon>
                             <CheckBox IsChecked="{Binding IsDarkMode}" BorderThickness="0" IsHitTestVisible="False"/>
@@ -92,7 +99,7 @@
                             <TextBlock Text="✕" FontSize="14"/>
                         </MenuItem.Icon>
                     </MenuItem>
-                    <MenuItem Header="關閉所有分頁(_A)" Command="{Binding CloseAllDocumentsCommand}"
+                    <MenuItem Header="關閉所有分頁(_A)" Command="{Binding CloseAllDocumentsCommand}" InputGesture="Ctrl+Shift+W"
                               ToolTip.Tip="關閉所有已開啟的分頁">
                         <MenuItem.Icon>
                             <TextBlock Text="✕✕" FontSize="12"/>
@@ -162,6 +169,12 @@
                         </MenuItem.Icon>
                     </MenuItem>
                     <Separator/>
+                    <MenuItem Header="資料庫維護計劃(_N)" Command="{Binding OpenMaintenancePlanCommand}" InputGesture="Ctrl+Shift+D" IsEnabled="{Binding IsConnected}"
+                              ToolTip.Tip="管理資料庫自動備份與還原排程">
+                        <MenuItem.Icon>
+                            <TextBlock Text="&#x1F527;" FontSize="14"/>
+                        </MenuItem.Icon>
+                    </MenuItem>
                     <MenuItem Header="使用狀態分析(_A)" Command="{Binding OpenUsageAnalysisCommand}" IsEnabled="{Binding IsConnected}"
                               ToolTip.Tip="分析資料表與欄位的使用狀態，支援多環境比對，可刪除未使用項目">
                         <MenuItem.Icon>
@@ -351,6 +364,9 @@
                                         </DataTemplate>
                                         <DataTemplate DataType="{x:Type vm:BackupRestoreDocumentViewModel}">
                                             <views:BackupRestoreDocumentView/>
+                                        </DataTemplate>
+                                        <DataTemplate DataType="{x:Type vm:MaintenancePlanDocumentViewModel}">
+                                            <views:MaintenancePlanDocumentView/>
                                         </DataTemplate>
                                         <DataTemplate DataType="{x:Type vm:SchemaCompareDocumentViewModel}">
                                             <views:SchemaCompareDocumentView/>

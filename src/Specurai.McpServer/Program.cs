@@ -78,4 +78,22 @@ builder.Services.AddSingleton<IColumnSearchService>(sp =>
         sp.GetRequiredService<IConnectionManager>(),
         connStr => new SqlQueryRepository(() => connStr)));
 
+// Infrastructure - Agent Job
+builder.Services.AddSingleton<IAgentJobRepository>(sp =>
+    new AgentJobRepository(() => sp.GetRequiredService<IConnectionManager>().GetCurrentConnectionString()));
+builder.Services.AddSingleton<IAgentJobService, AgentJobService>();
+
+// Infrastructure - 維護計劃
+builder.Services.AddSingleton<IDatabaseInfoRepository>(sp =>
+    new DatabaseInfoRepository(() => sp.GetRequiredService<IConnectionManager>().GetCurrentConnectionString()));
+builder.Services.AddSingleton<IMaintenancePlanSqlGenerator, MaintenancePlanSqlGenerator>();
+builder.Services.AddSingleton<IMaintenancePlanService, MaintenancePlanService>();
+
+// Infrastructure - 匯出
+builder.Services.AddSingleton<IExportService>(sp =>
+    new ExcelExportService(sp.GetRequiredService<ITableQueryService>()));
+
+// Infrastructure - 連線匯出匯入
+builder.Services.AddSingleton<IConnectionExportService, ConnectionExportService>();
+
 await builder.Build().RunAsync();

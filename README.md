@@ -500,19 +500,42 @@ MCP Server 與桌面應用程式處於相同的架構層級，共用 Domain、Ap
 
 ### 安裝 MCP Server
 
+> **完整安裝指引：** 請參閱 [docs/INSTALL.md](docs/INSTALL.md)，包含從零開始的完整安裝步驟。AI 助手可直接讀取該文件引導使用者完成安裝。
+
 支援 Claude Code、Claude Desktop、Cursor、Windsurf 等所有 MCP 客戶端。
 
 #### 方式一：dotnet tool 安裝（推薦）
 
-只需 [.NET 8.0 Runtime](https://dotnet.microsoft.com/download/dotnet/8.0)，一行指令即可安裝：
+**前置需求：** 安裝 [.NET 8.0 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
+
+| 平台 | 安裝方式 |
+|------|----------|
+| Windows | 從官網下載安裝程式，或執行 `winget install Microsoft.DotNet.SDK.8` |
+| macOS | 執行 `brew install dotnet@8`，或從官網下載安裝 |
+| Linux (Ubuntu/Debian) | 執行 `sudo apt install dotnet-sdk-8.0` |
+| Linux (Fedora) | 執行 `sudo dnf install dotnet-sdk-8.0` |
+
+**安裝 MCP Server：**
 
 ```bash
 dotnet tool install -g Specurai.McpServer
 ```
 
-安裝完成後，`specurai-mcp` 指令會自動加入系統 PATH。
+> **macOS / Linux 注意：** 若出現 PATH 警告，需將 dotnet tools 加入 PATH：
+>
+> ```bash
+> # macOS (zsh)
+> echo 'export PATH="$PATH:$HOME/.dotnet/tools"' >> ~/.zprofile
+> source ~/.zprofile
+>
+> # Linux (bash)
+> echo 'export PATH="$PATH:$HOME/.dotnet/tools"' >> ~/.bashrc
+> source ~/.bashrc
+> ```
 
-更新版本：
+安裝完成後，`specurai-mcp` 指令即可在終端機中使用。
+
+**更新版本：**
 
 ```bash
 dotnet tool update -g Specurai.McpServer

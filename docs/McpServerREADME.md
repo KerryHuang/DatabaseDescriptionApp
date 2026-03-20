@@ -4,11 +4,29 @@
 
 支援 Claude Code、Claude Desktop、Cursor、Windsurf 等所有 MCP 客戶端。
 
+## 前置需求
+
+安裝 [.NET 8.0 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)：
+
+- **Windows：** `winget install Microsoft.DotNet.SDK.8` 或從官網下載
+- **macOS：** `brew install dotnet@8` 或從官網下載
+- **Linux (Ubuntu/Debian)：** `sudo apt install dotnet-sdk-8.0`
+
 ## 安裝
 
 ```bash
 dotnet tool install -g Specurai.McpServer
 ```
+
+> **macOS / Linux：** 若出現 PATH 警告，需將 dotnet tools 加入 PATH：
+>
+> ```bash
+> # macOS (zsh)
+> echo 'export PATH="$PATH:$HOME/.dotnet/tools"' >> ~/.zprofile && source ~/.zprofile
+>
+> # Linux (bash)
+> echo 'export PATH="$PATH:$HOME/.dotnet/tools"' >> ~/.bashrc && source ~/.bashrc
+> ```
 
 ## 設定
 

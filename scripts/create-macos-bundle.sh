@@ -62,6 +62,43 @@ fi
 # 設定執行權限
 chmod +x "${BUNDLE_DIR}/Contents/MacOS/Specurai.Desktop"
 
+# 程式碼簽署
+# 若有 Developer ID 憑證，設定環境變數 CODESIGN_IDENTITY="Developer ID Application: Your Name (TEAMID)"
+# 若無，使用 ad-hoc 簽署（使用者需右鍵 > 打開）
+CODESIGN_IDENTITY="${CODESIGN_IDENTITY:--}"
+
+echo "=== 程式碼簽署 ==="
+if [ "${CODESIGN_IDENTITY}" = "-" ]; then
+    echo "使用 ad-hoc 簽署（未設定 CODESIGN_IDENTITY）"
+else
+    echo "使用憑證簽署: ${CODESIGN_IDENTITY}"
+fi
+
+# 先簽署所有 dylib，再簽署主執行檔，最後簽署整個 .app
+find "${BUNDLE_DIR}/Contents/MacOS" -name "*.dylib" -exec \
+    codesign --force --sign "${CODESIGN_IDENTITY}" --timestamp {} \; 2>/dev/null || true
+codesign --force --sign "${CODESIGN_IDENTITY}" --timestamp "${BUNDLE_DIR}/Contents/MacOS/Specurai.Desktop" 2>/dev/null || true
+codesign --force --sign "${CODESIGN_IDENTITY}" --timestamp "${BUNDLE_DIR}" 2>/dev/null || true
+
+echo "簽署完成"
+
+# 若有 Developer ID 且設定了 APPLE_ID，進行公證
+if [ "${CODESIGN_IDENTITY}" != "-" ] && [ -n "${APPLE_ID:-}" ] && [ -n "${APPLE_TEAM_ID:-}" ]; then
+    echo "=== 提交 Apple 公證 ==="
+    # 先建立 zip 供公證使用
+    NOTARIZE_ZIP=$(mktemp -d)/Specurai.zip
+    ditto -c -k --keepParent "${BUNDLE_DIR}" "${NOTARIZE_ZIP}"
+    xcrun notarytool submit "${NOTARIZE_ZIP}" \
+        --apple-id "${APPLE_ID}" \
+        --team-id "${APPLE_TEAM_ID}" \
+        --password "${APPLE_APP_PASSWORD}" \
+        --wait
+    # 裝訂公證票據
+    xcrun stapler staple "${BUNDLE_DIR}"
+    rm -rf "$(dirname "${NOTARIZE_ZIP}")"
+    echo "公證完成"
+fi
+
 echo "已建立 ${BUNDLE_DIR}"
 
 # 建立 .dmg

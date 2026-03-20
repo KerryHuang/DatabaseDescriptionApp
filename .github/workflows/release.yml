@@ -83,13 +83,11 @@ jobs:
       - name: 發布應用程式
         run: dotnet publish src/Specurai.Desktop -c Release -r ${{ matrix.runtime }} --self-contained -o publish
 
-      - name: 建立 macOS 壓縮包
+      - name: 建立 macOS .app bundle 和 .dmg
         run: |
           mkdir -p Releases
-          cd publish
-          zip -r ../Releases/Specurai-${{ steps.get-version.outputs.version }}-${{ matrix.runtime }}.zip .
-          cd ..
-          ls -la Releases/
+          chmod +x scripts/create-macos-bundle.sh
+          ./scripts/create-macos-bundle.sh "${{ steps.get-version.outputs.version }}" "${{ matrix.runtime }}" publish Releases
 
       - name: 上傳安裝包
         uses: actions/upload-artifact@v4

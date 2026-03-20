@@ -40,12 +40,24 @@ dotnet publish src/Specurai.Desktop -c Release -r {rid} --self-contained -p:Publ
 | `linux`, `linux-x64` | linux-x64 |
 | `linux-arm64` | linux-arm64 |
 
+### 3. macOS 額外打包
+
+如果目標平台為 macOS（`osx-*`），在 dotnet publish 完成後額外執行：
+
+```bash
+./scripts/create-macos-bundle.sh {version} {rid} src/Specurai.Desktop/bin/Release/net8.0/{rid}/publish Releases
+```
+
+其中 `{version}` 從 `src/Specurai.Desktop/Specurai.Desktop.csproj` 的 `<Version>` 取得。
+
+這會產生：
+- `.app` bundle（macOS 原生應用程式格式）
+- `.dmg` 安裝映像檔（使用者可直接點兩下安裝）
+
 ## 輸出位置
 
-發布的執行檔位於：
-```
-src/Specurai.Desktop/bin/Release/net8.0/{rid}/publish/
-```
+- **Windows / Linux**：`src/Specurai.Desktop/bin/Release/net8.0/{rid}/publish/`
+- **macOS**：`Releases/Specurai-{version}-{rid}.dmg`
 
 ## 範例
 

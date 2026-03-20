@@ -498,55 +498,107 @@ Domain → Application → Infrastructure
 
 MCP Server 與桌面應用程式處於相同的架構層級，共用 Domain、Application、Infrastructure 三層的服務。
 
-### 建置 MCP Server
+### 安裝 MCP Server
+
+支援 Claude Code、Claude Desktop、Cursor、Windsurf 等所有 MCP 客戶端。
+
+#### 方式一：dotnet tool 安裝（推薦）
+
+只需 [.NET 8.0 Runtime](https://dotnet.microsoft.com/download/dotnet/8.0)，一行指令即可安裝：
 
 ```bash
-dotnet publish src/Specurai.McpServer -c Release -o publish/McpServer
+dotnet tool install -g Specurai.McpServer
 ```
 
-### 設定 MCP Server
+安裝完成後，`specurai-mcp` 指令會自動加入系統 PATH。
 
-#### Claude Code（專案層級）
+更新版本：
 
 ```bash
-claude mcp add tablespec -s project -- /path/to/publish/McpServer/Specurai.McpServer.exe
+dotnet tool update -g Specurai.McpServer
 ```
 
-或手動建立 `.mcp.json`：
+#### 方式二：下載獨立執行檔
+
+不需安裝 .NET，從 [GitHub Releases](https://github.com/KerryHuang/DatabaseDescriptionApp/releases) 下載對應平台的檔案：
+
+| 平台 | 檔案 |
+|------|------|
+| Windows x64 | `Specurai.McpServer-win-x64.zip` |
+| macOS Apple Silicon | `Specurai.McpServer-osx-arm64.tar.gz` |
+| macOS Intel | `Specurai.McpServer-osx-x64.tar.gz` |
+| Linux x64 | `Specurai.McpServer-linux-x64.tar.gz` |
+
+解壓後記下執行檔的完整路徑，下一步設定時會用到。
+
+#### 設定 MCP 客戶端
+
+##### Claude Code
+
+```bash
+# dotnet tool 安裝
+claude mcp add specurai -s user -- specurai-mcp
+
+# 獨立執行檔（請替換為實際路徑）
+# Windows:  claude mcp add specurai -s user -- C:\路徑\Specurai.McpServer.exe
+# macOS:    claude mcp add specurai -s user -- /路徑/Specurai.McpServer
+```
+
+##### Claude Desktop / Cursor / Windsurf
+
+開啟對應的設定檔，加入以下內容：
+
+| 客戶端 | Windows | macOS |
+|--------|---------|-------|
+| Claude Desktop | `%APPDATA%\Claude\claude_desktop_config.json` | `~/Library/Application Support/Claude/claude_desktop_config.json` |
+| Cursor | `%APPDATA%\Cursor\mcp.json` | `~/Library/Application Support/Cursor/mcp.json` |
+| Windsurf | `%APPDATA%\Windsurf\mcp_config.json` | `~/Library/Application Support/Windsurf/mcp_config.json` |
+
+**dotnet tool 安裝：**
 
 ```json
 {
   "mcpServers": {
-    "tablespec": {
-      "type": "stdio",
-      "command": "/path/to/publish/McpServer/Specurai.McpServer.exe",
-      "args": []
+    "specurai": {
+      "command": "specurai-mcp"
     }
   }
 }
 ```
 
-#### Claude Desktop
-
-在 `claude_desktop_config.json` 中加入：
+**獨立執行檔（請替換為實際路徑）：**
 
 ```json
 {
   "mcpServers": {
-    "tablespec": {
-      "command": "/path/to/publish/McpServer/Specurai.McpServer.exe"
+    "specurai": {
+      "command": "/完整路徑/Specurai.McpServer"
     }
   }
 }
 ```
+
+> **注意：** Windows 路徑使用 `\\` 或 `/`，且執行檔名為 `Specurai.McpServer.exe`。
+
+#### 驗證安裝
+
+在 AI 客戶端中輸入：
+
+```
+列出所有連線設定
+```
+
+若顯示連線清單，即表示安裝成功。
 
 ### 連線設定
 
 MCP Server 與桌面應用程式共用連線設定，不需要額外設定：
 
-- **Windows:** `%APPDATA%\Specurai\connections.json`
-- **macOS:** `~/.config/Specurai/connections.json`
-- **Linux:** `~/.config/Specurai/connections.json`
+| 平台 | 設定檔位置 |
+|------|-----------|
+| Windows | `%APPDATA%\Specurai\connections.json` |
+| macOS | `~/.config/Specurai/connections.json` |
+| Linux | `~/.config/Specurai/connections.json` |
 
 在桌面應用程式中新增的連線設定，MCP Server 可直接使用。
 

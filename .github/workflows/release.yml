@@ -139,9 +139,107 @@ jobs:
           path: Releases/*
           retention-days: 30
 
+  build-mcp-server:
+    name: 建置 MCP Server
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - runtime: win-x64
+            artifact: Specurai.McpServer-win-x64.zip
+          - runtime: osx-arm64
+            artifact: Specurai.McpServer-osx-arm64.tar.gz
+          - runtime: osx-x64
+            artifact: Specurai.McpServer-osx-x64.tar.gz
+          - runtime: linux-x64
+            artifact: Specurai.McpServer-linux-x64.tar.gz
+    steps:
+      - name: 檢出程式碼
+        uses: actions/checkout@v4
+
+      - name: 設定 .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: 取得版本號
+        id: get-version
+        shell: bash
+        run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: 發布 MCP Server
+        run: >
+          dotnet publish src/Specurai.McpServer -c Release
+          -r ${{ matrix.runtime }} --self-contained
+          -p:PublishSingleFile=true
+          -p:Version=${{ steps.get-version.outputs.version }}
+          -o mcp-publish
+
+      - name: 打包（Windows）
+        if: contains(matrix.runtime, 'win')
+        run: |
+          cd mcp-publish
+          zip -r ../Releases/${{ matrix.artifact }} .
+          cd ..
+        shell: bash
+
+      - name: 打包（macOS / Linux）
+        if: "!contains(matrix.runtime, 'win')"
+        run: |
+          mkdir -p Releases
+          cd mcp-publish
+          chmod +x Specurai.McpServer
+          tar czf ../Releases/${{ matrix.artifact }} .
+          cd ..
+
+      - name: 上傳安裝包
+        uses: actions/upload-artifact@v4
+        with:
+          name: mcp-server-${{ matrix.runtime }}
+          path: Releases/*
+          retention-days: 30
+
+  publish-nuget:
+    name: 發布 NuGet 套件
+    runs-on: ubuntu-latest
+    steps:
+      - name: 檢出程式碼
+        uses: actions/checkout@v4
+
+      - name: 設定 .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: 取得版本號
+        id: get-version
+        shell: bash
+        run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: 建立 NuGet 套件
+        run: >
+          dotnet pack src/Specurai.McpServer -c Release
+          -p:Version=${{ steps.get-version.outputs.version }}
+          -o nupkg
+
+      - name: 發布至 NuGet
+        run: >
+          dotnet nuget push nupkg/*.nupkg
+          --api-key ${{ secrets.NUGET_API_KEY }}
+          --source https://api.nuget.org/v3/index.json
+          --skip-duplicate
+        if: ${{ secrets.NUGET_API_KEY != '' }}
+
+      - name: 上傳 NuGet 套件
+        uses: actions/upload-artifact@v4
+        with:
+          name: nuget-package
+          path: nupkg/*.nupkg
+          retention-days: 30
+
   create-release:
     name: 建立 GitHub Release
-    needs: [build-windows, build-macos, build-linux]
+    needs: [build-windows, build-macos, build-linux, build-mcp-server]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -159,6 +257,10 @@ jobs:
           cp artifacts/macos-installer-arm64/* release-files/ 2>/dev/null || true
           cp artifacts/macos-installer-x64/* release-files/ 2>/dev/null || true
           cp artifacts/linux-installer/* release-files/ 2>/dev/null || true
+          cp artifacts/mcp-server-win-x64/* release-files/ 2>/dev/null || true
+          cp artifacts/mcp-server-osx-arm64/* release-files/ 2>/dev/null || true
+          cp artifacts/mcp-server-osx-x64/* release-files/ 2>/dev/null || true
+          cp artifacts/mcp-server-linux-x64/* release-files/ 2>/dev/null || true
           ls -la release-files/
 
       - name: 建立 Release
@@ -170,7 +272,29 @@ jobs:
           prerelease: ${{ contains(github.ref, '-') }}
           append_body: true
           body: |
-            ## macOS 安裝說明
+            ## MCP Server 安裝
+
+            ### 方式一：dotnet tool（推薦）
+
+            ```bash
+            dotnet tool install -g Specurai.McpServer
+            ```
+
+            安裝後設定 AI 客戶端：
+
+            ```bash
+            # Claude Code
+            claude mcp add specurai -s user -- specurai-mcp
+
+            # 其他客戶端（Claude Desktop、Cursor、Windsurf）
+            # 在設定檔加入：{"mcpServers":{"specurai":{"command":"specurai-mcp"}}}
+            ```
+
+            ### 方式二：下載獨立執行檔
+
+            下載對應平台的 `Specurai.McpServer-*` 檔案，解壓後設定 AI 客戶端指向執行檔路徑。
+
+            ## macOS 桌面應用程式安裝說明
 
             macOS 版本目前未經 Apple 公證，首次開啟時可能會出現安全性警告。
 

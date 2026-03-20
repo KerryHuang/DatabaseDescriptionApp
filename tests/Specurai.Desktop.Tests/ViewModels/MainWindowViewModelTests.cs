@@ -3,6 +3,7 @@ using NSubstitute;
 using Specurai.Application.Services;
 using Specurai.Desktop.ViewModels;
 using Specurai.Domain.Entities;
+using Specurai.Desktop.Services;
 using Specurai.Domain.Interfaces;
 
 namespace Specurai.Desktop.Tests.ViewModels;
@@ -247,6 +248,9 @@ public class MainWindowViewModelTests
     [Fact]
     public void 初始狀態_IsSidebarOpen應為True()
     {
+        // Arrange - 確保初始狀態一致
+        UserPreferences.IsSidebarOpen = true;
+
         // Act
         var vm = new MainWindowViewModel();
 
@@ -257,7 +261,8 @@ public class MainWindowViewModelTests
     [Fact]
     public void ToggleSidebarCommand_執行後_應切換為False()
     {
-        // Arrange
+        // Arrange - 確保初始狀態一致
+        UserPreferences.IsSidebarOpen = true;
         var vm = new MainWindowViewModel();
 
         // Act
@@ -270,7 +275,8 @@ public class MainWindowViewModelTests
     [Fact]
     public void ToggleSidebarCommand_執行兩次_應回到True()
     {
-        // Arrange
+        // Arrange - 確保初始狀態一致
+        UserPreferences.IsSidebarOpen = true;
         var vm = new MainWindowViewModel();
 
         // Act

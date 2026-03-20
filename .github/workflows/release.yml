@@ -84,6 +84,11 @@ jobs:
         run: dotnet publish src/Specurai.Desktop -c Release -r ${{ matrix.runtime }} --self-contained -o publish
 
       - name: 建立 macOS .app bundle 和 .dmg
+        env:
+          CODESIGN_IDENTITY: ${{ secrets.MACOS_CODESIGN_IDENTITY || '-' }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
         run: |
           mkdir -p Releases
           chmod +x scripts/create-macos-bundle.sh
@@ -163,3 +168,17 @@ jobs:
           generate_release_notes: true
           draft: false
           prerelease: ${{ contains(github.ref, '-') }}
+          append_body: true
+          body: |
+            ## macOS 安裝說明
+
+            macOS 版本目前未經 Apple 公證，首次開啟時可能會出現安全性警告。
+
+            **安裝步驟：**
+            1. 下載對應的 `.dmg` 檔案
+            2. 點兩下開啟 `.dmg`，將 Specurai 拖曳到 Applications
+            3. 首次開啟前，在終端機執行：
+               ```
+               xattr -cr /Applications/Specurai.app
+               ```
+            4. 之後即可正常從 Launchpad 或 Applications 開啟

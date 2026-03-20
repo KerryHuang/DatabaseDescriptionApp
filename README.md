@@ -625,7 +625,7 @@ MCP Server 與桌面應用程式共用連線設定，不需要額外設定：
 
 在桌面應用程式中新增的連線設定，MCP Server 可直接使用。
 
-### 可用工具一覽（27 個）
+### 可用工具一覽（50 個）
 
 #### 連線管理
 | 工具 | 說明 |
@@ -633,6 +633,11 @@ MCP Server 與桌面應用程式共用連線設定，不需要額外設定：
 | `list_connections` | 列出所有已設定的連線設定檔 |
 | `switch_connection` | 切換至指定的連線（依名稱或 ID） |
 | `test_connection` | 測試目前的連線是否正常 |
+| `add_connection` | 新增資料庫連線設定 ⚠️ |
+| `update_connection` | 更新現有的連線設定 ⚠️ |
+| `delete_connection` | 刪除連線設定 ⚠️ |
+| `export_connections` | 匯出連線設定為 JSON 檔案 |
+| `import_connections` | 從 JSON 檔案匯入連線設定 ⚠️ |
 
 #### 資料表查詢
 | 工具 | 說明 |
@@ -649,6 +654,7 @@ MCP Server 與桌面應用程式共用連線設定，不需要額外設定：
 |------|------|
 | `execute_readonly_sql` | 執行唯讀 SQL 查詢 |
 | `search_columns` | 搜尋欄位名稱（模糊/精確比對） |
+| `search_columns_multi_database` | 在多個資料庫中同時搜尋欄位名稱 |
 | `get_create_table_sql` | 產生 CREATE TABLE 語句 |
 
 #### 描述管理
@@ -674,6 +680,9 @@ MCP Server 與桌面應用程式共用連線設定，不需要額外設定：
 | `get_health_status` | 健康狀態摘要 |
 | `get_health_metrics` | 目前健康指標數值 |
 | `get_health_alerts` | 最近告警記錄 |
+| `install_health_monitoring` | 安裝健康監控系統 ⚠️ |
+| `uninstall_health_monitoring` | 移除健康監控系統 ⚠️ |
+| `export_health_monitoring_sql` | 產生健康監控安裝 SQL 腳本 |
 
 #### 統計資訊
 | 工具 | 說明 |
@@ -681,6 +690,48 @@ MCP Server 與桌面應用程式共用連線設定，不需要額外設定：
 | `get_table_statistics` | 資料表統計（列數、大小） |
 | `get_exact_row_count` | 精確列數（COUNT(*)） |
 | `get_column_usage_statistics` | 欄位使用狀態統計 |
+
+#### Agent Job 管理
+| 工具 | 說明 |
+|------|------|
+| `list_agent_jobs` | 列出 Specurai 管理的 Agent Job |
+| `list_non_specurai_jobs` | 列出未管理的 Agent Job |
+| `get_agent_job_history` | 取得 Job 執行歷史紀錄 |
+| `set_agent_job_enabled` | 啟用/停用 Agent Job ⚠️ |
+| `start_agent_job` | 立即執行 Agent Job ⚠️ |
+| `delete_agent_job` | 刪除 Agent Job ⚠️ |
+| `update_agent_job_schedule` | 更新 Job 排程設定 ⚠️ |
+| `import_agent_job` | 匯入 Job 至 Specurai 管理 ⚠️ |
+
+#### Schema 比對
+| 工具 | 說明 |
+|------|------|
+| `compare_schemas` | 比對兩個資料庫的 Schema 差異 |
+| `compare_multiple_schemas` | 比對一對多資料庫的 Schema 差異 |
+
+#### 使用狀態分析
+| 工具 | 說明 |
+|------|------|
+| `scan_usage` | 掃描資料表/欄位使用狀態 |
+| `compare_usage_multi_environment` | 多環境使用狀態比對 |
+| `generate_drop_table_sql` | 產生 DROP TABLE SQL（不執行） |
+| `generate_drop_column_sql` | 產生 DROP COLUMN SQL（不執行） |
+
+#### 維護計劃
+| 工具 | 說明 |
+|------|------|
+| `check_maintenance_prerequisites` | 檢查維護計劃前置條件 |
+| `check_maintenance_steps` | 檢查維護計劃各步驟狀態 |
+| `generate_maintenance_plan_sql` | 產生維護計劃預覽 SQL |
+| `execute_maintenance_plan` | 執行維護計劃 ⚠️ |
+
+#### 匯出
+| 工具 | 說明 |
+|------|------|
+| `export_all_to_excel` | 匯出所有資料表規格為 Excel |
+| `export_table_to_excel` | 匯出指定資料表規格為 Excel |
+
+> ⚠️ 標記表示寫入或破壞性操作
 
 ### 使用範例
 

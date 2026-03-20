@@ -6,8 +6,23 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <AssemblyTitle>Specurai.McpServer</AssemblyTitle>
-    <Description>Specurai MCP Server - 資料庫結構查詢 MCP 工具</Description>
+    <Description>Specurai MCP Server - 透過 Model Context Protocol 查詢 SQL Server 資料庫結構、效能診斷與健康監控</Description>
+    <!-- dotnet tool 設定 -->
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>specurai-mcp</ToolCommandName>
+    <PackageId>Specurai.McpServer</PackageId>
+    <Version>1.0.0</Version>
+    <Authors>KerryHuang</Authors>
+    <PackageProjectUrl>https://github.com/KerryHuang/DatabaseDescriptionApp</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/KerryHuang/DatabaseDescriptionApp</RepositoryUrl>
+    <PackageTags>mcp;sql-server;database;model-context-protocol</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="../../docs/McpServerREADME.md" Pack="true" PackagePath="README.md" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="ModelContextProtocol" Version="0.9.0-preview.2" />

@@ -40,7 +40,7 @@ jobs:
       - name: 建立 Velopack 安裝包
         run: |
           dotnet tool install -g vpk
-          vpk pack -u Specurai -v ${{ steps.get-version.outputs.version }} -p publish -e Specurai.Desktop.exe --packTitle "Specurai" -i src/Specurai.Desktop/Assets/avalonia-logo.ico -o Releases
+          vpk pack -u Specurai -v ${{ steps.get-version.outputs.version }} -p publish -e Specurai.Desktop.exe --packTitle "Specurai" -i src/Specurai.Desktop/Assets/Specurai.ico -o Releases
 
       - name: 上傳安裝包
         uses: actions/upload-artifact@v4

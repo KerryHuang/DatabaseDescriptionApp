@@ -76,7 +76,8 @@ public partial class ObjectTreeViewModel : ViewModelBase
             foreach (var group in Groups)
             {
                 group.Items.Clear();
-                var items = allObjects.Where(t => t.Type == group.ObjectType).ToList();
+                var items = allObjects.Where(t => t.Type == group.ObjectType)
+                    .OrderBy(t => t.Schema).ThenBy(t => t.Name).ToList();
                 System.Diagnostics.Debug.WriteLine($"Group {group.Name} ({group.ObjectType}): {items.Count} items");
                 foreach (var item in items)
                 {
@@ -107,6 +108,7 @@ public partial class ObjectTreeViewModel : ViewModelBase
             foreach (var item in group.Items)
             {
                 item.IsVisible = string.IsNullOrEmpty(searchLower) ||
+                    item.Table.Schema.ToLowerInvariant().Contains(searchLower) ||
                     item.Table.Name.ToLowerInvariant().Contains(searchLower) ||
                     (item.Table.Description?.ToLowerInvariant().Contains(searchLower) ?? false);
             }
@@ -182,9 +184,10 @@ public partial class ObjectItemViewModel : ViewModelBase, IRecipient<TableDescri
 
     private void UpdateDisplayName()
     {
+        var schemaPrefix = $"{Table.Schema}.";
         DisplayName = !string.IsNullOrEmpty(Table.Description)
-            ? $"{Table.Name} ({Table.Description})"
-            : Table.Name;
+            ? $"{schemaPrefix}{Table.Name} ({Table.Description})"
+            : $"{schemaPrefix}{Table.Name}";
     }
 
     public void Receive(TableDescriptionUpdatedMessage message)

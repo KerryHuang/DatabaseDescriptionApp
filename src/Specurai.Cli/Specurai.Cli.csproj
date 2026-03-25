@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyTitle>Specurai.Cli</AssemblyTitle>
+    <Description>Specurai CLI - SQL Server 資料庫結構查詢、效能診斷與跨環境比對工具</Description>
+    <!-- dotnet tool 設定 -->
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>specurai</ToolCommandName>
+    <PackageId>Specurai.Cli</PackageId>
+    <Version>1.0.0</Version>
+    <Authors>KerryHuang</Authors>
+    <PackageProjectUrl>https://github.com/KerryHuang/DatabaseDescriptionApp</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/KerryHuang/DatabaseDescriptionApp</RepositoryUrl>
+    <PackageTags>cli;sql-server;database;schema-compare</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Specurai.Cli.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.CommandLine" Version="2.0.0-beta4.22272.1" />
+    <PackageReference Include="Spectre.Console" Version="0.49.1" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Specurai.Domain\Specurai.Domain.csproj" />
+    <ProjectReference Include="..\Specurai.Application\Specurai.Application.csproj" />
+    <ProjectReference Include="..\Specurai.Infrastructure\Specurai.Infrastructure.csproj" />
+  </ItemGroup>
+
+</Project>

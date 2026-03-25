@@ -5,11 +5,13 @@
     <Project Path="src/Specurai.Domain/Specurai.Domain.csproj" />
     <Project Path="src/Specurai.Infrastructure/Specurai.Infrastructure.csproj" />
     <Project Path="src/Specurai.McpServer/Specurai.McpServer.csproj" />
+    <Project Path="src/Specurai.Cli/Specurai.Cli.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Specurai.Application.Tests/Specurai.Application.Tests.csproj" />
     <Project Path="tests/Specurai.Desktop.Tests/Specurai.Desktop.Tests.csproj" />
     <Project Path="tests/Specurai.Domain.Tests/Specurai.Domain.Tests.csproj" />
     <Project Path="tests/Specurai.Infrastructure.Tests/Specurai.Infrastructure.Tests.csproj" />
+    <Project Path="tests/Specurai.Cli.Tests/Specurai.Cli.Tests.csproj" />
   </Folder>
 </Solution>

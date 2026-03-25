@@ -59,17 +59,6 @@ public static class Program
         rootCommand.AddCommand(JobsCommand.Create());
         rootCommand.AddCommand(MaintenanceCommand.Create());
 
-        // 全域中介軟體：解析選項、初始化 DI
-        rootCommand.AddGlobalOption(serverOption);
-
-        // 設定全域前置處理
-        var originalHandler = rootCommand.Handler;
-        rootCommand.SetHandler(() =>
-        {
-            // 無子命令時顯示幫助
-            rootCommand.Invoke("--help");
-        });
-
         // 使用中介軟體捕獲全域選項
         var builder = new CommandLineBuilder(rootCommand)
             .UseDefaults()

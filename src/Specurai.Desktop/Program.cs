@@ -1,12 +1,10 @@
 using Avalonia;
-using LiveChartsCore;
-using LiveChartsCore.SkiaSharpView;
 using Microsoft.Extensions.DependencyInjection;
 using System;
 using Specurai.Application.Services;
 using Specurai.Desktop.ViewModels;
 using Specurai.Domain.Interfaces;
-using Specurai.Infrastructure.Repositories;
+using Specurai.Infrastructure;
 using Specurai.Infrastructure.Services;
 using Velopack;
 
@@ -38,96 +36,11 @@ sealed class Program
     {
         var services = new ServiceCollection();
 
-        // Infrastructure - Connection Manager (Singleton)
-        services.AddSingleton<IConnectionManager, ConnectionManager>();
+        // 註冊所有核心服務（共用）
+        services.AddSpecuraiCore();
 
-        // Infrastructure - Repositories (使用連線管理器取得連線字串)
-        services.AddSingleton<ITableRepository>(sp =>
-            new TableRepository(() => sp.GetRequiredService<IConnectionManager>().GetCurrentConnectionString()));
-        services.AddSingleton<IColumnRepository>(sp =>
-            new ColumnRepository(() => sp.GetRequiredService<IConnectionManager>().GetCurrentConnectionString()));
-        services.AddSingleton<IIndexRepository>(sp =>
-            new IndexRepository(() => sp.GetRequiredService<IConnectionManager>().GetCurrentConnectionString()));
-        services.AddSingleton<IRelationRepository>(sp =>
-            new RelationRepository(() => sp.GetRequiredService<IConnectionManager>().GetCurrentConnectionString()));
-        services.AddSingleton<IParameterRepository>(sp =>
-            new ParameterRepository(() => sp.GetRequiredService<IConnectionManager>().GetCurrentConnectionString()));
-        services.AddSingleton<ISqlQueryRepository>(sp =>
-            new SqlQueryRepository(() => sp.GetRequiredService<IConnectionManager>().GetCurrentConnectionString()));
-        services.AddSingleton<IColumnTypeRepository>(sp =>
-            new ColumnTypeRepository(() => sp.GetRequiredService<IConnectionManager>().GetCurrentConnectionString()));
-
-        // Application - Services
-        services.AddSingleton<ITableQueryService, TableQueryService>();
-        services.AddSingleton<IExportService, ExcelExportService>();
-        services.AddSingleton<IConnectionExportService, ConnectionExportService>();
-
-        // Infrastructure - Backup Service
-        services.AddSingleton<IBackupService, MssqlBackupService>();
-
-        // Infrastructure - Schema Compare Services
-        services.AddSingleton<ISchemaCollector, MssqlSchemaCollector>();
-        services.AddSingleton<ISchemaCompareService, SchemaCompareService>();
-
-        // Infrastructure - Health Monitoring
-        services.AddSingleton<IHealthMonitoringRepository>(sp =>
-            new HealthMonitoringRepository(() => sp.GetRequiredService<IConnectionManager>().GetCurrentConnectionString()));
-        services.AddSingleton<IHealthMonitoringInstaller>(sp =>
-            new HealthMonitoringInstaller(() => sp.GetRequiredService<IConnectionManager>().GetCurrentConnectionString()));
-
-        // Application - Health Monitoring Service
-        services.AddSingleton<IHealthMonitoringService, HealthMonitoringService>();
-
-        // Infrastructure - Performance Diagnostics
-        services.AddSingleton<IPerformanceDiagnosticsRepository>(sp =>
-            new PerformanceDiagnosticsRepository(() => sp.GetRequiredService<IConnectionManager>().GetCurrentConnectionString()));
-
-        // Application - Performance Diagnostics Service
-        services.AddSingleton<IPerformanceDiagnosticsService, PerformanceDiagnosticsService>();
-
-        // Infrastructure - Column Usage
-        services.AddSingleton<IColumnUsageRepository>(sp =>
-            new ColumnUsageRepository(() => sp.GetRequiredService<IConnectionManager>().GetCurrentConnectionString()));
+        // Desktop 特有：ColumnUsageExcelExporter
         services.AddSingleton<ColumnUsageExcelExporter>();
-
-        // Application - Column Usage Service
-        services.AddSingleton<IColumnUsageService, ColumnUsageService>();
-
-        // Infrastructure - Table Statistics
-        services.AddSingleton<ITableStatisticsRepository>(sp =>
-            new TableStatisticsRepository(() => sp.GetRequiredService<IConnectionManager>().GetCurrentConnectionString()));
-
-        // Application - Table Statistics Service
-        services.AddSingleton<ITableStatisticsService, TableStatisticsService>();
-
-        // Infrastructure - Usage Analysis
-        services.AddSingleton<IUsageAnalysisRepository>(sp =>
-            new UsageAnalysisRepository(() => sp.GetRequiredService<IConnectionManager>().GetCurrentConnectionString()));
-
-        // Application - Usage Analysis Service
-        services.AddSingleton<IUsageAnalysisService>(sp =>
-            new UsageAnalysisService(
-                sp.GetRequiredService<IUsageAnalysisRepository>(),
-                sp.GetRequiredService<IConnectionManager>(),
-                connStr => new UsageAnalysisRepository(() => connStr)));
-
-        // Application - Column Search Service（多資料庫搜尋）
-        services.AddSingleton<IColumnSearchService>(sp =>
-            new ColumnSearchService(
-                sp.GetRequiredService<IConnectionManager>(),
-                connStr => new SqlQueryRepository(() => connStr)));
-
-        // === 維護計劃 ===
-        // Repositories
-        services.AddSingleton<IDatabaseInfoRepository>(sp =>
-            new DatabaseInfoRepository(() => sp.GetRequiredService<IConnectionManager>().GetCurrentConnectionString()));
-        services.AddSingleton<IAgentJobRepository>(sp =>
-            new AgentJobRepository(() => sp.GetRequiredService<IConnectionManager>().GetCurrentConnectionString()));
-
-        // Services
-        services.AddSingleton<IMaintenancePlanSqlGenerator, MaintenancePlanSqlGenerator>();
-        services.AddSingleton<IMaintenancePlanService, MaintenancePlanService>();
-        services.AddSingleton<IAgentJobService, AgentJobService>();
 
         // ViewModels
         services.AddTransient<MaintenancePlanDocumentViewModel>(sp =>

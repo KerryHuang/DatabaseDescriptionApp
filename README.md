@@ -484,6 +484,147 @@ dotnet publish src/Specurai.Desktop -c Release -r linux-x64 --self-contained -p:
 2. 檢視未被使用但持續維護的索引
 3. 可直接刪除不需要的索引以節省資源
 
+## CLI 命令列工具
+
+Specurai CLI 提供完整的命令列介面，適合自動化腳本、CI/CD 管線和 AI Agent 使用。
+
+### 安裝
+
+```bash
+# dotnet tool 安裝
+dotnet tool install -g Specurai.Cli
+
+# 或從原始碼建置
+dotnet run --project src/Specurai.Cli
+```
+
+### 連線設定
+
+```bash
+# 互動式新增連線
+specurai conn add
+
+# 參數式新增
+specurai conn add --name "正式環境" --server 192.168.1.100 --database MyDB --user sa --password P@ss
+
+# 列出所有連線
+specurai conn list
+
+# 切換目前連線
+specurai conn switch "正式環境"
+
+# 測試連線
+specurai conn test
+
+# 也可直接用參數執行，不需先新增連線
+specurai --server localhost --database MyDB --user sa --password P@ss tables list
+
+# 或用環境變數
+export SPECURAI_SERVER=localhost
+export SPECURAI_DATABASE=MyDB
+specurai tables list
+
+# 從 stdin 匯入連線（支援 JSON 格式）
+echo '{"server":"localhost","database":"MyDB","user":"sa","password":"P@ss"}' | specurai conn import --stdin
+```
+
+### 常用命令
+
+```bash
+# 物件瀏覽
+specurai tables list                          # 列出所有物件
+specurai tables list --type TABLE             # 只列資料表
+specurai tables columns dbo.Users             # 顯示欄位
+specurai tables indexes dbo.Users             # 顯示索引
+specurai tables definition dbo.GetUser        # 顯示 SP 原始碼
+
+# 描述編輯
+specurai describe table dbo.Users "使用者資料表"
+specurai describe column dbo.Users.Email "電子郵件地址"
+
+# SQL 查詢
+specurai sql query "SELECT TOP 10 * FROM dbo.Users"
+specurai sql search-columns Email             # 搜尋欄位名稱
+specurai sql search-columns Email --all-profiles  # 跨所有資料庫搜尋
+
+# 匯出
+specurai export excel                         # 匯出所有表格到 Excel
+specurai export excel --table dbo.Users       # 匯出單一表格
+
+# 效能診斷
+specurai perf waits                           # 等候事件統計
+specurai perf queries --top 10                # 耗時查詢
+specurai perf missing-indexes                 # 缺少索引建議
+specurai perf unused-indexes                  # 未使用索引
+
+# 健康監控
+specurai health status                        # 健康狀態摘要
+specurai health metrics                       # 目前指標
+specurai health alerts --days 7               # 最近警示
+
+# Schema 比對（跨資料庫）
+specurai schema compare --base "正式環境" --target "測試環境"
+specurai schema compare-multi --base "正式環境" --targets "客戶A,客戶B,客戶C"
+
+# 使用分析
+specurai usage scan --years 2                 # 掃描閒置物件
+specurai usage compare --base "正式環境" --targets "客戶A,客戶B"
+
+# Agent Job 管理
+specurai jobs list                            # 列出排程工作
+specurai jobs start <jobId>                   # 立即執行
+```
+
+### JSON 輸出（AI Agent 友善）
+
+所有命令支援 `--json` 旗標，回傳結構化 JSON：
+
+```bash
+specurai --json tables list
+# {
+#   "success": true,
+#   "data": [
+#     { "schema": "dbo", "name": "Users", "type": "BASE TABLE", "description": "..." }
+#   ],
+#   "metadata": { "count": 42 }
+# }
+
+specurai --json perf waits --top 5
+specurai --json schema compare --base "正式環境" --target "測試環境"
+```
+
+### 外部工具整合
+
+Specurai CLI 提供多種方式接受外部連線，不綁定任何特定工具：
+
+```bash
+# 方式 1：CLI 參數
+specurai --server $HOST --database $DB --user $USER --password $PASS tables list
+
+# 方式 2：環境變數
+export SPECURAI_SERVER=192.168.1.100
+export SPECURAI_DATABASE=MyDB
+specurai tables list
+
+# 方式 3：連線字串
+specurai --connection-string "Data Source=...;Initial Catalog=..." tables list
+
+# 方式 4：stdin JSON（相容 mpe show --json 的 mssql 格式）
+echo '{"mssql":{"host":"192.168.1.100","port":"1433","userId":"sa","password":"p","applicationDatabase":"db"}}' \
+  | specurai conn import --stdin
+```
+
+若你的環境使用 [mpe](https://github.com/example/mp-env)（MoldPlan 環境設定 CLI）管理資料庫連線，可直接串接：
+
+```bash
+# 從 mpe 匯入客戶環境連線
+mpe show junhe-staging --json | specurai conn import --stdin
+mpe show junhe-prod --json | specurai conn import --stdin
+
+# 匯入後即可進行跨環境 Schema 比對
+specurai schema compare-multi --base "均賀 Staging" --targets "均賀 Production"
+```
+
 ## MCP Server
 
 Specurai MCP Server 讓 AI 助手（如 Claude Code、Claude Desktop）透過 [Model Context Protocol](https://modelcontextprotocol.io/) 直接存取資料庫結構資訊。
@@ -494,9 +635,10 @@ Specurai MCP Server 讓 AI 助手（如 Claude Code、Claude Desktop）透過 [M
 Domain → Application → Infrastructure
                     ↘ Desktop (Avalonia UI)
                     ↘ McpServer (stdio console app)
+                    ↘ Cli (命令列工具)
 ```
 
-MCP Server 與桌面應用程式處於相同的架構層級，共用 Domain、Application、Infrastructure 三層的服務。
+MCP Server、CLI 與桌面應用程式處於相同的架構層級，共用 Domain、Application、Infrastructure 三層的服務。
 
 ### 安裝 MCP Server
 

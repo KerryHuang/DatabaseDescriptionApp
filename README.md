@@ -5,7 +5,7 @@ Specurai 是一個跨平台桌面應用程式，用於查詢和管理 SQL Server
 ## 功能特色
 
 ### 基本功能
-- **多連線管理** - 支援儲存多組資料庫連線設定，可快速切換
+- **多連線管理** - 支援儲存多組資料庫連線設定，可快速切換；CLI 支援 stdin 傳入臨時連線（不落地）
 - **物件瀏覽** - 樹狀結構顯示 Tables、Views、Stored Procedures、Functions
 - **搜尋過濾** - 即時搜尋物件名稱和說明
 - **MDI 多分頁介面** - 同時開啟多個文件視窗，支援分頁關閉按鈕
@@ -524,8 +524,18 @@ export SPECURAI_SERVER=localhost
 export SPECURAI_DATABASE=MyDB
 specurai tables list
 
-# 從 stdin 匯入連線（支援 JSON 格式）
+# 從 stdin 匯入連線（支援 JSON 格式，會持久化儲存）
 echo '{"server":"localhost","database":"MyDB","user":"sa","password":"P@ss"}' | specurai conn import --stdin
+
+# 從 stdin 傳入臨時連線（不落地，僅本次執行有效）
+echo '{"server":"localhost","database":"MyDB","user":"sa","password":"P@ss"}' \
+  | specurai --conn-stdin tables list
+
+# 傳入多組連線進行跨環境比對（不需事先儲存連線）
+echo '[
+  {"name":"DEV","server":"dev-srv","database":"MyDB","user":"sa","password":"pw1"},
+  {"name":"PROD","server":"prod-srv","database":"MyDB","user":"sa","password":"pw2"}
+]' | specurai --conn-stdin schema compare --base DEV --target PROD
 ```
 
 ### 常用命令
@@ -565,6 +575,12 @@ specurai health alerts --days 7               # 最近警示
 # Schema 比對（跨資料庫）
 specurai schema compare --base "正式環境" --target "測試環境"
 specurai schema compare-multi --base "正式環境" --targets "客戶A,客戶B,客戶C"
+
+# Schema 比對（透過 stdin 傳入臨時連線，不需事先儲存）
+echo '[
+  {"name":"正式環境","server":"prod-srv","database":"MyDB","user":"sa","password":"pw1"},
+  {"name":"測試環境","server":"test-srv","database":"MyDB","user":"sa","password":"pw2"}
+]' | specurai --conn-stdin schema compare --base "正式環境" --target "測試環境"
 
 # 使用分析
 specurai usage scan --years 2                 # 掃描閒置物件
@@ -609,21 +625,47 @@ specurai tables list
 # 方式 3：連線字串
 specurai --connection-string "Data Source=...;Initial Catalog=..." tables list
 
-# 方式 4：stdin JSON（相容 mpe show --json 的 mssql 格式）
-echo '{"mssql":{"host":"192.168.1.100","port":"1433","userId":"sa","password":"p","applicationDatabase":"db"}}' \
+# 方式 4：stdin JSON 持久化匯入
+echo '{"server":"192.168.1.100","database":"MyDB","user":"sa","password":"P@ss"}' \
   | specurai conn import --stdin
+
+# 方式 5：stdin JSON 臨時連線（不落地，適合 CI/CD 和自動化腳本）
+echo '{"server":"192.168.1.100","database":"MyDB","user":"sa","password":"P@ss"}' \
+  | specurai --conn-stdin tables list
 ```
 
-若你的環境使用 [mpe](https://github.com/example/mp-env)（MoldPlan 環境設定 CLI）管理資料庫連線，可直接串接：
+#### stdin 多連線（`--conn-stdin`）
+
+透過 `--conn-stdin` 全域旗標，可從 stdin 傳入一或多組 JSON 連線設定，作為臨時 in-memory profile 使用，**不會寫入磁碟**。適用於 CI/CD 管線、自動化腳本、或不想在目標機器留下連線設定的場景。
 
 ```bash
-# 從 mpe 匯入客戶環境連線
-mpe show junhe-staging --json | specurai conn import --stdin
-mpe show junhe-prod --json | specurai conn import --stdin
+# 單一連線：直接執行命令
+echo '{"name":"CI","server":"ci-db","database":"AppDB","user":"sa","password":"secret"}' \
+  | specurai --conn-stdin tables list
 
-# 匯入後即可進行跨環境 Schema 比對
-specurai schema compare-multi --base "均賀 Staging" --targets "均賀 Production"
+# 多組連線：跨環境 Schema 比對
+echo '[
+  {"name":"Staging","server":"staging-db","database":"AppDB","user":"sa","password":"pw1"},
+  {"name":"Production","server":"prod-db","database":"AppDB","user":"sa","password":"pw2"}
+]' | specurai --conn-stdin schema compare --base Staging --target Production
+
+# 搭配其他工具動態產生連線 JSON
+your-tool get-connections --json | specurai --conn-stdin schema compare-multi --base "基準" --targets "客戶A,客戶B"
+
+# 也可用 conn list 確認 stdin 傳入的連線已被識別
+echo '[{"name":"A","server":"a","database":"db"},{"name":"B","server":"b","database":"db"}]' \
+  | specurai --conn-stdin conn list
 ```
+
+支援的 JSON 格式：
+
+| 格式 | 範例 |
+|------|------|
+| 簡易格式 | `{"name":"名稱","server":"主機","database":"資料庫","user":"帳號","password":"密碼"}` |
+| 簡易格式（PascalCase） | `{"Name":"名稱","Server":"主機","Database":"資料庫","Username":"帳號","Password":"密碼"}` |
+| 陣列格式 | `[{...}, {...}]`（可混合上述格式） |
+
+> **注意：** `--conn-stdin`（全域旗標，臨時不落地）與 `conn import --stdin`（子命令，持久化儲存）用途不同，請依需求選擇。
 
 ## MCP Server
 

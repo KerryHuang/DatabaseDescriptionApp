@@ -1,4 +1,3 @@
-using System.Text.Json;
 using Specurai.Application.Services;
 using Specurai.Domain.Entities;
 
@@ -30,9 +29,9 @@ public class ConnectionResolver
         if (!string.IsNullOrEmpty(options.Server))
             return FromCliArgs(options);
 
-        // 3. stdin JSON
-        if (options.ConnStdin && Console.IsInputRedirected)
-            return FromStdin();
+        // 3. stdin JSON（已在 middleware 讀取並註冊為臨時 profile）
+        if (options.ConnStdin && Program.StdinProfiles.Count > 0)
+            return Program.StdinProfiles[0];
 
         // 4. 環境變數
         var envProfile = FromEnvironment();
@@ -85,81 +84,6 @@ public class ConnectionResolver
                 : AuthenticationType.SqlServerAuthentication,
             Username = options.User,
             Password = options.Password
-        };
-    }
-
-    /// <summary>
-    /// 從 stdin JSON 建立 profile（相容 mpe show --json 格式）
-    /// </summary>
-    private static ConnectionProfile? FromStdin()
-    {
-        try
-        {
-            var json = Console.In.ReadToEnd();
-            if (string.IsNullOrWhiteSpace(json))
-                return null;
-
-            using var doc = JsonDocument.Parse(json);
-            var root = doc.RootElement;
-
-            // 嘗試 mpe 格式：{ mssql: { host, port, userId, password, applicationDatabase } }
-            if (root.TryGetProperty("mssql", out var mssql))
-                return FromMpeJson(root, mssql);
-
-            // 簡易格式：{ server, database, user, password }
-            return FromSimpleJson(root);
-        }
-        catch
-        {
-            return null;
-        }
-    }
-
-    /// <summary>
-    /// 解析 mpe show --json 格式
-    /// </summary>
-    internal static ConnectionProfile FromMpeJson(JsonElement root, JsonElement mssql)
-    {
-        var host = mssql.GetProperty("host").GetString() ?? "localhost";
-        var port = mssql.TryGetProperty("port", out var p) ? p.GetString() ?? "1433" : "1433";
-        var server = port == "1433" ? host : $"{host},{port}";
-
-        var name = root.TryGetProperty("displayName", out var dn) ? dn.GetString() :
-                   root.TryGetProperty("name", out var n) ? n.GetString() : server;
-
-        return new ConnectionProfile
-        {
-            Name = name ?? server,
-            Server = server,
-            Database = mssql.TryGetProperty("applicationDatabase", out var db) ? db.GetString() ?? "master" :
-                       mssql.TryGetProperty("database", out var db2) ? db2.GetString() ?? "master" : "master",
-            AuthType = AuthenticationType.SqlServerAuthentication,
-            Username = mssql.TryGetProperty("userId", out var u) ? u.GetString() :
-                       mssql.TryGetProperty("user", out var u2) ? u2.GetString() : null,
-            Password = mssql.TryGetProperty("password", out var pw) ? pw.GetString() : null
-        };
-    }
-
-    /// <summary>
-    /// 解析簡易 JSON 格式
-    /// </summary>
-    internal static ConnectionProfile FromSimpleJson(JsonElement root)
-    {
-        var server = root.TryGetProperty("server", out var s) ? s.GetString() ?? "localhost" : "localhost";
-        var port = root.TryGetProperty("port", out var p) ? p.GetInt32() : 1433;
-        if (port != 1433)
-            server = $"{server},{port}";
-
-        return new ConnectionProfile
-        {
-            Name = root.TryGetProperty("name", out var n) ? n.GetString() ?? server : server,
-            Server = server,
-            Database = root.TryGetProperty("database", out var db) ? db.GetString() ?? "master" : "master",
-            AuthType = root.TryGetProperty("user", out _)
-                ? AuthenticationType.SqlServerAuthentication
-                : AuthenticationType.WindowsAuthentication,
-            Username = root.TryGetProperty("user", out var u) ? u.GetString() : null,
-            Password = root.TryGetProperty("password", out var pw) ? pw.GetString() : null
         };
     }
 

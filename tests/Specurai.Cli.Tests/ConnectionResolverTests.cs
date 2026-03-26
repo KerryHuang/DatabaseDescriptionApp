@@ -81,6 +81,71 @@ public class ConnectionResolverTests
         result.Should().Be(profile);
     }
 
+    [Fact(DisplayName = "Resolve: ConnStdin 有 StdinProfiles 時應回傳第一個")]
+    public void Resolve_WithConnStdinAndProfiles_ShouldReturnFirstStdinProfile()
+    {
+        var stdinProfile = new ConnectionProfile { Name = "STDIN-DEV", Server = "stdin-srv", Database = "StdinDB" };
+        var originalProfiles = Program.StdinProfiles;
+        try
+        {
+            Program.StdinProfiles = new List<ConnectionProfile> { stdinProfile };
+            var options = new GlobalOptions { ConnStdin = true };
+
+            var result = _resolver.Resolve(options);
+
+            result.Should().NotBeNull();
+            result!.Name.Should().Be("STDIN-DEV");
+            result.Server.Should().Be("stdin-srv");
+        }
+        finally
+        {
+            Program.StdinProfiles = originalProfiles;
+        }
+    }
+
+    [Fact(DisplayName = "Resolve: ConnStdin 無 StdinProfiles 時應 fallback 到下一個來源")]
+    public void Resolve_WithConnStdinButNoProfiles_ShouldFallback()
+    {
+        var currentProfile = new ConnectionProfile { Name = "預設", Server = "default", Database = "DefaultDB" };
+        _connectionManager.GetCurrentProfile().Returns(currentProfile);
+
+        var originalProfiles = Program.StdinProfiles;
+        try
+        {
+            Program.StdinProfiles = [];
+            var options = new GlobalOptions { ConnStdin = true };
+
+            var result = _resolver.Resolve(options);
+
+            result.Should().Be(currentProfile);
+        }
+        finally
+        {
+            Program.StdinProfiles = originalProfiles;
+        }
+    }
+
+    [Fact(DisplayName = "Resolve: Server 參數應優先於 ConnStdin")]
+    public void Resolve_WithServerAndConnStdin_ShouldPreferServer()
+    {
+        var stdinProfile = new ConnectionProfile { Name = "STDIN", Server = "stdin-srv", Database = "StdinDB" };
+        var originalProfiles = Program.StdinProfiles;
+        try
+        {
+            Program.StdinProfiles = new List<ConnectionProfile> { stdinProfile };
+            var options = new GlobalOptions { Server = "cli-server", Database = "CliDB", ConnStdin = true };
+
+            var result = _resolver.Resolve(options);
+
+            result.Should().NotBeNull();
+            result!.Server.Should().Be("cli-server", "CLI 參數應優先於 stdin");
+        }
+        finally
+        {
+            Program.StdinProfiles = originalProfiles;
+        }
+    }
+
     #endregion
 
     #region FromConnectionString
@@ -110,7 +175,7 @@ public class ConnectionResolverTests
 
     #endregion
 
-    #region FromMpeJson
+    #region FromMpeJson（透過 ConnectionProfileParser）
 
     [Fact(DisplayName = "FromMpeJson: 標準 mpe 格式應正確解析所有欄位")]
     public void FromMpeJson_StandardFormat_ShouldParseAllFields()
@@ -131,7 +196,7 @@ public class ConnectionResolverTests
         using var doc = JsonDocument.Parse(json);
         var root = doc.RootElement;
 
-        var result = ConnectionResolver.FromMpeJson(root, root.GetProperty("mssql"));
+        var result = ConnectionProfileParser.FromMpeJson(root, root.GetProperty("mssql"));
 
         result.Name.Should().Be("均賀 Staging");
         result.Server.Should().Be("192.168.1.100");
@@ -146,7 +211,7 @@ public class ConnectionResolverTests
         var json = """{"mssql":{"host":"10.0.0.1","port":"1433","userId":"sa","password":"p","applicationDatabase":"db"}}""";
         using var doc = JsonDocument.Parse(json);
 
-        var result = ConnectionResolver.FromMpeJson(doc.RootElement, doc.RootElement.GetProperty("mssql"));
+        var result = ConnectionProfileParser.FromMpeJson(doc.RootElement, doc.RootElement.GetProperty("mssql"));
 
         result.Server.Should().Be("10.0.0.1");
     }
@@ -157,7 +222,7 @@ public class ConnectionResolverTests
         var json = """{"mssql":{"host":"10.0.0.1","port":"5433","userId":"sa","password":"p","applicationDatabase":"db"}}""";
         using var doc = JsonDocument.Parse(json);
 
-        var result = ConnectionResolver.FromMpeJson(doc.RootElement, doc.RootElement.GetProperty("mssql"));
+        var result = ConnectionProfileParser.FromMpeJson(doc.RootElement, doc.RootElement.GetProperty("mssql"));
 
         result.Server.Should().Be("10.0.0.1,5433");
     }
@@ -168,7 +233,7 @@ public class ConnectionResolverTests
         var json = """{"name":"code","displayName":"顯示名稱","mssql":{"host":"h","userId":"u","password":"p","applicationDatabase":"db"}}""";
         using var doc = JsonDocument.Parse(json);
 
-        var result = ConnectionResolver.FromMpeJson(doc.RootElement, doc.RootElement.GetProperty("mssql"));
+        var result = ConnectionProfileParser.FromMpeJson(doc.RootElement, doc.RootElement.GetProperty("mssql"));
 
         result.Name.Should().Be("顯示名稱");
     }
@@ -179,7 +244,7 @@ public class ConnectionResolverTests
         var json = """{"name":"junhe-prod","mssql":{"host":"h","userId":"u","password":"p","applicationDatabase":"db"}}""";
         using var doc = JsonDocument.Parse(json);
 
-        var result = ConnectionResolver.FromMpeJson(doc.RootElement, doc.RootElement.GetProperty("mssql"));
+        var result = ConnectionProfileParser.FromMpeJson(doc.RootElement, doc.RootElement.GetProperty("mssql"));
 
         result.Name.Should().Be("junhe-prod");
     }
@@ -190,7 +255,7 @@ public class ConnectionResolverTests
         var json = """{"mssql":{"host":"h","userId":"u","password":"p","database":"fallback-db"}}""";
         using var doc = JsonDocument.Parse(json);
 
-        var result = ConnectionResolver.FromMpeJson(doc.RootElement, doc.RootElement.GetProperty("mssql"));
+        var result = ConnectionProfileParser.FromMpeJson(doc.RootElement, doc.RootElement.GetProperty("mssql"));
 
         result.Database.Should().Be("fallback-db");
     }
@@ -201,14 +266,14 @@ public class ConnectionResolverTests
         var json = """{"mssql":{"host":"h","user":"alt-user","password":"p","applicationDatabase":"db"}}""";
         using var doc = JsonDocument.Parse(json);
 
-        var result = ConnectionResolver.FromMpeJson(doc.RootElement, doc.RootElement.GetProperty("mssql"));
+        var result = ConnectionProfileParser.FromMpeJson(doc.RootElement, doc.RootElement.GetProperty("mssql"));
 
         result.Username.Should().Be("alt-user");
     }
 
     #endregion
 
-    #region FromSimpleJson
+    #region FromSimpleJson（透過 ConnectionProfileParser）
 
     [Fact(DisplayName = "FromSimpleJson: 標準格式應正確解析")]
     public void FromSimpleJson_StandardFormat_ShouldParse()
@@ -216,7 +281,7 @@ public class ConnectionResolverTests
         var json = """{"server":"localhost","database":"MyDB","user":"sa","password":"P@ss"}""";
         using var doc = JsonDocument.Parse(json);
 
-        var result = ConnectionResolver.FromSimpleJson(doc.RootElement);
+        var result = ConnectionProfileParser.FromSimpleJson(doc.RootElement);
 
         result.Server.Should().Be("localhost");
         result.Database.Should().Be("MyDB");
@@ -230,7 +295,7 @@ public class ConnectionResolverTests
         var json = """{"server":"localhost","database":"MyDB"}""";
         using var doc = JsonDocument.Parse(json);
 
-        var result = ConnectionResolver.FromSimpleJson(doc.RootElement);
+        var result = ConnectionProfileParser.FromSimpleJson(doc.RootElement);
 
         result.AuthType.Should().Be(AuthenticationType.WindowsAuthentication);
     }
@@ -241,7 +306,7 @@ public class ConnectionResolverTests
         var json = """{"server":"localhost","port":5433,"database":"MyDB"}""";
         using var doc = JsonDocument.Parse(json);
 
-        var result = ConnectionResolver.FromSimpleJson(doc.RootElement);
+        var result = ConnectionProfileParser.FromSimpleJson(doc.RootElement);
 
         result.Server.Should().Be("localhost,5433");
     }

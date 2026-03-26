@@ -1,9 +1,12 @@
 using System.CommandLine;
 using System.CommandLine.Builder;
 using System.CommandLine.Parsing;
+using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
+using Specurai.Application.Services;
 using Specurai.Cli.Commands;
 using Specurai.Cli.Output;
+using Specurai.Domain.Entities;
 using Specurai.Infrastructure;
 
 namespace Specurai.Cli;
@@ -19,6 +22,11 @@ public static class Program
     /// 目前的全域選項
     /// </summary>
     public static GlobalOptions CurrentOptions { get; private set; } = new();
+
+    /// <summary>
+    /// 從 stdin 讀取的臨時連線設定（不持久化）
+    /// </summary>
+    public static IReadOnlyList<ConnectionProfile> StdinProfiles { get; set; } = [];
 
     public static async Task<int> Main(string[] args)
     {
@@ -86,6 +94,29 @@ public static class Program
                 var services = new ServiceCollection();
                 services.AddSpecuraiCore();
                 Services = services.BuildServiceProvider();
+
+                // --conn-stdin：從 stdin 讀取 JSON 連線並註冊為臨時 profile（不落地）
+                if (CurrentOptions.ConnStdin && Console.IsInputRedirected)
+                {
+                    try
+                    {
+                        var stdinJson = Console.In.ReadToEnd();
+                        if (!string.IsNullOrWhiteSpace(stdinJson))
+                        {
+                            var tempProfiles = ConnectionProfileParser.ParseMultiple(stdinJson);
+                            if (tempProfiles.Count > 0)
+                            {
+                                StdinProfiles = tempProfiles.AsReadOnly();
+                                var cm = Services.GetRequiredService<IConnectionManager>();
+                                cm.RegisterTemporaryProfiles(tempProfiles);
+                            }
+                        }
+                    }
+                    catch (JsonException)
+                    {
+                        // JSON 解析失敗時靜默忽略，命令層會報「找不到連線」
+                    }
+                }
 
                 await next(context);
             });

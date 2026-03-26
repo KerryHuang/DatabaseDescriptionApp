@@ -338,6 +338,43 @@ public static class ConnCommand
 
             if (useStdin && Console.IsInputRedirected)
             {
+                // 若 --conn-stdin 已在 middleware 消費 stdin，從已解析的結果取用
+                if (Program.CurrentOptions.ConnStdin && Program.StdinProfiles.Count > 0)
+                {
+                    json = null; // stdin 已被消費，改用已解析的 profiles
+                    var cm2 = Program.Services.GetRequiredService<IConnectionManager>();
+                    var existingProfiles2 = cm2.GetAllProfiles();
+                    var imported2 = 0;
+                    var updated2 = 0;
+                    foreach (var profile in Program.StdinProfiles)
+                    {
+                        var existing = existingProfiles2
+                            .FirstOrDefault(p => p.Name.Equals(profile.Name, StringComparison.OrdinalIgnoreCase));
+                        if (existing != null)
+                        {
+                            existing.Server = profile.Server;
+                            existing.Database = profile.Database;
+                            existing.AuthType = profile.AuthType;
+                            existing.Username = profile.Username;
+                            existing.Password = profile.Password;
+                            cm2.UpdateProfile(existing);
+                            updated2++;
+                        }
+                        else
+                        {
+                            cm2.AddProfile(profile);
+                            imported2++;
+                        }
+                    }
+                    if (CliOutput.JsonMode)
+                        CliOutput.Success(new { Imported = imported2, Updated = updated2, Total = Program.StdinProfiles.Count });
+                    else
+                    {
+                        if (imported2 > 0) CliOutput.SuccessMessage($"已匯入 {imported2} 個連線");
+                        if (updated2 > 0) CliOutput.SuccessMessage($"已更新 {updated2} 個連線");
+                    }
+                    return;
+                }
                 json = Console.In.ReadToEnd();
             }
             else if (!string.IsNullOrEmpty(path) && File.Exists(path))
@@ -421,82 +458,8 @@ public static class ConnCommand
     /// 解析匯入的 JSON，支援 mpe show --json 格式和簡易格式
     /// </summary>
     internal static List<ConnectionProfile> ParseImportJson(string json)
-    {
-        var profiles = new List<ConnectionProfile>();
-
-        using var doc = JsonDocument.Parse(json);
-        var root = doc.RootElement;
-
-        // 單一 profile（mpe show --json 格式或簡易格式）
-        if (root.ValueKind == JsonValueKind.Object)
-        {
-            var profile = ParseSingleProfile(root);
-            if (profile != null) profiles.Add(profile);
-        }
-        // 陣列格式
-        else if (root.ValueKind == JsonValueKind.Array)
-        {
-            foreach (var element in root.EnumerateArray())
-            {
-                var profile = ParseSingleProfile(element);
-                if (profile != null) profiles.Add(profile);
-            }
-        }
-
-        return profiles;
-    }
+        => ConnectionProfileParser.ParseMultiple(json);
 
     internal static ConnectionProfile? ParseSingleProfile(JsonElement element)
-    {
-        try
-        {
-            // mpe 格式：{ mssql: { host, port, ... } }
-            if (element.TryGetProperty("mssql", out var mssql))
-            {
-                var host = mssql.GetProperty("host").GetString() ?? "localhost";
-                var port = mssql.TryGetProperty("port", out var p) ? p.GetString() ?? "1433" : "1433";
-                var server = port == "1433" ? host : $"{host},{port}";
-                var name = element.TryGetProperty("displayName", out var dn) ? dn.GetString() :
-                           element.TryGetProperty("name", out var n) ? n.GetString() : null;
-
-                return new ConnectionProfile
-                {
-                    Name = name ?? server,
-                    Server = server,
-                    Database = mssql.TryGetProperty("applicationDatabase", out var db) ? db.GetString() ?? "master" :
-                               mssql.TryGetProperty("database", out var db2) ? db2.GetString() ?? "master" : "master",
-                    AuthType = AuthenticationType.SqlServerAuthentication,
-                    Username = mssql.TryGetProperty("userId", out var u) ? u.GetString() : null,
-                    Password = mssql.TryGetProperty("password", out var pw) ? pw.GetString() : null
-                };
-            }
-
-            // 簡易格式：{ server, database, user, password }
-            if (element.TryGetProperty("server", out var s) || element.TryGetProperty("Server", out s))
-            {
-                var server = s.GetString() ?? "localhost";
-                return new ConnectionProfile
-                {
-                    Name = element.TryGetProperty("name", out var nm) ? nm.GetString() ?? server :
-                           element.TryGetProperty("Name", out nm) ? nm.GetString() ?? server : server,
-                    Server = server,
-                    Database = element.TryGetProperty("database", out var db) ? db.GetString() ?? "master" :
-                               element.TryGetProperty("Database", out db) ? db.GetString() ?? "master" : "master",
-                    AuthType = element.TryGetProperty("user", out _) || element.TryGetProperty("Username", out _)
-                        ? AuthenticationType.SqlServerAuthentication
-                        : AuthenticationType.WindowsAuthentication,
-                    Username = element.TryGetProperty("user", out var user) ? user.GetString() :
-                               element.TryGetProperty("Username", out user) ? user.GetString() : null,
-                    Password = element.TryGetProperty("password", out var pw) ? pw.GetString() :
-                               element.TryGetProperty("Password", out pw) ? pw.GetString() : null
-                };
-            }
-
-            return null;
-        }
-        catch
-        {
-            return null;
-        }
-    }
+        => ConnectionProfileParser.ParseSingle(element);
 }

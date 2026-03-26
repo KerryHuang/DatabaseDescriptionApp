@@ -67,6 +67,11 @@ public interface IConnectionManager
     string GetProfileName(Guid profileId);
 
     /// <summary>
+    /// 註冊臨時連線設定（不持久化，僅存在於記憶體中）
+    /// </summary>
+    void RegisterTemporaryProfiles(IReadOnlyList<ConnectionProfile> profiles);
+
+    /// <summary>
     /// 連線變更事件
     /// </summary>
     event EventHandler<ConnectionProfile?>? CurrentProfileChanged;

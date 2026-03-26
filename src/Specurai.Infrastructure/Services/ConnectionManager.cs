@@ -12,6 +12,7 @@ public class ConnectionManager : IConnectionManager
 {
     private readonly string _configPath;
     private List<ConnectionProfile> _profiles = [];
+    private List<ConnectionProfile> _temporaryProfiles = [];
     private Guid? _currentProfileId;
 
     public event EventHandler<ConnectionProfile?>? CurrentProfileChanged;
@@ -22,7 +23,8 @@ public class ConnectionManager : IConnectionManager
         LoadProfiles();
     }
 
-    public IReadOnlyList<ConnectionProfile> GetAllProfiles() => _profiles.AsReadOnly();
+    public IReadOnlyList<ConnectionProfile> GetAllProfiles()
+        => _temporaryProfiles.Concat(_profiles).ToList().AsReadOnly();
 
     public ConnectionProfile? GetCurrentProfile()
     {
@@ -154,14 +156,19 @@ public class ConnectionManager : IConnectionManager
 
     public string? GetConnectionString(Guid profileId)
     {
-        var profile = _profiles.FirstOrDefault(p => p.Id == profileId);
+        var profile = _temporaryProfiles.Concat(_profiles).FirstOrDefault(p => p.Id == profileId);
         return profile != null ? BuildConnectionString(profile) : null;
     }
 
     public string GetProfileName(Guid profileId)
     {
-        var profile = _profiles.FirstOrDefault(p => p.Id == profileId);
+        var profile = _temporaryProfiles.Concat(_profiles).FirstOrDefault(p => p.Id == profileId);
         return profile?.Name ?? profileId.ToString();
+    }
+
+    public void RegisterTemporaryProfiles(IReadOnlyList<ConnectionProfile> profiles)
+    {
+        _temporaryProfiles = [..profiles];
     }
 
     private static string GetConfigPath()

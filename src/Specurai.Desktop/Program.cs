@@ -42,6 +42,10 @@ sealed class Program
         // Desktop 特有：ColumnUsageExcelExporter
         services.AddSingleton<ColumnUsageExcelExporter>();
 
+        // Infrastructure - External Source
+        services.AddSingleton<IExternalSourceSettings, ExternalSourceSettings>();
+        services.AddSingleton<IExternalConnectionSource, InventoryConnectionSource>();
+
         // ViewModels
         services.AddTransient<MaintenancePlanDocumentViewModel>(sp =>
             new MaintenancePlanDocumentViewModel(
@@ -59,7 +63,11 @@ sealed class Program
                 sp.GetRequiredService<ISqlQueryRepository>(),
                 sp.GetRequiredService<IColumnTypeRepository>(),
                 sp.GetRequiredService<ObjectTreeViewModel>()));
-        services.AddTransient<ConnectionSetupViewModel>();
+        services.AddTransient<ConnectionSetupViewModel>(sp =>
+            new ConnectionSetupViewModel(
+                sp.GetRequiredService<IConnectionManager>(),
+                sp.GetRequiredService<IExternalConnectionSource>(),
+                sp.GetRequiredService<IExternalSourceSettings>()));
         services.AddTransient<ObjectTreeViewModel>();
         services.AddTransient<BackupRestoreDocumentViewModel>(sp =>
             new BackupRestoreDocumentViewModel(

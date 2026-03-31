@@ -8,8 +8,8 @@
         x:DataType="vm:ConnectionSetupViewModel"
         Icon="/Assets/Specurai.png"
         Title="連線設定"
-        Width="650" Height="500"
-        MinWidth="550" MinHeight="400"
+        Width="750" Height="700"
+        MinWidth="650" MinHeight="580"
         WindowStartupLocation="CenterOwner">
 
     <Design.DataContext>

@@ -32,19 +32,35 @@
                         <Button Content="刪除" Command="{Binding DeleteCommand}" Width="60"
                                 IsEnabled="{Binding SelectedProfile, Converter={x:Static ObjectConverters.IsNotNull}}"/>
                     </StackPanel>
-                    <ListBox ItemsSource="{Binding Profiles}"
-                             SelectedItem="{Binding SelectedProfile}"
-                             Margin="5">
-                        <ListBox.ItemTemplate>
-                            <DataTemplate>
-                                <StackPanel Orientation="Horizontal" Spacing="5">
-                                    <TextBlock Text="{Binding Name}"/>
-                                    <TextBlock Text="(預設)" Foreground="Gray"
-                                               IsVisible="{Binding IsDefault}"/>
-                                </StackPanel>
-                            </DataTemplate>
-                        </ListBox.ItemTemplate>
-                    </ListBox>
+                    <ScrollViewer>
+                        <StackPanel Margin="5" Spacing="4">
+                            <ListBox ItemsSource="{Binding Profiles}"
+                                     SelectedItem="{Binding SelectedProfile}">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Orientation="Horizontal" Spacing="5">
+                                            <TextBlock Text="{Binding Name}"/>
+                                            <TextBlock Text="(預設)" Foreground="Gray"
+                                                       IsVisible="{Binding IsDefault}"/>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+
+                            <!-- 外部連線群組，當已設定來源目錄時顯示 -->
+                            <StackPanel IsVisible="{Binding IsSyncButtonVisible}">
+                                <TextBlock Text="外部連線" FontWeight="SemiBold" Margin="0,8,0,4"/>
+                                <ListBox ItemsSource="{Binding ExternalProfiles}"
+                                         SelectedItem="{Binding SelectedExternalProfile}">
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding Name}"/>
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+                            </StackPanel>
+                        </StackPanel>
+                    </ScrollViewer>
                 </DockPanel>
             </Border>
 
@@ -61,19 +77,19 @@
                             <!-- 名稱 -->
                             <StackPanel Spacing="4">
                                 <TextBlock Text="連線名稱"/>
-                                <TextBox Text="{Binding Name}" Watermark="例如: 開發環境"/>
+                                <TextBox Text="{Binding Name}" Watermark="例如: 開發環境" IsReadOnly="{Binding IsExternalProfileSelected}"/>
                             </StackPanel>
 
                             <!-- 伺服器 -->
                             <StackPanel Spacing="4">
                                 <TextBlock Text="伺服器"/>
-                                <TextBox Text="{Binding Server}" Watermark="例如: localhost 或 192.168.1.100"/>
+                                <TextBox Text="{Binding Server}" Watermark="例如: localhost 或 192.168.1.100" IsReadOnly="{Binding IsExternalProfileSelected}"/>
                             </StackPanel>
 
                             <!-- 資料庫 -->
                             <StackPanel Spacing="4">
                                 <TextBlock Text="資料庫名稱"/>
-                                <TextBox Text="{Binding Database}" Watermark="例如: MyDatabase"/>
+                                <TextBox Text="{Binding Database}" Watermark="例如: MyDatabase" IsReadOnly="{Binding IsExternalProfileSelected}"/>
                             </StackPanel>
 
                             <!-- 驗證方式 -->
@@ -89,11 +105,11 @@
                             <StackPanel Spacing="10" IsVisible="{Binding UseWindowsAuth, Converter={x:Static BoolConverters.Not}}">
                                 <StackPanel Spacing="4">
                                     <TextBlock Text="使用者名稱"/>
-                                    <TextBox Text="{Binding Username}"/>
+                                    <TextBox Text="{Binding Username}" IsReadOnly="{Binding IsExternalProfileSelected}"/>
                                 </StackPanel>
                                 <StackPanel Spacing="4">
                                     <TextBlock Text="密碼"/>
-                                    <TextBox Text="{Binding Password}" PasswordChar="●"/>
+                                    <TextBox Text="{Binding Password}" PasswordChar="●" IsReadOnly="{Binding IsExternalProfileSelected}"/>
                                 </StackPanel>
                             </StackPanel>
 
@@ -117,13 +133,47 @@
             </Border>
         </Grid>
 
-        <!-- 底部按鈕列 -->
-        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right"
-                    Spacing="10" Margin="0,15,0,0">
-            <Button Content="儲存" Command="{Binding SaveCommand}" Width="80"/>
-            <Button Content="連線" Command="{Binding ConnectCommand}" Width="80"
-                    IsEnabled="{Binding SelectedProfile, Converter={x:Static ObjectConverters.IsNotNull}}"/>
-            <Button Content="關閉" Click="OnCloseClick" Width="80"/>
+        <!-- 底部區域 -->
+        <StackPanel Grid.Row="1" Spacing="10" Margin="0,15,0,0">
+            <!-- 外部來源設定 -->
+            <Border BorderBrush="{DynamicResource SystemControlForegroundBaseMediumBrush}"
+                    BorderThickness="1" CornerRadius="4" Padding="10,8">
+                <StackPanel Spacing="6">
+                    <TextBlock Text="外部來源設定" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                    <Grid RowDefinitions="Auto,Auto,Auto" ColumnDefinitions="Auto,*,Auto">
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="來源目錄" VerticalAlignment="Center" Margin="0,0,8,4"/>
+                        <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding ExternalSourceDirectory}" Margin="0,0,4,4"/>
+                        <Button Grid.Row="0" Grid.Column="2" Content="瀏覽" Click="BrowseSourceDirectory_Click" Margin="0,0,0,4"/>
+
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="金鑰檔" VerticalAlignment="Center" Margin="0,0,8,4"/>
+                        <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding ExternalKeyFilePath}" Margin="0,0,4,4"/>
+                        <Button Grid.Row="1" Grid.Column="2" Content="瀏覽" Click="BrowseKeyFile_Click" Margin="0,0,0,4"/>
+
+                        <Button Grid.Row="2" Grid.Column="1" Content="儲存設定" HorizontalAlignment="Right"
+                                Click="SaveExternalSettings_Click" Margin="0,4,0,0"/>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- 同步按鈕與狀態 -->
+            <StackPanel Orientation="Horizontal" Spacing="8">
+                <Button Content="同步外部來源"
+                        Command="{Binding SyncExternalSourceCommand}"
+                        IsVisible="{Binding IsSyncButtonVisible}"
+                        IsEnabled="{Binding !IsSyncing}"/>
+                <TextBlock Text="{Binding SyncStatusMessage}"
+                           IsVisible="{Binding SyncStatusMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                           VerticalAlignment="Center"
+                           Margin="4,0"/>
+            </StackPanel>
+
+            <!-- 按鈕列 -->
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10">
+                <Button Content="儲存" Command="{Binding SaveCommand}" Width="80"/>
+                <Button Content="連線" Command="{Binding ConnectCommand}" Width="80"
+                        IsEnabled="{Binding CanConnect}"/>
+                <Button Content="關閉" Click="OnCloseClick" Width="80"/>
+            </StackPanel>
         </StackPanel>
     </Grid>
 </Window>

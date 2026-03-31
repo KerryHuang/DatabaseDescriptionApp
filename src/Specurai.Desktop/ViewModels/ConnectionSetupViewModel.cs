@@ -12,6 +12,8 @@ namespace Specurai.Desktop.ViewModels;
 public partial class ConnectionSetupViewModel : ViewModelBase
 {
     private readonly IConnectionManager? _connectionManager;
+    private readonly IExternalConnectionSource? _externalConnectionSource;
+    private readonly IExternalSourceSettings? _externalSourceSettings;
 
     [ObservableProperty]
     private ConnectionProfile? _selectedProfile;
@@ -46,7 +48,42 @@ public partial class ConnectionSetupViewModel : ViewModelBase
     [ObservableProperty]
     private bool _isEditing;
 
+    [ObservableProperty]
+    private ConnectionProfile? _selectedExternalProfile;
+
+    [ObservableProperty]
+    private bool _isSyncing;
+
+    [ObservableProperty]
+    private string _syncStatusMessage = string.Empty;
+
+    [ObservableProperty]
+    private string _externalSourceDirectory = string.Empty;
+
+    [ObservableProperty]
+    private string _externalKeyFilePath = string.Empty;
+
     public ObservableCollection<ConnectionProfile> Profiles { get; } = [];
+    public ObservableCollection<ConnectionProfile> ExternalProfiles { get; } = [];
+
+    public bool IsSyncButtonVisible =>
+        !string.IsNullOrWhiteSpace(ExternalSourceDirectory);
+
+    public bool IsExternalProfileSelected => SelectedExternalProfile != null;
+
+    public bool CanConnect =>
+        SelectedProfile != null || SelectedExternalProfile != null;
+
+    partial void OnSelectedExternalProfileChanged(ConnectionProfile? value)
+    {
+        OnPropertyChanged(nameof(IsExternalProfileSelected));
+        OnPropertyChanged(nameof(CanConnect));
+    }
+
+    partial void OnExternalSourceDirectoryChanged(string value)
+    {
+        OnPropertyChanged(nameof(IsSyncButtonVisible));
+    }
 
     public ConnectionSetupViewModel()
     {
@@ -59,6 +96,18 @@ public partial class ConnectionSetupViewModel : ViewModelBase
         LoadProfiles();
     }
 
+    public ConnectionSetupViewModel(
+        IConnectionManager connectionManager,
+        IExternalConnectionSource externalConnectionSource,
+        IExternalSourceSettings externalSourceSettings)
+    {
+        _connectionManager = connectionManager;
+        _externalConnectionSource = externalConnectionSource;
+        _externalSourceSettings = externalSourceSettings;
+        LoadProfiles();
+        LoadExternalSourceSettings();
+    }
+
     private void LoadProfiles()
     {
         Profiles.Clear();
@@ -69,8 +118,24 @@ public partial class ConnectionSetupViewModel : ViewModelBase
         }
     }
 
+    private void LoadExternalSourceSettings()
+    {
+        if (_externalSourceSettings == null) return;
+        var config = _externalSourceSettings.Load();
+        ExternalSourceDirectory = config.SourceDirectory;
+        ExternalKeyFilePath = config.KeyFilePath;
+    }
+
+    public void SaveExternalSourceSettings()
+    {
+        _externalSourceSettings?.Save(
+            new ExternalSourceConfig(ExternalSourceDirectory, ExternalKeyFilePath));
+        OnPropertyChanged(nameof(IsSyncButtonVisible));
+    }
+
     partial void OnSelectedProfileChanged(ConnectionProfile? value)
     {
+        OnPropertyChanged(nameof(CanConnect));
         if (value != null)
         {
             Name = value.Name;
@@ -160,9 +225,44 @@ public partial class ConnectionSetupViewModel : ViewModelBase
     [RelayCommand]
     private void Connect()
     {
-        if (_connectionManager == null || SelectedProfile == null) return;
+        if (_connectionManager == null) return;
 
-        _connectionManager.SetCurrentProfile(SelectedProfile.Id);
+        if (SelectedExternalProfile != null)
+        {
+            _connectionManager.RegisterTemporaryProfiles([SelectedExternalProfile]);
+            _connectionManager.SetCurrentProfile(SelectedExternalProfile.Id);
+            return;
+        }
+
+        if (SelectedProfile != null)
+            _connectionManager.SetCurrentProfile(SelectedProfile.Id);
+    }
+
+    [RelayCommand]
+    private async Task SyncExternalSourceAsync()
+    {
+        if (_externalConnectionSource == null) return;
+        IsSyncing = true;
+        SyncStatusMessage = "正在同步...";
+        try
+        {
+            var result = await _externalConnectionSource.SyncAsync();
+            ExternalProfiles.Clear();
+            foreach (var p in result.Profiles)
+                ExternalProfiles.Add(p);
+
+            SyncStatusMessage = result.FailedItems.Count == 0
+                ? $"已同步 {result.Profiles.Count} 個外部連線"
+                : $"已同步 {result.Profiles.Count} 個，{result.FailedItems.Count} 個失敗";
+        }
+        catch (Exception ex)
+        {
+            SyncStatusMessage = $"同步失敗：{ex.Message}";
+        }
+        finally
+        {
+            IsSyncing = false;
+        }
     }
 
     private ConnectionProfile CreateProfileFromForm(Guid? id = null)

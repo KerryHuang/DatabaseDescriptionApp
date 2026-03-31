@@ -377,4 +377,192 @@ public class ConnectionSetupViewModelTests
     }
 
     #endregion
+
+    #region UseProfile 測試（外部連線）
+
+    [Fact]
+    public void ConnectCommand_有選擇外部連線_應呼叫RegisterTemporaryProfilesAndSetCurrentProfile()
+    {
+        // Arrange
+        _connectionManager.GetAllProfiles().Returns(new List<ConnectionProfile>());
+        var externalProfile = new ConnectionProfile
+        {
+            Name = "外部 - 正式",
+            Server = "10.0.0.1",
+            Database = "ext_db"
+        };
+
+        var externalSource = Substitute.For<IExternalConnectionSource>();
+        var externalSettings = Substitute.For<IExternalSourceSettings>();
+        externalSettings.Load().Returns(new ExternalSourceConfig("some/path", string.Empty));
+
+        var vm = new ConnectionSetupViewModel(_connectionManager, externalSource, externalSettings);
+        vm.SelectedExternalProfile = externalProfile;
+        vm.SelectedProfile = null;
+
+        // Act
+        vm.ConnectCommand.Execute(null);
+
+        // Assert
+        _connectionManager.Received(1).RegisterTemporaryProfiles(
+            Arg.Is<IReadOnlyList<ConnectionProfile>>(list =>
+                list.Count == 1 && list[0] == externalProfile));
+        _connectionManager.Received(1).SetCurrentProfile(externalProfile.Id);
+    }
+
+    #endregion
+
+    #region IsExternalProfileSelected 測試
+
+    [Fact]
+    public void IsExternalProfileSelected_選取外部連線_為True()
+    {
+        var vm = CreateVmWithExternal();
+        var profile = new ConnectionProfile { Name = "外部 - 正式", Server = "10.0.0.1", Database = "ext_db" };
+
+        vm.SelectedExternalProfile = profile;
+
+        vm.IsExternalProfileSelected.Should().BeTrue();
+    }
+
+    [Fact]
+    public void IsExternalProfileSelected_未選取外部連線_為False()
+    {
+        var vm = CreateVmWithExternal();
+
+        vm.SelectedExternalProfile = null;
+
+        vm.IsExternalProfileSelected.Should().BeFalse();
+    }
+
+    #endregion
+
+    #region CanConnect 測試
+
+    [Fact]
+    public void CanConnect_未選取任何連線_為False()
+    {
+        var vm = CreateVmWithExternal();
+
+        vm.CanConnect.Should().BeFalse();
+    }
+
+    [Fact]
+    public void CanConnect_選取內部連線_應為True()
+    {
+        _connectionManager.GetAllProfiles().Returns(new List<ConnectionProfile>());
+        var vm = new ConnectionSetupViewModel(_connectionManager);
+        vm.SelectedProfile = new ConnectionProfile { Name = "內部測試", Server = "s", Database = "db" };
+
+        vm.CanConnect.Should().BeTrue();
+    }
+
+    [Fact]
+    public void CanConnect_選取外部連線_應為True()
+    {
+        var vm = CreateVmWithExternal();
+        vm.SelectedExternalProfile = new ConnectionProfile { Name = "外部測試", Server = "s", Database = "db" };
+
+        vm.CanConnect.Should().BeTrue();
+    }
+
+    #endregion
+
+    #region 外部連線 Sync 測試
+
+    private IExternalConnectionSource CreateExternalSource(
+        IReadOnlyList<ConnectionProfile>? profiles = null)
+    {
+        var source = Substitute.For<IExternalConnectionSource>();
+        source.SyncAsync().Returns(new ExternalConnectionResult(
+            profiles ?? new List<ConnectionProfile>(), []));
+        return source;
+    }
+
+    private IExternalSourceSettings CreateExternalSettings(
+        string sourceDir = "", string keyFile = "")
+    {
+        var settings = Substitute.For<IExternalSourceSettings>();
+        settings.Load().Returns(new ExternalSourceConfig(sourceDir, keyFile));
+        return settings;
+    }
+
+    private ConnectionSetupViewModel CreateVmWithExternal(
+        IExternalConnectionSource? source = null,
+        IExternalSourceSettings? settings = null)
+    {
+        _connectionManager.GetAllProfiles().Returns(new List<ConnectionProfile>());
+        return new ConnectionSetupViewModel(
+            _connectionManager,
+            source ?? CreateExternalSource(),
+            settings ?? CreateExternalSettings());
+    }
+
+    [Fact]
+    public void IsSyncButtonVisible_來源目錄為空_為False()
+    {
+        var vm = CreateVmWithExternal(settings: CreateExternalSettings(""));
+        vm.IsSyncButtonVisible.Should().BeFalse();
+    }
+
+    [Fact]
+    public void IsSyncButtonVisible_來源目錄有值_為True()
+    {
+        var vm = CreateVmWithExternal(settings: CreateExternalSettings("some/path"));
+        vm.IsSyncButtonVisible.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task SyncExternalSourceCommand_執行後_ExternalProfiles更新()
+    {
+        var profiles = new List<ConnectionProfile>
+        {
+            new() { Name = "外部 - 正式", Server = "10.0.0.1", Database = "ext_db" }
+        };
+        var vm = CreateVmWithExternal(
+            source: CreateExternalSource(profiles),
+            settings: CreateExternalSettings("some/path"));
+
+        await vm.SyncExternalSourceCommand.ExecuteAsync(null);
+
+        vm.ExternalProfiles.Should().HaveCount(1);
+        vm.ExternalProfiles[0].Name.Should().Be("外部 - 正式");
+    }
+
+    [Fact]
+    public async Task SyncExternalSourceCommand_執行後_SyncStatusMessage顯示數量()
+    {
+        var profiles = new List<ConnectionProfile>
+        {
+            new() { Name = "A - 正式", Server = "1.1.1.1", Database = "a" },
+            new() { Name = "B - 測試", Server = "2.2.2.2", Database = "b" }
+        };
+        var vm = CreateVmWithExternal(
+            source: CreateExternalSource(profiles),
+            settings: CreateExternalSettings("some/path"));
+
+        await vm.SyncExternalSourceCommand.ExecuteAsync(null);
+
+        vm.SyncStatusMessage.Should().Contain("2");
+    }
+
+    [Fact]
+    public void SaveExternalSourceSettings_儲存後_IsSyncButtonVisible更新()
+    {
+        var settings = Substitute.For<IExternalSourceSettings>();
+        settings.Load().Returns(new ExternalSourceConfig(string.Empty, string.Empty));
+        _connectionManager.GetAllProfiles().Returns(new List<ConnectionProfile>());
+
+        var vm = new ConnectionSetupViewModel(
+            _connectionManager, CreateExternalSource(), settings);
+        vm.IsSyncButtonVisible.Should().BeFalse();
+
+        // 模擬使用者填入路徑並儲存
+        vm.ExternalSourceDirectory = "new/path";
+        vm.SaveExternalSourceSettings();
+
+        vm.IsSyncButtonVisible.Should().BeTrue();
+    }
+
+    #endregion
 }

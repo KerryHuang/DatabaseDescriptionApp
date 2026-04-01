@@ -228,7 +228,7 @@ jobs:
           --api-key ${{ secrets.NUGET_API_KEY }}
           --source https://api.nuget.org/v3/index.json
           --skip-duplicate
-        if: ${{ secrets.NUGET_API_KEY != '' }}
+        if: secrets.NUGET_API_KEY != ''
 
       - name: 上傳 NuGet 套件
         uses: actions/upload-artifact@v4

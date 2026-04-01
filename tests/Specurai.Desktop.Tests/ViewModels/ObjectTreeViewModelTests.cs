@@ -414,7 +414,7 @@ public class ObjectItemViewModelTests
         var item = new ObjectItemViewModel(table);
 
         // Assert
-        item.DisplayName.Should().Be("Users");
+        item.DisplayName.Should().Be("dbo.Users");
     }
 
     [Fact]
@@ -427,6 +427,6 @@ public class ObjectItemViewModelTests
         var item = new ObjectItemViewModel(table);
 
         // Assert
-        item.DisplayName.Should().Be("Users (使用者資料表)");
+        item.DisplayName.Should().Be("dbo.Users (使用者資料表)");
     }
 }

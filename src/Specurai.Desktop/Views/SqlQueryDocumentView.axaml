@@ -96,7 +96,15 @@
                           GridLinesVisibility="All"
                           CanUserResizeColumns="True"
                           CanUserReorderColumns="True"
-                          CanUserSortColumns="True"/>
+                          CanUserSortColumns="True"
+                          ClipboardCopyMode="None">
+                    <DataGrid.ContextMenu>
+                        <ContextMenu>
+                            <MenuItem Header="複製儲存格" Click="OnCopyCellClicked"/>
+                            <MenuItem Header="複製整列" Click="OnCopyRowClicked"/>
+                        </ContextMenu>
+                    </DataGrid.ContextMenu>
+                </DataGrid>
             </Border>
         </Grid>
 

@@ -22,6 +22,11 @@ public class SqlQueryRepository : ISqlQueryRepository
         if (string.IsNullOrEmpty(connectionString))
             throw new InvalidOperationException("未設定資料庫連線");
 
+        return await ExecuteQueryAsync(sql, connectionString, ct);
+    }
+
+    public async Task<DataTable> ExecuteQueryAsync(string sql, string connectionString, CancellationToken ct = default)
+    {
         await using var connection = new SqlConnection(connectionString);
         await connection.OpenAsync(ct);
 
@@ -41,6 +46,11 @@ public class SqlQueryRepository : ISqlQueryRepository
         if (string.IsNullOrEmpty(connectionString))
             return new Dictionary<string, string>();
 
+        return await GetColumnDescriptionsAsync(connectionString, ct);
+    }
+
+    public async Task<Dictionary<string, string>> GetColumnDescriptionsAsync(string connectionString, CancellationToken ct = default)
+    {
         const string sql = @"
             SELECT
                 SCHEMA_NAME(t.schema_id) + '.' + t.name + '.' + c.name AS FullName,

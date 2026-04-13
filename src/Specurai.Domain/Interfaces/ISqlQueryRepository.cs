@@ -40,14 +40,24 @@ public class ColumnSearchResult
 public interface ISqlQueryRepository
 {
     /// <summary>
-    /// 執行 SQL 查詢並返回結果
+    /// 執行 SQL 查詢並返回結果（使用預設連線）
     /// </summary>
     Task<DataTable> ExecuteQueryAsync(string sql, CancellationToken ct = default);
 
     /// <summary>
-    /// 取得欄位描述對照表（表名.欄位名 -> 描述）
+    /// 執行 SQL 查詢並返回結果（使用指定連線字串）
+    /// </summary>
+    Task<DataTable> ExecuteQueryAsync(string sql, string connectionString, CancellationToken ct = default);
+
+    /// <summary>
+    /// 取得欄位描述對照表（表名.欄位名 -> 描述）（使用預設連線）
     /// </summary>
     Task<Dictionary<string, string>> GetColumnDescriptionsAsync(CancellationToken ct = default);
+
+    /// <summary>
+    /// 取得欄位描述對照表（表名.欄位名 -> 描述）（使用指定連線字串）
+    /// </summary>
+    Task<Dictionary<string, string>> GetColumnDescriptionsAsync(string connectionString, CancellationToken ct = default);
 
     /// <summary>
     /// 搜尋欄位名稱

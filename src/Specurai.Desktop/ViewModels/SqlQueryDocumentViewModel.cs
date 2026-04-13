@@ -22,6 +22,7 @@ public partial class SqlQueryDocumentViewModel : DocumentViewModel
     private readonly ISqlQueryRepository? _sqlQueryRepository;
     private readonly IConnectionManager? _connectionManager;
     private Dictionary<string, string> _columnDescriptions = new(StringComparer.OrdinalIgnoreCase);
+    private string? _localConnectionString;
     private static int _instanceCount;
 
     [ObservableProperty]
@@ -97,7 +98,10 @@ public partial class SqlQueryDocumentViewModel : DocumentViewModel
 
         try
         {
-            _columnDescriptions = await _sqlQueryRepository.GetColumnDescriptionsAsync();
+            if (!string.IsNullOrEmpty(_localConnectionString))
+                _columnDescriptions = await _sqlQueryRepository.GetColumnDescriptionsAsync(_localConnectionString);
+            else
+                _columnDescriptions = await _sqlQueryRepository.GetColumnDescriptionsAsync();
         }
         catch
         {
@@ -109,7 +113,8 @@ public partial class SqlQueryDocumentViewModel : DocumentViewModel
     {
         if (value != null && _connectionManager != null)
         {
-            _connectionManager.SetCurrentProfile(value.Id);
+            // 只更新本地連線字串，不影響全域連線設定
+            _localConnectionString = _connectionManager.GetConnectionString(value.Id);
             StatusMessage = $"已切換至：{value.Name}";
             _ = LoadColumnDescriptionsAsync();
         }
@@ -129,7 +134,9 @@ public partial class SqlQueryDocumentViewModel : DocumentViewModel
             ResultColumns.Clear();
 
             var stopwatch = Stopwatch.StartNew();
-            var dataTable = await _sqlQueryRepository.ExecuteQueryAsync(SqlText.Trim());
+            var dataTable = !string.IsNullOrEmpty(_localConnectionString)
+                ? await _sqlQueryRepository.ExecuteQueryAsync(SqlText.Trim(), _localConnectionString)
+                : await _sqlQueryRepository.ExecuteQueryAsync(SqlText.Trim());
             stopwatch.Stop();
 
             // 建立欄位（包含描述）

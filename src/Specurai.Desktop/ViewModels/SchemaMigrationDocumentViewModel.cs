@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
@@ -51,8 +52,23 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
 
     public ObservableCollection<ConnectionProfile> ConnectionProfiles { get; } = [];
     public ObservableCollection<MigrationDifferenceRowViewModel> DifferenceRows { get; } = [];
+    public ObservableCollection<MigrationDifferenceRowViewModel> FilteredRows { get; } = [];
 
     private int _selectedExecutableCount;
+
+    // 篩選屬性
+    [ObservableProperty] private string _filterObjectName = string.Empty;
+    [ObservableProperty] private string? _filterRiskLevel;
+    [ObservableProperty] private string? _filterObjectType;
+    [ObservableProperty] private string? _filterDifferenceType;
+
+    // 篩選選項
+    public IReadOnlyList<string?> RiskLevelOptions { get; } =
+        new[] { (string?)null, "🟢 低風險", "🟡 中風險", "🔴 高風險", "🔴 禁止" };
+    public IReadOnlyList<string?> ObjectTypeOptions { get; } =
+        new[] { (string?)null, "表格", "欄位", "索引", "約束", "檢視表", "預存程序", "函數", "觸發程序" };
+    public IReadOnlyList<string?> DifferenceTypeOptions { get; } =
+        new[] { (string?)null, "新增", "修改" };
 
     // 設計時建構函式
     public SchemaMigrationDocumentViewModel()
@@ -94,6 +110,7 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
         IsAnalyzing = true;
         StatusMessage = "正在分析 Schema 差異...";
         DifferenceRows.Clear();
+        FilteredRows.Clear();
         _currentAnalysis = null;
 
         try
@@ -124,6 +141,7 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
                 DifferenceRows.Add(row);
             }
             _selectedExecutableCount = DifferenceRows.Count(r => r.IsSelected && r.IsExecutable);
+            ApplyFilter();
 
             var total = DifferenceRows.Count;
             var blocked = _currentAnalysis.BlockedDifferences.Count;
@@ -147,6 +165,38 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
         !IsAnalyzing && !IsExecuting &&
         SelectedBaseProfile != null && SelectedTargetProfile != null &&
         SelectedBaseProfile.Id != SelectedTargetProfile.Id;
+
+    partial void OnFilterObjectNameChanged(string value) => ApplyFilter();
+    partial void OnFilterRiskLevelChanged(string? value) => ApplyFilter();
+    partial void OnFilterObjectTypeChanged(string? value) => ApplyFilter();
+    partial void OnFilterDifferenceTypeChanged(string? value) => ApplyFilter();
+
+    private void ApplyFilter()
+    {
+        FilteredRows.Clear();
+        foreach (var row in DifferenceRows)
+        {
+            if (!string.IsNullOrEmpty(FilterObjectName) &&
+                !row.Difference.ObjectName.Contains(FilterObjectName, StringComparison.OrdinalIgnoreCase))
+                continue;
+            if (FilterRiskLevel != null && row.RiskLevelText != FilterRiskLevel)
+                continue;
+            if (FilterObjectType != null && row.ObjectTypeText != FilterObjectType)
+                continue;
+            if (FilterDifferenceType != null && row.DifferenceTypeText != FilterDifferenceType)
+                continue;
+            FilteredRows.Add(row);
+        }
+    }
+
+    [RelayCommand]
+    private void ClearFilters()
+    {
+        FilterObjectName = string.Empty;
+        FilterRiskLevel = null;
+        FilterObjectType = null;
+        FilterDifferenceType = null;
+    }
 
     private void OnRowSelectionChanged(bool isNowSelected)
     {

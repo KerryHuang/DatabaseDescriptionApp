@@ -31,18 +31,10 @@ public class MssqlSchemaCollector : ISchemaCollector
         var (tables, columns, indexes, indexColumns, constraints) = await FetchAllTableDataAsync(connection, ct);
         schema.Tables = BuildTables(tables, columns, indexes, indexColumns, constraints);
 
-        // 程式物件可平行查詢
-        var viewsTask = CollectProgramObjectsAsync(connection, ProgramObjectType.View, ct);
-        var spTask = CollectProgramObjectsAsync(connection, ProgramObjectType.StoredProcedure, ct);
-        var fnTask = CollectProgramObjectsAsync(connection, ProgramObjectType.Function, ct);
-        var trTask = CollectProgramObjectsAsync(connection, ProgramObjectType.Trigger, ct);
-
-        await Task.WhenAll(viewsTask, spTask, fnTask, trTask);
-
-        schema.Views = await viewsTask;
-        schema.StoredProcedures = await spTask;
-        schema.Functions = await fnTask;
-        schema.Triggers = await trTask;
+        schema.Views = await CollectProgramObjectsAsync(connection, ProgramObjectType.View, ct);
+        schema.StoredProcedures = await CollectProgramObjectsAsync(connection, ProgramObjectType.StoredProcedure, ct);
+        schema.Functions = await CollectProgramObjectsAsync(connection, ProgramObjectType.Function, ct);
+        schema.Triggers = await CollectProgramObjectsAsync(connection, ProgramObjectType.Trigger, ct);
 
         return schema;
     }
@@ -78,14 +70,14 @@ public class MssqlSchemaCollector : ISchemaCollector
         IList<ConstraintRow> Constraints)>
         FetchAllTableDataAsync(SqlConnection connection, CancellationToken ct)
     {
-        var tablesTask = connection.QueryAsync<TableRow>(@"
+        var tableRows = (await connection.QueryAsync<TableRow>(@"
 SELECT s.name AS Schema, t.name AS Name
 FROM sys.tables t
 JOIN sys.schemas s ON t.schema_id = s.schema_id
 WHERE t.name NOT LIKE '%diagram%'
-ORDER BY s.name, t.name");
+ORDER BY s.name, t.name")).ToList();
 
-        var columnsTask = connection.QueryAsync<ColumnRow>(@"
+        var columnRows = (await connection.QueryAsync<ColumnRow>(@"
 SELECT
     s.name AS TableSchema, tbl.name AS TableName,
     c.name AS Name, tp.name AS DataType,
@@ -105,9 +97,9 @@ JOIN sys.types tp ON c.user_type_id = tp.user_type_id
 JOIN sys.tables tbl ON c.object_id = tbl.object_id
 JOIN sys.schemas s ON tbl.schema_id = s.schema_id
 WHERE tbl.name NOT LIKE '%diagram%'
-ORDER BY s.name, tbl.name, c.column_id");
+ORDER BY s.name, tbl.name, c.column_id")).ToList();
 
-        var indexesTask = connection.QueryAsync<IndexRow>(@"
+        var indexRows = (await connection.QueryAsync<IndexRow>(@"
 SELECT
     s.name AS TableSchema, t.name AS TableName,
     i.name AS IndexName, i.type_desc AS TypeDesc,
@@ -120,9 +112,9 @@ WHERE t.name NOT LIKE '%diagram%'
   AND i.name IS NOT NULL
   AND i.is_primary_key = 0
   AND i.is_unique_constraint = 0
-ORDER BY s.name, t.name, i.name");
+ORDER BY s.name, t.name, i.name")).ToList();
 
-        var indexColumnsTask = connection.QueryAsync<IndexColumnRow>(@"
+        var indexColumnRows = (await connection.QueryAsync<IndexColumnRow>(@"
 SELECT
     s.name AS TableSchema, t.name AS TableName,
     i.index_id AS IndexId,
@@ -137,9 +129,9 @@ WHERE t.name NOT LIKE '%diagram%'
   AND i.name IS NOT NULL
   AND i.is_primary_key = 0
   AND i.is_unique_constraint = 0
-ORDER BY s.name, t.name, i.index_id, ic.key_ordinal");
+ORDER BY s.name, t.name, i.index_id, ic.key_ordinal")).ToList();
 
-        var constraintsTask = connection.QueryAsync<ConstraintRow>(@"
+        var constraintRows = (await connection.QueryAsync<ConstraintRow>(@"
 -- Primary Keys
 SELECT
     s.name AS TableSchema, t.name AS TableName,
@@ -233,16 +225,14 @@ FROM sys.default_constraints dc
 JOIN sys.columns c ON dc.parent_object_id = c.object_id AND dc.parent_column_id = c.column_id
 JOIN sys.tables t ON dc.parent_object_id = t.object_id
 JOIN sys.schemas s ON t.schema_id = s.schema_id
-WHERE t.name NOT LIKE '%diagram%'");
-
-        await Task.WhenAll(tablesTask, columnsTask, indexesTask, indexColumnsTask, constraintsTask);
+WHERE t.name NOT LIKE '%diagram%'")).ToList();
 
         return (
-            (await tablesTask).ToList(),
-            (await columnsTask).ToList(),
-            (await indexesTask).ToList(),
-            (await indexColumnsTask).ToList(),
-            (await constraintsTask).ToList()
+            tableRows,
+            columnRows,
+            indexRows,
+            indexColumnRows,
+            constraintRows
         );
     }
 

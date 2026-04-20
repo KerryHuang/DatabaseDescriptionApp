@@ -191,7 +191,7 @@
                 <ProgressBar IsIndeterminate="True"
                              IsVisible="{Binding IsExecuting}"
                              Width="100" Height="8"/>
-                <TextBlock Text="{Binding StatusMessage}" VerticalAlignment="Center" FontSize="12"/>
+                <SelectableTextBlock Text="{Binding StatusMessage}" VerticalAlignment="Center" FontSize="12"/>
             </StackPanel>
         </Border>
 

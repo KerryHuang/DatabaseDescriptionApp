@@ -1,0 +1,192 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Specurai.Desktop.ViewModels"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="1100" d:DesignHeight="750"
+             x:Class="Specurai.Desktop.Views.SchemaMigrationDocumentView"
+             x:DataType="vm:SchemaMigrationDocumentViewModel">
+
+    <Design.DataContext>
+        <vm:SchemaMigrationDocumentViewModel/>
+    </Design.DataContext>
+
+    <Grid RowDefinitions="Auto,Auto,*,Auto,Auto">
+
+        <!-- 工具列：連線選擇 + 操作按鈕 -->
+        <Border Grid.Row="0"
+                Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}"
+                Padding="10,8">
+            <WrapPanel Orientation="Horizontal">
+                <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,0,16,0">
+                    <TextBlock Text="基準資料庫：" VerticalAlignment="Center"/>
+                    <ComboBox ItemsSource="{Binding ConnectionProfiles}"
+                              SelectedItem="{Binding SelectedBaseProfile}"
+                              DisplayMemberBinding="{Binding Name}"
+                              MinWidth="180"/>
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,0,16,0">
+                    <TextBlock Text="目標資料庫：" VerticalAlignment="Center"/>
+                    <ComboBox ItemsSource="{Binding ConnectionProfiles}"
+                              SelectedItem="{Binding SelectedTargetProfile}"
+                              DisplayMemberBinding="{Binding Name}"
+                              MinWidth="180"/>
+                </StackPanel>
+
+                <Button Command="{Binding AnalyzeCommand}" Margin="0,0,8,0"
+                        ToolTip.Tip="開始分析兩個資料庫的 Schema 差異">
+                    <StackPanel Orientation="Horizontal" Spacing="5">
+                        <TextBlock Text="🔍"/>
+                        <TextBlock Text="分析差異"/>
+                    </StackPanel>
+                </Button>
+
+                <Separator Margin="0,0,8,0"/>
+
+                <Button Command="{Binding PreviewSqlCommand}" Margin="0,0,4,0"
+                        ToolTip.Tip="預覽將執行的 T-SQL 腳本">
+                    <TextBlock Text="預覽 SQL"/>
+                </Button>
+                <Button Command="{Binding DownloadSqlCommand}" Margin="0,0,4,0"
+                        ToolTip.Tip="下載 .sql 腳本檔案">
+                    <TextBlock Text="⬇️ 下載 SQL"/>
+                </Button>
+                <Button Command="{Binding ExecuteMigrationCommand}"
+                        ToolTip.Tip="對目標資料庫執行 Migration（含自動回滾）">
+                    <StackPanel Orientation="Horizontal" Spacing="5">
+                        <TextBlock Text="▶"/>
+                        <TextBlock Text="執行 Migration"/>
+                    </StackPanel>
+                </Button>
+            </WrapPanel>
+        </Border>
+
+        <!-- 全選/取消全選列 -->
+        <Border Grid.Row="1" Padding="10,4"
+                Background="{DynamicResource SystemControlBackgroundAltHighBrush}">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+                <TextBlock Text="勾選：" VerticalAlignment="Center" FontSize="12"/>
+                <Button Command="{Binding SelectAllCommand}" FontSize="12" Padding="6,2">
+                    <TextBlock Text="全選"/>
+                </Button>
+                <Button Command="{Binding DeselectAllCommand}" FontSize="12" Padding="6,2">
+                    <TextBlock Text="取消全選"/>
+                </Button>
+            </StackPanel>
+        </Border>
+
+        <!-- 差異分析表格 -->
+        <DataGrid Grid.Row="2"
+                  ItemsSource="{Binding DifferenceRows}"
+                  AutoGenerateColumns="False"
+                  CanUserSortColumns="True"
+                  CanUserResizeColumns="True"
+                  IsReadOnly="False"
+                  GridLinesVisibility="Horizontal">
+            <DataGrid.Columns>
+                <!-- 執行（勾選框）- 第一欄 -->
+                <DataGridTemplateColumn Header="執行" Width="60" CanUserSort="False">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate x:DataType="vm:MigrationDifferenceRowViewModel">
+                            <CheckBox IsChecked="{Binding IsSelected}"
+                                      IsEnabled="{Binding IsExecutable}"
+                                      HorizontalAlignment="Center"
+                                      VerticalAlignment="Center"/>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+
+                <!-- 風險 -->
+                <DataGridTextColumn Header="風險"
+                                    Binding="{Binding RiskLevelText}"
+                                    Width="90"
+                                    IsReadOnly="True"/>
+
+                <!-- 物件類型 -->
+                <DataGridTextColumn Header="物件類型"
+                                    Binding="{Binding ObjectTypeText}"
+                                    Width="90"
+                                    IsReadOnly="True"/>
+
+                <!-- 物件名稱 -->
+                <DataGridTextColumn Header="物件名稱"
+                                    Binding="{Binding Difference.ObjectName}"
+                                    Width="220"
+                                    IsReadOnly="True"/>
+
+                <!-- 差異類型 -->
+                <DataGridTextColumn Header="差異類型"
+                                    Binding="{Binding DifferenceTypeText}"
+                                    Width="110"
+                                    IsReadOnly="True"/>
+
+                <!-- 基準值 -->
+                <DataGridTextColumn Header="基準值"
+                                    Binding="{Binding Difference.SourceValue}"
+                                    Width="120"
+                                    IsReadOnly="True"/>
+
+                <!-- 目標值 -->
+                <DataGridTextColumn Header="目標值"
+                                    Binding="{Binding Difference.TargetValue}"
+                                    Width="120"
+                                    IsReadOnly="True"/>
+
+                <!-- 說明 -->
+                <DataGridTextColumn Header="說明"
+                                    Binding="{Binding Difference.Description}"
+                                    Width="*"
+                                    IsReadOnly="True"/>
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <!-- 執行報告（有報告時顯示）-->
+        <Border Grid.Row="3"
+                IsVisible="{Binding LastReport, Converter={x:Static ObjectConverters.IsNotNull}}"
+                BorderBrush="{DynamicResource SystemControlForegroundBaseMediumBrush}"
+                BorderThickness="0,1,0,0">
+            <Grid RowDefinitions="Auto,*" MaxHeight="200">
+                <Border Grid.Row="0" Padding="10,6"
+                        Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}">
+                    <StackPanel Orientation="Horizontal" Spacing="12">
+                        <TextBlock Text="📋 執行報告" FontWeight="Bold" VerticalAlignment="Center"/>
+                        <Button Command="{Binding DownloadReportCommand}" FontSize="12" Padding="6,2">
+                            <TextBlock Text="⬇️ 下載報告"/>
+                        </Button>
+                    </StackPanel>
+                </Border>
+                <DataGrid Grid.Row="1"
+                          ItemsSource="{Binding LastReport.Entries}"
+                          AutoGenerateColumns="False"
+                          IsReadOnly="True"
+                          CanUserSortColumns="False"
+                          GridLinesVisibility="Horizontal">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="狀態" Binding="{Binding Status}" Width="80"/>
+                        <DataGridTextColumn Header="物件名稱" Binding="{Binding ObjectName}" Width="220"/>
+                        <DataGridTextColumn Header="動作" Binding="{Binding Action}" Width="120"/>
+                        <DataGridTextColumn Header="耗時" Binding="{Binding Duration}" Width="80"/>
+                        <DataGridTextColumn Header="備註" Binding="{Binding Note}" Width="*"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </Grid>
+        </Border>
+
+        <!-- 狀態列 -->
+        <Border Grid.Row="4"
+                Padding="10,5"
+                Background="{DynamicResource SystemControlBackgroundChromeLowBrush}">
+            <StackPanel Orientation="Horizontal" Spacing="10">
+                <ProgressBar IsIndeterminate="True"
+                             IsVisible="{Binding IsAnalyzing}"
+                             Width="100" Height="8"/>
+                <ProgressBar IsIndeterminate="True"
+                             IsVisible="{Binding IsExecuting}"
+                             Width="100" Height="8"/>
+                <TextBlock Text="{Binding StatusMessage}" VerticalAlignment="Center" FontSize="12"/>
+            </StackPanel>
+        </Border>
+
+    </Grid>
+</UserControl>

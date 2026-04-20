@@ -85,49 +85,77 @@
 
                 <Separator Margin="0,2,12,2"/>
 
-                <StackPanel Orientation="Horizontal" Spacing="4" Margin="0,0,8,0">
-                    <TextBlock Text="物件名稱：" VerticalAlignment="Center" FontSize="12"/>
-                    <TextBox Text="{Binding FilterObjectName}" Width="150" FontSize="12"
-                             Watermark="搜尋…" VerticalContentAlignment="Center"/>
+                <TextBox Text="{Binding FilterObjectName}" Width="150" FontSize="12"
+                         Watermark="搜尋物件名稱…" VerticalContentAlignment="Center"
+                         Margin="0,0,8,0"/>
+
+                <!-- 風險多選 -->
+                <StackPanel Orientation="Horizontal" Margin="0,0,4,0">
+                    <ToggleButton x:Name="RiskFilterBtn"
+                                  Content="{Binding RiskFilterLabel}"
+                                  FontSize="12" Padding="6,2"/>
+                    <Popup IsOpen="{Binding #RiskFilterBtn.IsChecked}"
+                           PlacementTarget="{Binding #RiskFilterBtn}"
+                           Placement="Bottom" IsLightDismissEnabled="True">
+                        <Border Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}"
+                                BorderBrush="{DynamicResource SystemControlForegroundBaseMediumBrush}"
+                                BorderThickness="1" Padding="4">
+                            <ItemsControl ItemsSource="{Binding RiskLevelFilters}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:FilterOptionViewModel">
+                                        <CheckBox IsChecked="{Binding IsSelected}" Content="{Binding Label}"
+                                                  Padding="4,2" FontSize="12"/>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </Border>
+                    </Popup>
                 </StackPanel>
 
-                <StackPanel Orientation="Horizontal" Spacing="4" Margin="0,0,8,0">
-                    <TextBlock Text="風險：" VerticalAlignment="Center" FontSize="12"/>
-                    <ComboBox ItemsSource="{Binding RiskLevelOptions}"
-                              SelectedItem="{Binding FilterRiskLevel}"
-                              MinWidth="100" FontSize="12">
-                        <ComboBox.ItemTemplate>
-                            <DataTemplate>
-                                <TextBlock Text="{Binding, TargetNullValue='全部'}"/>
-                            </DataTemplate>
-                        </ComboBox.ItemTemplate>
-                    </ComboBox>
+                <!-- 物件類型多選 -->
+                <StackPanel Orientation="Horizontal" Margin="0,0,4,0">
+                    <ToggleButton x:Name="TypeFilterBtn"
+                                  Content="{Binding ObjectTypeFilterLabel}"
+                                  FontSize="12" Padding="6,2"/>
+                    <Popup IsOpen="{Binding #TypeFilterBtn.IsChecked}"
+                           PlacementTarget="{Binding #TypeFilterBtn}"
+                           Placement="Bottom" IsLightDismissEnabled="True">
+                        <Border Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}"
+                                BorderBrush="{DynamicResource SystemControlForegroundBaseMediumBrush}"
+                                BorderThickness="1" Padding="4">
+                            <ItemsControl ItemsSource="{Binding ObjectTypeFilters}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:FilterOptionViewModel">
+                                        <CheckBox IsChecked="{Binding IsSelected}" Content="{Binding Label}"
+                                                  Padding="4,2" FontSize="12"/>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </Border>
+                    </Popup>
                 </StackPanel>
 
-                <StackPanel Orientation="Horizontal" Spacing="4" Margin="0,0,8,0">
-                    <TextBlock Text="物件類型：" VerticalAlignment="Center" FontSize="12"/>
-                    <ComboBox ItemsSource="{Binding ObjectTypeOptions}"
-                              SelectedItem="{Binding FilterObjectType}"
-                              MinWidth="90" FontSize="12">
-                        <ComboBox.ItemTemplate>
-                            <DataTemplate>
-                                <TextBlock Text="{Binding, TargetNullValue='全部'}"/>
-                            </DataTemplate>
-                        </ComboBox.ItemTemplate>
-                    </ComboBox>
-                </StackPanel>
-
-                <StackPanel Orientation="Horizontal" Spacing="4" Margin="0,0,8,0">
-                    <TextBlock Text="差異類型：" VerticalAlignment="Center" FontSize="12"/>
-                    <ComboBox ItemsSource="{Binding DifferenceTypeOptions}"
-                              SelectedItem="{Binding FilterDifferenceType}"
-                              MinWidth="70" FontSize="12">
-                        <ComboBox.ItemTemplate>
-                            <DataTemplate>
-                                <TextBlock Text="{Binding, TargetNullValue='全部'}"/>
-                            </DataTemplate>
-                        </ComboBox.ItemTemplate>
-                    </ComboBox>
+                <!-- 差異類型多選 -->
+                <StackPanel Orientation="Horizontal" Margin="0,0,8,0">
+                    <ToggleButton x:Name="DiffFilterBtn"
+                                  Content="{Binding DifferenceTypeFilterLabel}"
+                                  FontSize="12" Padding="6,2"/>
+                    <Popup IsOpen="{Binding #DiffFilterBtn.IsChecked}"
+                           PlacementTarget="{Binding #DiffFilterBtn}"
+                           Placement="Bottom" IsLightDismissEnabled="True">
+                        <Border Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}"
+                                BorderBrush="{DynamicResource SystemControlForegroundBaseMediumBrush}"
+                                BorderThickness="1" Padding="4">
+                            <ItemsControl ItemsSource="{Binding DifferenceTypeFilters}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:FilterOptionViewModel">
+                                        <CheckBox IsChecked="{Binding IsSelected}" Content="{Binding Label}"
+                                                  Padding="4,2" FontSize="12"/>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </Border>
+                    </Popup>
                 </StackPanel>
 
                 <Button Command="{Binding ClearFiltersCommand}" FontSize="12" Padding="6,2"

@@ -1,5 +1,6 @@
 ---
-description: 系統性除錯問題。Use when 遇到 bug、測試失敗、或非預期行為需要追蹤根因。
+name: debugging-issues
+description: Use when 遇到 bug、測試失敗、或非預期行為需要追蹤根因。
 ---
 
 # 系統性除錯

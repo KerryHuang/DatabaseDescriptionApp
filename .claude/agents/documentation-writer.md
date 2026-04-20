@@ -1,5 +1,13 @@
 ---
 name: documentation-writer
+description: Use when writing or updating XML doc comments, README.md, or docs/*.md in 繁體中文.
+model: sonnet
+tools:
+  - Read
+  - Grep
+  - Glob
+  - Edit
+  - Write
 ---
 
 # Documentation Writer 代理

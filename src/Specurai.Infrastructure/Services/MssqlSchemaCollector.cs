@@ -72,7 +72,7 @@ public class MssqlSchemaCollector : ISchemaCollector
     {
         // QueryMultiple：單一 round-trip 取回 5 個結果集
         using var multi = await connection.QueryMultipleAsync(@"
-SELECT s.name AS Schema, t.name AS Name
+SELECT s.name AS [Schema], t.name AS Name
 FROM sys.tables t
 JOIN sys.schemas s ON t.schema_id = s.schema_id
 WHERE t.name NOT LIKE '%diagram%'
@@ -317,7 +317,7 @@ WHERE t.name NOT LIKE '%diagram%';");
         };
 
         var sql = $@"
-SELECT s.name AS Schema, o.name AS Name, OBJECT_DEFINITION(o.object_id) AS Definition
+SELECT s.name AS [Schema], o.name AS Name, OBJECT_DEFINITION(o.object_id) AS Definition
 FROM sys.objects o
 JOIN sys.schemas s ON o.schema_id = s.schema_id
 WHERE {typeFilter}

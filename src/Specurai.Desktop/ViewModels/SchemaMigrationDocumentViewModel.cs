@@ -58,17 +58,21 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
 
     // 篩選屬性
     [ObservableProperty] private string _filterObjectName = string.Empty;
-    [ObservableProperty] private string? _filterRiskLevel;
-    [ObservableProperty] private string? _filterObjectType;
-    [ObservableProperty] private string? _filterDifferenceType;
 
-    // 篩選選項
-    public IReadOnlyList<string?> RiskLevelOptions { get; } =
-        new[] { (string?)null, "🟢 低風險", "🟡 中風險", "🔴 高風險", "🔴 禁止" };
-    public IReadOnlyList<string?> ObjectTypeOptions { get; } =
-        new[] { (string?)null, "表格", "欄位", "索引", "約束", "檢視表", "預存程序", "函數", "觸發程序" };
-    public IReadOnlyList<string?> DifferenceTypeOptions { get; } =
-        new[] { (string?)null, "新增", "修改" };
+    // 多選篩選選項
+    public IReadOnlyList<FilterOptionViewModel> RiskLevelFilters { get; } = CreateFilters(
+        "🟢 低風險", "🟡 中風險", "🔴 高風險", "🔴 禁止");
+    public IReadOnlyList<FilterOptionViewModel> ObjectTypeFilters { get; } = CreateFilters(
+        "表格", "欄位", "索引", "約束", "檢視表", "預存程序", "函數", "觸發程序");
+    public IReadOnlyList<FilterOptionViewModel> DifferenceTypeFilters { get; } = CreateFilters(
+        "新增", "修改");
+
+    [ObservableProperty] private string _riskFilterLabel = "風險 ▾";
+    [ObservableProperty] private string _objectTypeFilterLabel = "物件類型 ▾";
+    [ObservableProperty] private string _differenceTypeFilterLabel = "差異類型 ▾";
+
+    private static IReadOnlyList<FilterOptionViewModel> CreateFilters(params string[] labels) =>
+        labels.Select(l => new FilterOptionViewModel { Label = l }).ToList();
 
     // 設計時建構函式
     public SchemaMigrationDocumentViewModel()
@@ -90,6 +94,7 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
         _executor = executor;
         _connectionManager = connectionManager;
 
+        SubscribeFilterEvents();
         LoadProfiles();
     }
 
@@ -167,35 +172,52 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
         SelectedBaseProfile.Id != SelectedTargetProfile.Id;
 
     partial void OnFilterObjectNameChanged(string value) => ApplyFilter();
-    partial void OnFilterRiskLevelChanged(string? value) => ApplyFilter();
-    partial void OnFilterObjectTypeChanged(string? value) => ApplyFilter();
-    partial void OnFilterDifferenceTypeChanged(string? value) => ApplyFilter();
+
+    private void SubscribeFilterEvents()
+    {
+        foreach (var f in RiskLevelFilters.Concat(ObjectTypeFilters).Concat(DifferenceTypeFilters))
+            f.SelectionChanged += _ => ApplyFilter();
+    }
 
     private void ApplyFilter()
     {
+        var activeRisk = RiskLevelFilters.Where(f => f.IsSelected).Select(f => f.Label).ToHashSet();
+        var activeType = ObjectTypeFilters.Where(f => f.IsSelected).Select(f => f.Label).ToHashSet();
+        var activeDiff = DifferenceTypeFilters.Where(f => f.IsSelected).Select(f => f.Label).ToHashSet();
+
+        RiskFilterLabel = activeRisk.Count == 0 ? "風險 ▾" : $"風險（{activeRisk.Count}）▾";
+        ObjectTypeFilterLabel = activeType.Count == 0 ? "物件類型 ▾" : $"物件類型（{activeType.Count}）▾";
+        DifferenceTypeFilterLabel = activeDiff.Count == 0 ? "差異類型 ▾" : $"差異類型（{activeDiff.Count}）▾";
+
+        var query = DifferenceRows.AsEnumerable();
+
+        if (!string.IsNullOrEmpty(FilterObjectName))
+            query = query.Where(r => r.Difference.ObjectName.Contains(FilterObjectName, StringComparison.OrdinalIgnoreCase));
+        if (activeRisk.Count > 0)
+            query = query.Where(r => activeRisk.Contains(r.RiskLevelText));
+        if (activeType.Count > 0)
+            query = query.Where(r => activeType.Contains(r.ObjectTypeText));
+        if (activeDiff.Count > 0)
+            query = query.Where(r => activeDiff.Contains(r.DifferenceTypeText));
+
+        // 預設排序：風險升序 → 物件類型（表格優先）→ 物件名稱
+        var sorted = query
+            .OrderBy(r => (int)r.Difference.RiskLevel)
+            .ThenBy(r => (int)r.Difference.ObjectType)
+            .ThenBy(r => r.Difference.ObjectName)
+            .ToList();
+
         FilteredRows.Clear();
-        foreach (var row in DifferenceRows)
-        {
-            if (!string.IsNullOrEmpty(FilterObjectName) &&
-                !row.Difference.ObjectName.Contains(FilterObjectName, StringComparison.OrdinalIgnoreCase))
-                continue;
-            if (FilterRiskLevel != null && row.RiskLevelText != FilterRiskLevel)
-                continue;
-            if (FilterObjectType != null && row.ObjectTypeText != FilterObjectType)
-                continue;
-            if (FilterDifferenceType != null && row.DifferenceTypeText != FilterDifferenceType)
-                continue;
+        foreach (var row in sorted)
             FilteredRows.Add(row);
-        }
     }
 
     [RelayCommand]
     private void ClearFilters()
     {
         FilterObjectName = string.Empty;
-        FilterRiskLevel = null;
-        FilterObjectType = null;
-        FilterDifferenceType = null;
+        foreach (var f in RiskLevelFilters.Concat(ObjectTypeFilters).Concat(DifferenceTypeFilters))
+            f.IsSelected = false;
     }
 
     private void OnRowSelectionChanged(bool isNowSelected)

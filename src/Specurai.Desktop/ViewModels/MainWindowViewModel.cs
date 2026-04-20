@@ -517,6 +517,23 @@ public partial class MainWindowViewModel : ViewModelBase
     }
 
     [RelayCommand]
+    private void OpenSchemaMigration()
+    {
+        var existing = Documents.OfType<SchemaMigrationDocumentViewModel>().FirstOrDefault();
+        if (existing != null)
+        {
+            SelectedDocument = existing;
+            return;
+        }
+
+        var doc = App.Services?.GetRequiredService<SchemaMigrationDocumentViewModel>()
+            ?? new SchemaMigrationDocumentViewModel();
+        doc.CloseRequested += OnDocumentCloseRequested;
+        Documents.Add(doc);
+        SelectedDocument = doc;
+    }
+
+    [RelayCommand]
     private void OpenHealthMonitoring()
     {
         // 檢查是否已開啟

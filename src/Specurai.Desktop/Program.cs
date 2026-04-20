@@ -78,6 +78,12 @@ sealed class Program
                 sp.GetRequiredService<ISchemaCompareService>(),
                 sp.GetRequiredService<ISchemaCollector>(),
                 sp.GetRequiredService<IConnectionManager>()));
+        services.AddTransient<SchemaMigrationDocumentViewModel>(sp =>
+            new SchemaMigrationDocumentViewModel(
+                sp.GetRequiredService<ISchemaMigrationService>(),
+                sp.GetRequiredService<ISqlScriptGenerator>(),
+                sp.GetRequiredService<ISchemaMigrationExecutor>(),
+                sp.GetRequiredService<IConnectionManager>()));
         services.AddTransient<HealthMonitoringDocumentViewModel>(sp =>
             new HealthMonitoringDocumentViewModel(
                 sp.GetRequiredService<IHealthMonitoringService>(),

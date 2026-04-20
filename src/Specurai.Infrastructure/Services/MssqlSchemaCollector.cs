@@ -6,7 +6,7 @@ using Specurai.Domain.Interfaces;
 namespace Specurai.Infrastructure.Services;
 
 /// <summary>
-/// SQL Server Schema 收集器
+/// SQL Server Schema 收集器（批次查詢版，避免 N+1 問題）
 /// </summary>
 public class MssqlSchemaCollector : ISchemaCollector
 {
@@ -27,210 +27,123 @@ public class MssqlSchemaCollector : ISchemaCollector
             CollectedAt = DateTime.Now
         };
 
-        // 收集表格
-        schema.Tables = await CollectTablesAsync(connection, ct);
+        // 批次查詢所有資料，在記憶體分組組裝
+        var (tables, columns, indexes, indexColumns, constraints) = await FetchAllTableDataAsync(connection, ct);
+        schema.Tables = BuildTables(tables, columns, indexes, indexColumns, constraints);
 
-        // 收集程式物件
-        schema.Views = await CollectProgramObjectsAsync(connection, ProgramObjectType.View, ct);
-        schema.StoredProcedures = await CollectProgramObjectsAsync(connection, ProgramObjectType.StoredProcedure, ct);
-        schema.Functions = await CollectProgramObjectsAsync(connection, ProgramObjectType.Function, ct);
-        schema.Triggers = await CollectProgramObjectsAsync(connection, ProgramObjectType.Trigger, ct);
+        // 程式物件可平行查詢
+        var viewsTask = CollectProgramObjectsAsync(connection, ProgramObjectType.View, ct);
+        var spTask = CollectProgramObjectsAsync(connection, ProgramObjectType.StoredProcedure, ct);
+        var fnTask = CollectProgramObjectsAsync(connection, ProgramObjectType.Function, ct);
+        var trTask = CollectProgramObjectsAsync(connection, ProgramObjectType.Trigger, ct);
+
+        await Task.WhenAll(viewsTask, spTask, fnTask, trTask);
+
+        schema.Views = await viewsTask;
+        schema.StoredProcedures = await spTask;
+        schema.Functions = await fnTask;
+        schema.Triggers = await trTask;
 
         return schema;
     }
 
-    #region 表格收集
+    #region 批次表格收集
 
-    private async Task<IList<SchemaTable>> CollectTablesAsync(SqlConnection connection, CancellationToken ct)
+    private record TableRow(string Schema, string Name);
+
+    private record ColumnRow(
+        string TableSchema, string TableName, string Name, string DataType,
+        int? MaxLength, byte Precision, byte Scale, bool IsNullable,
+        string? DefaultValue, bool IsIdentity, string? Collation);
+
+    private record IndexRow(
+        string TableSchema, string TableName, string IndexName,
+        string TypeDesc, bool IsUnique, string? FilterDefinition, int IndexId);
+
+    private record IndexColumnRow(
+        string TableSchema, string TableName, int IndexId,
+        string ColumnName, bool IsIncluded);
+
+    private record ConstraintRow(
+        string TableSchema, string TableName, string ConstraintName,
+        string ConstraintType, string? Columns, string? ReferencedSchema,
+        string? ReferencedTable, string? ReferencedColumns,
+        string? OnDelete, string? OnUpdate, string? Definition, string? ColumnName);
+
+    private static async Task<(
+        IList<TableRow> Tables,
+        IList<ColumnRow> Columns,
+        IList<IndexRow> Indexes,
+        IList<IndexColumnRow> IndexColumns,
+        IList<ConstraintRow> Constraints)>
+        FetchAllTableDataAsync(SqlConnection connection, CancellationToken ct)
     {
-        const string tableSql = @"
-SELECT
-    s.name AS [Schema],
-    t.name AS Name
+        var tablesTask = connection.QueryAsync<TableRow>(@"
+SELECT s.name AS Schema, t.name AS Name
 FROM sys.tables t
 JOIN sys.schemas s ON t.schema_id = s.schema_id
 WHERE t.name NOT LIKE '%diagram%'
-ORDER BY s.name, t.name";
+ORDER BY s.name, t.name");
 
-        var tables = (await connection.QueryAsync<(string Schema, string Name)>(tableSql)).ToList();
-        var result = new List<SchemaTable>();
-
-        foreach (var (tableSchema, tableName) in tables)
-        {
-            var table = new SchemaTable
-            {
-                Schema = tableSchema,
-                Name = tableName,
-                Columns = await CollectColumnsAsync(connection, tableSchema, tableName, ct),
-                Indexes = await CollectIndexesAsync(connection, tableSchema, tableName, ct),
-                Constraints = await CollectConstraintsAsync(connection, tableSchema, tableName, ct)
-            };
-            result.Add(table);
-        }
-
-        return result;
-    }
-
-    #endregion
-
-    #region 欄位收集
-
-    private async Task<IList<SchemaColumn>> CollectColumnsAsync(
-        SqlConnection connection,
-        string schema,
-        string tableName,
-        CancellationToken ct)
-    {
-        const string sql = @"
+        var columnsTask = connection.QueryAsync<ColumnRow>(@"
 SELECT
-    c.name AS Name,
-    t.name AS DataType,
+    s.name AS TableSchema, tbl.name AS TableName,
+    c.name AS Name, tp.name AS DataType,
     CASE
-        WHEN t.name IN ('nvarchar', 'nchar') AND c.max_length > 0 THEN c.max_length / 2
-        WHEN t.name IN ('varchar', 'char', 'varbinary', 'binary') THEN c.max_length
+        WHEN tp.name IN ('nvarchar','nchar') AND c.max_length > 0 THEN c.max_length / 2
+        WHEN tp.name IN ('varchar','char','varbinary','binary') THEN c.max_length
         WHEN c.max_length = -1 THEN -1
         ELSE NULL
     END AS MaxLength,
-    c.precision AS [Precision],
-    c.scale AS Scale,
+    c.precision AS Precision, c.scale AS Scale,
     c.is_nullable AS IsNullable,
     OBJECT_DEFINITION(c.default_object_id) AS DefaultValue,
     c.is_identity AS IsIdentity,
     c.collation_name AS Collation
 FROM sys.columns c
-JOIN sys.types t ON c.user_type_id = t.user_type_id
+JOIN sys.types tp ON c.user_type_id = tp.user_type_id
 JOIN sys.tables tbl ON c.object_id = tbl.object_id
 JOIN sys.schemas s ON tbl.schema_id = s.schema_id
-WHERE s.name = @Schema AND tbl.name = @TableName
-ORDER BY c.column_id";
+WHERE tbl.name NOT LIKE '%diagram%'
+ORDER BY s.name, tbl.name, c.column_id");
 
-        var columns = await connection.QueryAsync<SchemaColumn>(sql, new { Schema = schema, TableName = tableName });
-        return columns.ToList();
-    }
-
-    #endregion
-
-    #region 索引收集
-
-    private async Task<IList<SchemaIndex>> CollectIndexesAsync(
-        SqlConnection connection,
-        string schema,
-        string tableName,
-        CancellationToken ct)
-    {
-        const string sql = @"
+        var indexesTask = connection.QueryAsync<IndexRow>(@"
 SELECT
-    i.name AS Name,
-    i.type_desc AS TypeDesc,
-    i.is_unique AS IsUnique,
-    i.filter_definition AS FilterDefinition,
+    s.name AS TableSchema, t.name AS TableName,
+    i.name AS IndexName, i.type_desc AS TypeDesc,
+    i.is_unique AS IsUnique, i.filter_definition AS FilterDefinition,
     i.index_id AS IndexId
 FROM sys.indexes i
 JOIN sys.tables t ON i.object_id = t.object_id
 JOIN sys.schemas s ON t.schema_id = s.schema_id
-WHERE s.name = @Schema
-  AND t.name = @TableName
+WHERE t.name NOT LIKE '%diagram%'
   AND i.name IS NOT NULL
   AND i.is_primary_key = 0
   AND i.is_unique_constraint = 0
-ORDER BY i.name";
+ORDER BY s.name, t.name, i.name");
 
-        var indexInfos = await connection.QueryAsync<(string Name, string TypeDesc, bool IsUnique, string? FilterDefinition, int IndexId)>(
-            sql, new { Schema = schema, TableName = tableName });
-
-        var result = new List<SchemaIndex>();
-
-        foreach (var info in indexInfos)
-        {
-            var columns = await GetIndexColumnsAsync(connection, schema, tableName, info.IndexId, false, ct);
-            var includeColumns = await GetIndexColumnsAsync(connection, schema, tableName, info.IndexId, true, ct);
-
-            result.Add(new SchemaIndex
-            {
-                Name = info.Name,
-                IsClustered = info.TypeDesc == "CLUSTERED",
-                IsUnique = info.IsUnique,
-                Columns = columns,
-                IncludeColumns = includeColumns,
-                FilterDefinition = info.FilterDefinition
-            });
-        }
-
-        return result;
-    }
-
-    private async Task<IList<string>> GetIndexColumnsAsync(
-        SqlConnection connection,
-        string schema,
-        string tableName,
-        int indexId,
-        bool includeColumns,
-        CancellationToken ct)
-    {
-        const string sql = @"
-SELECT c.name
+        var indexColumnsTask = connection.QueryAsync<IndexColumnRow>(@"
+SELECT
+    s.name AS TableSchema, t.name AS TableName,
+    i.index_id AS IndexId,
+    c.name AS ColumnName,
+    ic.is_included_column AS IsIncluded
 FROM sys.index_columns ic
 JOIN sys.columns c ON ic.object_id = c.object_id AND ic.column_id = c.column_id
 JOIN sys.indexes i ON ic.object_id = i.object_id AND ic.index_id = i.index_id
 JOIN sys.tables t ON i.object_id = t.object_id
 JOIN sys.schemas s ON t.schema_id = s.schema_id
-WHERE s.name = @Schema
-  AND t.name = @TableName
-  AND i.index_id = @IndexId
-  AND ic.is_included_column = @IsIncluded
-ORDER BY ic.key_ordinal";
+WHERE t.name NOT LIKE '%diagram%'
+  AND i.name IS NOT NULL
+  AND i.is_primary_key = 0
+  AND i.is_unique_constraint = 0
+ORDER BY s.name, t.name, i.index_id, ic.key_ordinal");
 
-        var columns = await connection.QueryAsync<string>(sql, new
-        {
-            Schema = schema,
-            TableName = tableName,
-            IndexId = indexId,
-            IsIncluded = includeColumns
-        });
-
-        return columns.ToList();
-    }
-
-    #endregion
-
-    #region 約束收集
-
-    private async Task<IList<SchemaConstraint>> CollectConstraintsAsync(
-        SqlConnection connection,
-        string schema,
-        string tableName,
-        CancellationToken ct)
-    {
-        var result = new List<SchemaConstraint>();
-
-        // 收集主鍵
-        var pk = await CollectPrimaryKeyAsync(connection, schema, tableName, ct);
-        if (pk != null) result.Add(pk);
-
-        // 收集外鍵
-        result.AddRange(await CollectForeignKeysAsync(connection, schema, tableName, ct));
-
-        // 收集唯一約束
-        result.AddRange(await CollectUniqueConstraintsAsync(connection, schema, tableName, ct));
-
-        // 收集 Check 約束
-        result.AddRange(await CollectCheckConstraintsAsync(connection, schema, tableName, ct));
-
-        // 收集 Default 約束
-        result.AddRange(await CollectDefaultConstraintsAsync(connection, schema, tableName, ct));
-
-        return result;
-    }
-
-    private async Task<SchemaConstraint?> CollectPrimaryKeyAsync(
-        SqlConnection connection,
-        string schema,
-        string tableName,
-        CancellationToken ct)
-    {
-        const string sql = @"
+        var constraintsTask = connection.QueryAsync<ConstraintRow>(@"
+-- Primary Keys
 SELECT
-    kc.name AS Name,
+    s.name AS TableSchema, t.name AS TableName,
+    kc.name AS ConstraintName, 'PK' AS ConstraintType,
     STUFF((
         SELECT ',' + c2.name
         FROM sys.index_columns ic2
@@ -238,86 +151,50 @@ SELECT
         WHERE ic2.object_id = i.object_id AND ic2.index_id = i.index_id
         ORDER BY ic2.key_ordinal
         FOR XML PATH(''), TYPE
-    ).value('.', 'NVARCHAR(MAX)'), 1, 1, '') AS Columns
+    ).value('.','NVARCHAR(MAX)'),1,1,'') AS Columns,
+    NULL AS ReferencedSchema, NULL AS ReferencedTable,
+    NULL AS ReferencedColumns, NULL AS OnDelete, NULL AS OnUpdate,
+    NULL AS Definition, NULL AS ColumnName
 FROM sys.key_constraints kc
 JOIN sys.indexes i ON kc.parent_object_id = i.object_id AND kc.unique_index_id = i.index_id
 JOIN sys.tables t ON kc.parent_object_id = t.object_id
 JOIN sys.schemas s ON t.schema_id = s.schema_id
-WHERE s.name = @Schema AND t.name = @TableName AND kc.type = 'PK'";
+WHERE kc.type = 'PK' AND t.name NOT LIKE '%diagram%'
 
-        var pk = await connection.QueryFirstOrDefaultAsync<(string Name, string Columns)?>(
-            sql, new { Schema = schema, TableName = tableName });
+UNION ALL
 
-        if (pk == null) return null;
-
-        return new SchemaConstraint
-        {
-            Name = pk.Value.Name,
-            ConstraintType = ConstraintType.PrimaryKey,
-            Columns = pk.Value.Columns.Split(',').ToList()
-        };
-    }
-
-    private async Task<IList<SchemaConstraint>> CollectForeignKeysAsync(
-        SqlConnection connection,
-        string schema,
-        string tableName,
-        CancellationToken ct)
-    {
-        const string sql = @"
+-- Foreign Keys
 SELECT
-    fk.name AS Name,
+    ps.name, pt.name, fk.name, 'FK',
     STUFF((
         SELECT ',' + pc2.name
         FROM sys.foreign_key_columns fkc2
         JOIN sys.columns pc2 ON fkc2.parent_object_id = pc2.object_id AND fkc2.parent_column_id = pc2.column_id
-        WHERE fkc2.constraint_object_id = fk.object_id
-        ORDER BY fkc2.constraint_column_id
+        WHERE fkc2.constraint_object_id = fk.object_id ORDER BY fkc2.constraint_column_id
         FOR XML PATH(''), TYPE
-    ).value('.', 'NVARCHAR(MAX)'), 1, 1, '') AS Columns,
-    rs.name AS ReferencedSchema,
-    rt.name AS ReferencedTable,
+    ).value('.','NVARCHAR(MAX)'),1,1,''),
+    rs.name, rt.name,
     STUFF((
         SELECT ',' + rc2.name
         FROM sys.foreign_key_columns fkc2
         JOIN sys.columns rc2 ON fkc2.referenced_object_id = rc2.object_id AND fkc2.referenced_column_id = rc2.column_id
-        WHERE fkc2.constraint_object_id = fk.object_id
-        ORDER BY fkc2.constraint_column_id
+        WHERE fkc2.constraint_object_id = fk.object_id ORDER BY fkc2.constraint_column_id
         FOR XML PATH(''), TYPE
-    ).value('.', 'NVARCHAR(MAX)'), 1, 1, '') AS ReferencedColumns,
-    fk.delete_referential_action_desc AS OnDelete,
-    fk.update_referential_action_desc AS OnUpdate
+    ).value('.','NVARCHAR(MAX)'),1,1,''),
+    fk.delete_referential_action_desc, fk.update_referential_action_desc,
+    NULL, NULL
 FROM sys.foreign_keys fk
 JOIN sys.tables pt ON fk.parent_object_id = pt.object_id
 JOIN sys.tables rt ON fk.referenced_object_id = rt.object_id
 JOIN sys.schemas ps ON pt.schema_id = ps.schema_id
 JOIN sys.schemas rs ON rt.schema_id = rs.schema_id
-WHERE ps.name = @Schema AND pt.name = @TableName";
+WHERE pt.name NOT LIKE '%diagram%'
 
-        var fks = await connection.QueryAsync<(string Name, string Columns, string ReferencedSchema, string ReferencedTable, string ReferencedColumns, string OnDelete, string OnUpdate)>(
-            sql, new { Schema = schema, TableName = tableName });
+UNION ALL
 
-        return fks.Select(fk => new SchemaConstraint
-        {
-            Name = fk.Name,
-            ConstraintType = ConstraintType.ForeignKey,
-            Columns = fk.Columns.Split(',').ToList(),
-            ReferencedTable = $"[{fk.ReferencedSchema}].[{fk.ReferencedTable}]",
-            ReferencedColumns = fk.ReferencedColumns.Split(',').ToList(),
-            OnDeleteAction = fk.OnDelete,
-            OnUpdateAction = fk.OnUpdate
-        }).ToList();
-    }
-
-    private async Task<IList<SchemaConstraint>> CollectUniqueConstraintsAsync(
-        SqlConnection connection,
-        string schema,
-        string tableName,
-        CancellationToken ct)
-    {
-        const string sql = @"
+-- Unique Constraints
 SELECT
-    kc.name AS Name,
+    s.name, t.name, kc.name, 'UQ',
     STUFF((
         SELECT ',' + c2.name
         FROM sys.index_columns ic2
@@ -325,76 +202,141 @@ SELECT
         WHERE ic2.object_id = i.object_id AND ic2.index_id = i.index_id
         ORDER BY ic2.key_ordinal
         FOR XML PATH(''), TYPE
-    ).value('.', 'NVARCHAR(MAX)'), 1, 1, '') AS Columns
+    ).value('.','NVARCHAR(MAX)'),1,1,''),
+    NULL, NULL, NULL, NULL, NULL, NULL, NULL
 FROM sys.key_constraints kc
 JOIN sys.indexes i ON kc.parent_object_id = i.object_id AND kc.unique_index_id = i.index_id
 JOIN sys.tables t ON kc.parent_object_id = t.object_id
 JOIN sys.schemas s ON t.schema_id = s.schema_id
-WHERE s.name = @Schema AND t.name = @TableName AND kc.type = 'UQ'";
+WHERE kc.type = 'UQ' AND t.name NOT LIKE '%diagram%'
 
-        var uqs = await connection.QueryAsync<(string Name, string Columns)>(
-            sql, new { Schema = schema, TableName = tableName });
+UNION ALL
 
-        return uqs.Select(uq => new SchemaConstraint
-        {
-            Name = uq.Name,
-            ConstraintType = ConstraintType.Unique,
-            Columns = uq.Columns.Split(',').ToList()
-        }).ToList();
-    }
-
-    private async Task<IList<SchemaConstraint>> CollectCheckConstraintsAsync(
-        SqlConnection connection,
-        string schema,
-        string tableName,
-        CancellationToken ct)
-    {
-        const string sql = @"
+-- Check Constraints
 SELECT
-    cc.name AS Name,
-    cc.definition AS Definition
+    s.name, t.name, cc.name, 'CHK',
+    NULL, NULL, NULL, NULL, NULL, NULL,
+    cc.definition, NULL
 FROM sys.check_constraints cc
 JOIN sys.tables t ON cc.parent_object_id = t.object_id
 JOIN sys.schemas s ON t.schema_id = s.schema_id
-WHERE s.name = @Schema AND t.name = @TableName";
+WHERE t.name NOT LIKE '%diagram%'
 
-        var checks = await connection.QueryAsync<(string Name, string Definition)>(
-            sql, new { Schema = schema, TableName = tableName });
+UNION ALL
 
-        return checks.Select(c => new SchemaConstraint
-        {
-            Name = c.Name,
-            ConstraintType = ConstraintType.Check,
-            Definition = c.Definition
-        }).ToList();
-    }
-
-    private async Task<IList<SchemaConstraint>> CollectDefaultConstraintsAsync(
-        SqlConnection connection,
-        string schema,
-        string tableName,
-        CancellationToken ct)
-    {
-        const string sql = @"
+-- Default Constraints
 SELECT
-    dc.name AS Name,
-    c.name AS ColumnName,
-    dc.definition AS Definition
+    s.name, t.name, dc.name, 'DEF',
+    NULL, NULL, NULL, NULL, NULL, NULL,
+    dc.definition, c.name
 FROM sys.default_constraints dc
 JOIN sys.columns c ON dc.parent_object_id = c.object_id AND dc.parent_column_id = c.column_id
 JOIN sys.tables t ON dc.parent_object_id = t.object_id
 JOIN sys.schemas s ON t.schema_id = s.schema_id
-WHERE s.name = @Schema AND t.name = @TableName";
+WHERE t.name NOT LIKE '%diagram%'");
 
-        var defaults = await connection.QueryAsync<(string Name, string ColumnName, string Definition)>(
-            sql, new { Schema = schema, TableName = tableName });
+        await Task.WhenAll(tablesTask, columnsTask, indexesTask, indexColumnsTask, constraintsTask);
 
-        return defaults.Select(d => new SchemaConstraint
+        return (
+            (await tablesTask).ToList(),
+            (await columnsTask).ToList(),
+            (await indexesTask).ToList(),
+            (await indexColumnsTask).ToList(),
+            (await constraintsTask).ToList()
+        );
+    }
+
+    private static IList<SchemaTable> BuildTables(
+        IList<TableRow> tables,
+        IList<ColumnRow> columns,
+        IList<IndexRow> indexes,
+        IList<IndexColumnRow> indexColumns,
+        IList<ConstraintRow> constraints)
+    {
+        var columnsLookup = columns.ToLookup(c => (c.TableSchema, c.TableName));
+        var indexesLookup = indexes.ToLookup(i => (i.TableSchema, i.TableName));
+        var indexColumnsLookup = indexColumns.ToLookup(ic => (ic.TableSchema, ic.TableName, ic.IndexId));
+        var constraintsLookup = constraints.ToLookup(c => (c.TableSchema, c.TableName));
+
+        return tables.Select(t =>
         {
-            Name = d.Name,
-            ConstraintType = ConstraintType.Default,
-            Columns = new List<string> { d.ColumnName },
-            Definition = d.Definition
+            var key = (t.Schema, t.Name);
+            return new SchemaTable
+            {
+                Schema = t.Schema,
+                Name = t.Name,
+                Columns = columnsLookup[key].Select(c => new SchemaColumn
+                {
+                    Name = c.Name,
+                    DataType = c.DataType,
+                    MaxLength = c.MaxLength,
+                    Precision = c.Precision,
+                    Scale = c.Scale,
+                    IsNullable = c.IsNullable,
+                    DefaultValue = c.DefaultValue,
+                    IsIdentity = c.IsIdentity,
+                    Collation = c.Collation
+                }).ToList(),
+                Indexes = indexesLookup[key].Select(i =>
+                {
+                    var icKey = (t.Schema, t.Name, i.IndexId);
+                    return new SchemaIndex
+                    {
+                        Name = i.IndexName,
+                        IsClustered = i.TypeDesc == "CLUSTERED",
+                        IsUnique = i.IsUnique,
+                        FilterDefinition = i.FilterDefinition,
+                        Columns = indexColumnsLookup[icKey]
+                            .Where(ic => !ic.IsIncluded).Select(ic => ic.ColumnName).ToList(),
+                        IncludeColumns = indexColumnsLookup[icKey]
+                            .Where(ic => ic.IsIncluded).Select(ic => ic.ColumnName).ToList()
+                    };
+                }).ToList(),
+                Constraints = BuildConstraints(constraintsLookup[key])
+            };
+        }).ToList();
+    }
+
+    private static IList<SchemaConstraint> BuildConstraints(IEnumerable<ConstraintRow> rows)
+    {
+        return rows.Select(c => c.ConstraintType switch
+        {
+            "PK" => new SchemaConstraint
+            {
+                Name = c.ConstraintName,
+                ConstraintType = ConstraintType.PrimaryKey,
+                Columns = c.Columns?.Split(',').ToList() ?? []
+            },
+            "FK" => new SchemaConstraint
+            {
+                Name = c.ConstraintName,
+                ConstraintType = ConstraintType.ForeignKey,
+                Columns = c.Columns?.Split(',').ToList() ?? [],
+                ReferencedTable = $"[{c.ReferencedSchema}].[{c.ReferencedTable}]",
+                ReferencedColumns = c.ReferencedColumns?.Split(',').ToList() ?? [],
+                OnDeleteAction = c.OnDelete,
+                OnUpdateAction = c.OnUpdate
+            },
+            "UQ" => new SchemaConstraint
+            {
+                Name = c.ConstraintName,
+                ConstraintType = ConstraintType.Unique,
+                Columns = c.Columns?.Split(',').ToList() ?? []
+            },
+            "CHK" => new SchemaConstraint
+            {
+                Name = c.ConstraintName,
+                ConstraintType = ConstraintType.Check,
+                Definition = c.Definition
+            },
+            "DEF" => new SchemaConstraint
+            {
+                Name = c.ConstraintName,
+                ConstraintType = ConstraintType.Default,
+                Columns = c.ColumnName != null ? [c.ColumnName] : [],
+                Definition = c.Definition
+            },
+            _ => new SchemaConstraint { Name = c.ConstraintName }
         }).ToList();
     }
 
@@ -402,25 +344,22 @@ WHERE s.name = @Schema AND t.name = @TableName";
 
     #region 程式物件收集
 
-    private async Task<IList<SchemaProgramObject>> CollectProgramObjectsAsync(
+    private static async Task<IList<SchemaProgramObject>> CollectProgramObjectsAsync(
         SqlConnection connection,
         ProgramObjectType objectType,
         CancellationToken ct)
     {
-        var (typeFilter, objType) = objectType switch
+        var typeFilter = objectType switch
         {
-            ProgramObjectType.View => ("type = 'V'", "VIEW"),
-            ProgramObjectType.StoredProcedure => ("type = 'P'", "PROCEDURE"),
-            ProgramObjectType.Function => ("type IN ('FN', 'IF', 'TF', 'AF')", "FUNCTION"),
-            ProgramObjectType.Trigger => ("type = 'TR'", "TRIGGER"),
+            ProgramObjectType.View => "type = 'V'",
+            ProgramObjectType.StoredProcedure => "type = 'P'",
+            ProgramObjectType.Function => "type IN ('FN', 'IF', 'TF', 'AF')",
+            ProgramObjectType.Trigger => "type = 'TR'",
             _ => throw new ArgumentException($"不支援的程式物件類型：{objectType}")
         };
 
         var sql = $@"
-SELECT
-    s.name AS [Schema],
-    o.name AS Name,
-    OBJECT_DEFINITION(o.object_id) AS Definition
+SELECT s.name AS Schema, o.name AS Name, OBJECT_DEFINITION(o.object_id) AS Definition
 FROM sys.objects o
 JOIN sys.schemas s ON o.schema_id = s.schema_id
 WHERE {typeFilter}

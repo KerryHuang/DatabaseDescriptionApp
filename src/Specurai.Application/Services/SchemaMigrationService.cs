@@ -26,8 +26,12 @@ public class SchemaMigrationService : ISchemaMigrationService
         string targetEnvName,
         CancellationToken ct = default)
     {
-        var baseSchema = await _schemaCollector.CollectAsync(baseConnectionString, baseEnvName, ct);
-        var targetSchema = await _schemaCollector.CollectAsync(targetConnectionString, targetEnvName, ct);
+        var baseTask = _schemaCollector.CollectAsync(baseConnectionString, baseEnvName, ct);
+        var targetTask = _schemaCollector.CollectAsync(targetConnectionString, targetEnvName, ct);
+        await Task.WhenAll(baseTask, targetTask);
+
+        var baseSchema = await baseTask;
+        var targetSchema = await targetTask;
         var comparison = await _schemaCompareService.CompareAsync(baseSchema, targetSchema);
 
         return new MigrationAnalysis

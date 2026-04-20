@@ -132,6 +132,12 @@
                             <TextBlock Text="🔄" FontSize="14"/>
                         </MenuItem.Icon>
                     </MenuItem>
+                    <MenuItem Header="Schema Migration" Command="{Binding OpenSchemaMigrationCommand}"
+                              ToolTip.Tip="以基準資料庫為標準，同步目標資料庫 Schema">
+                        <MenuItem.Icon>
+                            <TextBlock Text="⬆️" FontSize="14"/>
+                        </MenuItem.Icon>
+                    </MenuItem>
                     <MenuItem Header="健康監控(_H)" Command="{Binding OpenHealthMonitoringCommand}" InputGesture="Ctrl+H" IsEnabled="{Binding IsConnected}"
                               ToolTip.Tip="監控資料庫健康狀態與效能指標">
                         <MenuItem.Icon>
@@ -367,6 +373,9 @@
                                         </DataTemplate>
                                         <DataTemplate DataType="{x:Type vm:MaintenancePlanDocumentViewModel}">
                                             <views:MaintenancePlanDocumentView/>
+                                        </DataTemplate>
+                                        <DataTemplate DataType="{x:Type vm:SchemaMigrationDocumentViewModel}">
+                                            <views:SchemaMigrationDocumentView/>
                                         </DataTemplate>
                                         <DataTemplate DataType="{x:Type vm:SchemaCompareDocumentViewModel}">
                                             <views:SchemaCompareDocumentView/>

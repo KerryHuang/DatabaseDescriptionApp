@@ -42,6 +42,13 @@ public static class ServiceRegistration
         services.AddSingleton<ISchemaCollector, MssqlSchemaCollector>();
         services.AddSingleton<ISchemaCompareService, SchemaCompareService>();
 
+        // Infrastructure - Schema Migration
+        services.AddSingleton<ISchemaMigrationExecutor, SchemaMigrationExecutor>();
+
+        // Application - Schema Migration
+        services.AddSingleton<ISqlScriptGenerator, SqlScriptGenerator>();
+        services.AddSingleton<ISchemaMigrationService, SchemaMigrationService>();
+
         // Infrastructure - 健康監控
         services.AddSingleton<IHealthMonitoringRepository>(sp =>
             new HealthMonitoringRepository(() => sp.GetRequiredService<IConnectionManager>().GetCurrentConnectionString()));

@@ -87,11 +87,11 @@ SELECT
         WHEN c.max_length = -1 THEN -1
         ELSE NULL
     END AS MaxLength,
-    c.precision AS Precision, c.scale AS Scale,
+    c.precision AS [Precision], c.scale AS [Scale],
     c.is_nullable AS IsNullable,
     OBJECT_DEFINITION(c.default_object_id) AS DefaultValue,
     c.is_identity AS IsIdentity,
-    c.collation_name AS Collation
+    c.collation_name AS [Collation]
 FROM sys.columns c
 JOIN sys.types tp ON c.user_type_id = tp.user_type_id
 JOIN sys.tables tbl ON c.object_id = tbl.object_id
@@ -307,23 +307,24 @@ WHERE t.name NOT LIKE '%diagram%';");
         ProgramObjectType objectType,
         CancellationToken ct)
     {
-        var typeFilter = objectType switch
+        var types = objectType switch
         {
-            ProgramObjectType.View => "type = 'V'",
-            ProgramObjectType.StoredProcedure => "type = 'P'",
-            ProgramObjectType.Function => "type IN ('FN', 'IF', 'TF', 'AF')",
-            ProgramObjectType.Trigger => "type = 'TR'",
+            ProgramObjectType.View => new[] { "V" },
+            ProgramObjectType.StoredProcedure => new[] { "P" },
+            ProgramObjectType.Function => new[] { "FN", "IF", "TF", "AF" },
+            ProgramObjectType.Trigger => new[] { "TR" },
             _ => throw new ArgumentException($"不支援的程式物件類型：{objectType}")
         };
 
-        var sql = $@"
-SELECT s.name AS [Schema], o.name AS Name, OBJECT_DEFINITION(o.object_id) AS Definition
+        const string sql = @"
+SELECT s.name AS [Schema], o.name AS [Name], OBJECT_DEFINITION(o.object_id) AS [Definition]
 FROM sys.objects o
 JOIN sys.schemas s ON o.schema_id = s.schema_id
-WHERE {typeFilter}
+WHERE o.type IN @Types
 ORDER BY s.name, o.name";
 
-        var objects = await connection.QueryAsync<(string Schema, string Name, string? Definition)>(sql);
+        var objects = await connection.QueryAsync<(string Schema, string Name, string? Definition)>(
+            sql, new { Types = types });
 
         return objects.Select(o => new SchemaProgramObject
         {

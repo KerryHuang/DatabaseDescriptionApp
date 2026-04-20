@@ -69,23 +69,77 @@
             </WrapPanel>
         </Border>
 
-        <!-- 全選/取消全選列 -->
+        <!-- 全選/篩選列 -->
         <Border Grid.Row="1" Padding="10,4"
                 Background="{DynamicResource SystemControlBackgroundAltHighBrush}">
-            <StackPanel Orientation="Horizontal" Spacing="8">
-                <TextBlock Text="勾選：" VerticalAlignment="Center" FontSize="12"/>
-                <Button Command="{Binding SelectAllCommand}" FontSize="12" Padding="6,2">
-                    <TextBlock Text="全選"/>
+            <WrapPanel Orientation="Horizontal">
+                <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,0,16,0">
+                    <TextBlock Text="勾選：" VerticalAlignment="Center" FontSize="12"/>
+                    <Button Command="{Binding SelectAllCommand}" FontSize="12" Padding="6,2">
+                        <TextBlock Text="全選"/>
+                    </Button>
+                    <Button Command="{Binding DeselectAllCommand}" FontSize="12" Padding="6,2">
+                        <TextBlock Text="取消全選"/>
+                    </Button>
+                </StackPanel>
+
+                <Separator Margin="0,2,12,2"/>
+
+                <StackPanel Orientation="Horizontal" Spacing="4" Margin="0,0,8,0">
+                    <TextBlock Text="物件名稱：" VerticalAlignment="Center" FontSize="12"/>
+                    <TextBox Text="{Binding FilterObjectName}" Width="150" FontSize="12"
+                             Watermark="搜尋…" VerticalContentAlignment="Center"/>
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal" Spacing="4" Margin="0,0,8,0">
+                    <TextBlock Text="風險：" VerticalAlignment="Center" FontSize="12"/>
+                    <ComboBox ItemsSource="{Binding RiskLevelOptions}"
+                              SelectedItem="{Binding FilterRiskLevel}"
+                              MinWidth="100" FontSize="12">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding, TargetNullValue='全部'}"/>
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal" Spacing="4" Margin="0,0,8,0">
+                    <TextBlock Text="物件類型：" VerticalAlignment="Center" FontSize="12"/>
+                    <ComboBox ItemsSource="{Binding ObjectTypeOptions}"
+                              SelectedItem="{Binding FilterObjectType}"
+                              MinWidth="90" FontSize="12">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding, TargetNullValue='全部'}"/>
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal" Spacing="4" Margin="0,0,8,0">
+                    <TextBlock Text="差異類型：" VerticalAlignment="Center" FontSize="12"/>
+                    <ComboBox ItemsSource="{Binding DifferenceTypeOptions}"
+                              SelectedItem="{Binding FilterDifferenceType}"
+                              MinWidth="70" FontSize="12">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding, TargetNullValue='全部'}"/>
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                </StackPanel>
+
+                <Button Command="{Binding ClearFiltersCommand}" FontSize="12" Padding="6,2"
+                        ToolTip.Tip="清除所有篩選條件">
+                    <TextBlock Text="✕ 清除篩選"/>
                 </Button>
-                <Button Command="{Binding DeselectAllCommand}" FontSize="12" Padding="6,2">
-                    <TextBlock Text="取消全選"/>
-                </Button>
-            </StackPanel>
+            </WrapPanel>
         </Border>
 
         <!-- 差異分析表格 -->
         <DataGrid Grid.Row="2"
-                  ItemsSource="{Binding DifferenceRows}"
+                  ItemsSource="{Binding FilteredRows}"
                   AutoGenerateColumns="False"
                   CanUserSortColumns="True"
                   CanUserResizeColumns="True"

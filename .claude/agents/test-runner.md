@@ -1,7 +1,7 @@
 ---
 name: test-runner
 description: Use when executing dotnet test suites and analyzing test failures after code changes.
-model: sonnet
+model: haiku
 context: fork
 tools:
   - Bash

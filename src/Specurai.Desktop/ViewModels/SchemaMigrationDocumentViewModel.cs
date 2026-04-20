@@ -67,10 +67,9 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
         "🟢 低風險", "🟡 中風險", "🔴 高風險", "🔴 禁止");
     public IReadOnlyList<FilterOptionViewModel> ObjectTypeFilters { get; } = CreateFilters(
         "表格", "欄位", "索引", "約束", "檢視表", "預存程序", "函數", "觸發程序");
-    public IReadOnlyList<FilterOptionViewModel> DifferenceTypeFilters { get; } = CreateFilters(
-        "新增", "修改");
+    [ObservableProperty] private IReadOnlyList<FilterOptionViewModel> _differenceTypeFilters = [];
 
-    [ObservableProperty] private string _riskFilterLabel = "風險（3）▾";
+    [ObservableProperty] private string _riskFilterLabel = "風險（1）▾";
     [ObservableProperty] private string _objectTypeFilterLabel = "物件類型（3）▾";
     [ObservableProperty] private string _differenceTypeFilterLabel = "差異類型 ▾";
 
@@ -152,6 +151,7 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
             }
             _selectedExecutableCount = DifferenceRows.Count(r => r.IsSelected && r.IsExecutable);
             AnalysisReport = _currentAnalysis.GenerateReport();
+            RebuildDifferenceTypeFilters();
             ApplyFilter();
 
             var total = DifferenceRows.Count;
@@ -166,6 +166,7 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
         {
             IsAnalyzing = false;
             AnalyzeCommand.NotifyCanExecuteChanged();
+            DryRunCommand.NotifyCanExecuteChanged();
             ExecuteMigrationCommand.NotifyCanExecuteChanged();
             PreviewSqlCommand.NotifyCanExecuteChanged();
             DownloadSqlCommand.NotifyCanExecuteChanged();
@@ -181,19 +182,34 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
 
     private void SetDefaultFilters()
     {
-        // 預設風險篩選：高風險、中風險、低風險（不含禁止）
-        foreach (var f in RiskLevelFilters.Where(f => f.Label is "🔴 高風險" or "🟡 中風險" or "🟢 低風險"))
-            f.IsSelected = true;
+        // RiskLevelFilters 順序：低風險(0)、中風險(1)、高風險(2)、禁止(3)
+        // 預設勾選：僅低風險
+        RiskLevelFilters[0].IsSelected = true; // 🟢 低風險
 
-        // 預設物件類型：表格、欄位、檢視表
-        foreach (var f in ObjectTypeFilters.Where(f => f.Label is "表格" or "欄位" or "檢視表"))
-            f.IsSelected = true;
+        // ObjectTypeFilters 順序：表格(0)、欄位(1)、索引(2)、約束(3)、檢視表(4)...
+        // 預設勾選：表格、欄位、檢視表
+        ObjectTypeFilters[0].IsSelected = true; // 表格
+        ObjectTypeFilters[1].IsSelected = true; // 欄位
+        ObjectTypeFilters[4].IsSelected = true; // 檢視表
     }
 
     private void SubscribeFilterEvents()
     {
-        foreach (var f in RiskLevelFilters.Concat(ObjectTypeFilters).Concat(DifferenceTypeFilters))
+        foreach (var f in RiskLevelFilters.Concat(ObjectTypeFilters))
             f.SelectionChanged += _ => ApplyFilter();
+    }
+
+    private void RebuildDifferenceTypeFilters()
+    {
+        var labels = DifferenceRows
+            .Select(r => r.DifferenceTypeText)
+            .Distinct()
+            .OrderBy(x => x)
+            .ToArray();
+        DifferenceTypeFilters = CreateFilters(labels);
+        foreach (var f in DifferenceTypeFilters)
+            f.SelectionChanged += _ => ApplyFilter();
+        DifferenceTypeFilterLabel = "差異類型 ▾";
     }
 
     private void ApplyFilter()
@@ -263,7 +279,7 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
             SelectedTargetProfile == null)
             return;
 
-        var selected = DifferenceRows
+        var selected = FilteredRows
             .Where(r => r.IsSelected && r.IsExecutable)
             .Select(r => r.Difference)
             .ToList();
@@ -311,7 +327,7 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
             SelectedTargetProfile == null)
             return;
 
-        var selected = DifferenceRows
+        var selected = FilteredRows
             .Where(r => r.IsSelected && r.IsExecutable)
             .Select(r => r.Difference)
             .ToList();
@@ -359,7 +375,7 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
     {
         if (_scriptGenerator == null || _currentAnalysis == null) return;
 
-        var selected = DifferenceRows
+        var selected = FilteredRows
             .Where(r => r.IsSelected && r.IsExecutable)
             .Select(r => r.Difference)
             .ToList();
@@ -370,7 +386,12 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
             _currentAnalysis.BaseSchema.ConnectionName,
             _currentAnalysis.TargetSchema.ConnectionName);
 
-        StatusMessage = $"腳本已產生（{selected.Count} 項，共 {script.ApplyScript.Length} 字元）";
+        var window = (Avalonia.Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)
+            ?.MainWindow;
+        var preview = new Views.SqlPreviewWindow(script.ApplyScript);
+        preview.ShowDialog(window!);
+
+        StatusMessage = $"腳本預覽：{selected.Count} 項，共 {script.ApplyScript.Length} 字元";
     }
 
     [RelayCommand(CanExecute = nameof(CanGenerateScript))]
@@ -378,7 +399,7 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
     {
         if (_scriptGenerator == null || _currentAnalysis == null) return;
 
-        var selected = DifferenceRows
+        var selected = FilteredRows
             .Where(r => r.IsSelected && r.IsExecutable)
             .Select(r => r.Difference)
             .ToList();
@@ -513,6 +534,7 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
 
     private void NotifySelectionCommands()
     {
+        DryRunCommand.NotifyCanExecuteChanged();
         ExecuteMigrationCommand.NotifyCanExecuteChanged();
         PreviewSqlCommand.NotifyCanExecuteChanged();
         DownloadSqlCommand.NotifyCanExecuteChanged();

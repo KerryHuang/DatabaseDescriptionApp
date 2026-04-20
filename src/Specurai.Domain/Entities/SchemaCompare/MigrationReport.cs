@@ -48,6 +48,11 @@ public class MigrationReport
     public string AppliedScript { get; set; } = string.Empty;
 
     /// <summary>
+    /// 是否為 Dry Run（模擬執行，不實際提交）
+    /// </summary>
+    public bool IsDryRun { get; set; }
+
+    /// <summary>
     /// 成功執行的筆數
     /// </summary>
     public int SuccessCount => Entries.Count(e => e.Status == MigrationLogStatus.Success);

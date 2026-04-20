@@ -52,6 +52,13 @@
                         ToolTip.Tip="下載 .sql 腳本檔案">
                     <TextBlock Text="⬇️ 下載 SQL"/>
                 </Button>
+                <Button Command="{Binding DryRunCommand}" Margin="0,0,4,0"
+                        ToolTip.Tip="模擬執行腳本（語法驗證，自動回滾，不實際變更資料庫）">
+                    <StackPanel Orientation="Horizontal" Spacing="5">
+                        <TextBlock Text="🧪"/>
+                        <TextBlock Text="Dry Run"/>
+                    </StackPanel>
+                </Button>
                 <Button Command="{Binding ExecuteMigrationCommand}"
                         ToolTip.Tip="對目標資料庫執行 Migration（含自動回滾）">
                     <StackPanel Orientation="Horizontal" Spacing="5">
@@ -150,7 +157,7 @@
                 <Border Grid.Row="0" Padding="10,6"
                         Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}">
                     <StackPanel Orientation="Horizontal" Spacing="12">
-                        <TextBlock Text="📋 執行報告" FontWeight="Bold" VerticalAlignment="Center"/>
+                        <TextBlock Text="{Binding ReportTitle}" FontWeight="Bold" VerticalAlignment="Center"/>
                         <Button Command="{Binding DownloadReportCommand}" FontSize="12" Padding="6,2">
                             <TextBlock Text="⬇️ 下載報告"/>
                         </Button>

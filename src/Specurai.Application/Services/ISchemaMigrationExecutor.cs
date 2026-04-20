@@ -16,5 +16,6 @@ public interface ISchemaMigrationExecutor
     Task<MigrationReport> ExecuteAsync(
         SyncScript script,
         string targetConnectionString,
+        bool dryRun = false,
         CancellationToken ct = default);
 }

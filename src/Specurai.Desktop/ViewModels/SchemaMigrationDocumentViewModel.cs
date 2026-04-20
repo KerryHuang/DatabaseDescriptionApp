@@ -141,11 +141,62 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
         SelectedBaseProfile != null && SelectedTargetProfile != null &&
         SelectedBaseProfile.Id != SelectedTargetProfile.Id;
 
+    partial void OnLastReportChanged(MigrationReport? value)
+        => OnPropertyChanged(nameof(ReportTitle));
+
     partial void OnSelectedBaseProfileChanged(ConnectionProfile? value)
         => AnalyzeCommand.NotifyCanExecuteChanged();
 
     partial void OnSelectedTargetProfileChanged(ConnectionProfile? value)
         => AnalyzeCommand.NotifyCanExecuteChanged();
+
+    [RelayCommand(CanExecute = nameof(CanExecuteMigration))]
+    private async Task DryRunAsync()
+    {
+        if (_executor == null || _scriptGenerator == null ||
+            _connectionManager == null || _currentAnalysis == null ||
+            SelectedTargetProfile == null)
+            return;
+
+        var selected = DifferenceRows
+            .Where(r => r.IsSelected && r.IsExecutable)
+            .Select(r => r.Difference)
+            .ToList();
+
+        if (selected.Count == 0)
+        {
+            StatusMessage = "未選取任何可執行的差異項目";
+            return;
+        }
+
+        IsExecuting = true;
+        StatusMessage = $"正在 Dry Run（共 {selected.Count} 項，不會實際提交）...";
+
+        try
+        {
+            var script = _scriptGenerator.Generate(
+                selected,
+                _currentAnalysis.BaseSchema,
+                _currentAnalysis.BaseSchema.ConnectionName,
+                _currentAnalysis.TargetSchema.ConnectionName);
+
+            var targetConn = _connectionManager.GetConnectionString(SelectedTargetProfile.Id);
+            LastReport = await _executor.ExecuteAsync(script, targetConn ?? string.Empty, dryRun: true);
+
+            StatusMessage = LastReport.IsSuccess
+                ? $"Dry Run 通過：腳本語法正確，共 {LastReport.SuccessCount} 項（已自動回滾，無實際變更）"
+                : $"Dry Run 失敗：{LastReport.ErrorMessage}";
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Dry Run 失敗：{ex.Message}";
+        }
+        finally
+        {
+            IsExecuting = false;
+            DownloadReportCommand.NotifyCanExecuteChanged();
+        }
+    }
 
     [RelayCommand(CanExecute = nameof(CanExecuteMigration))]
     private async Task ExecuteMigrationAsync()
@@ -306,6 +357,10 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
         _currentAnalysis != null && DifferenceRows.Any(r => r.IsSelected && r.IsExecutable);
 
     private bool CanExportReport() => LastReport != null;
+
+    public string ReportTitle => LastReport?.IsDryRun == true
+        ? "🧪 Dry Run 報告（未實際提交）"
+        : "📋 執行報告";
 
     [RelayCommand]
     private void SelectAll()

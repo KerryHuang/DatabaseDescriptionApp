@@ -1,3 +1,4 @@
+using System;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Specurai.Domain.Entities.SchemaCompare;
 using Specurai.Domain.Enums;
@@ -13,6 +14,13 @@ public partial class MigrationDifferenceRowViewModel : ViewModelBase
 
     [ObservableProperty]
     private bool _isSelected;
+
+    public event Action<bool>? SelectionChanged;
+
+    partial void OnIsSelectedChanged(bool value)
+    {
+        if (IsExecutable) SelectionChanged?.Invoke(value);
+    }
 
     public bool IsExecutable => Difference.RiskLevel < RiskLevel.High;
 

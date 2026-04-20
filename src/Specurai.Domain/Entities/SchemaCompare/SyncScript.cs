@@ -28,6 +28,11 @@ public class SyncScript
     public string? RollbackScript { get; set; }
 
     /// <summary>
+    /// Dry Run 腳本（與 ApplyScript 相同但強制 ROLLBACK，不需外層包 ADO.NET transaction）
+    /// </summary>
+    public string DryRunScript { get; set; } = string.Empty;
+
+    /// <summary>
     /// 相關的差異清單
     /// </summary>
     public IList<SchemaDifference> Differences { get; set; } = new List<SchemaDifference>();

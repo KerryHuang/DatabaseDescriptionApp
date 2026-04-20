@@ -41,21 +41,12 @@ public class SchemaMigrationExecutor : ISchemaMigrationExecutor
             await using var connection = new SqlConnection(targetConnectionString);
             await connection.OpenAsync(ct);
 
-            // Dry Run：包在 transaction 中執行後強制 ROLLBACK，驗證腳本是否有語法錯誤
-            if (dryRun)
-            {
-                await using var txn = connection.BeginTransaction();
-                await using var command = new SqlCommand(script.ApplyScript, connection, txn);
-                command.CommandTimeout = 300;
-                await command.ExecuteNonQueryAsync(ct);
-                await txn.RollbackAsync(ct);
-            }
-            else
-            {
-                await using var command = new SqlCommand(script.ApplyScript, connection);
-                command.CommandTimeout = 300;
-                await command.ExecuteNonQueryAsync(ct);
-            }
+            // Dry Run 使用 DryRunScript（腳本內部強制 ROLLBACK），不需外層包 ADO.NET transaction
+            // 避免巢狀 transaction 造成 @@TRANCOUNT 計數混亂
+            var sqlToRun = dryRun ? script.DryRunScript : script.ApplyScript;
+            await using var command = new SqlCommand(sqlToRun, connection);
+            command.CommandTimeout = 300;
+            await command.ExecuteNonQueryAsync(ct);
 
             sw.Stop();
             report.TotalDuration = sw.Elapsed;

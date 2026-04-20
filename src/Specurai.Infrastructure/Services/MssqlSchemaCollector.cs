@@ -70,14 +70,14 @@ public class MssqlSchemaCollector : ISchemaCollector
         IList<ConstraintRow> Constraints)>
         FetchAllTableDataAsync(SqlConnection connection, CancellationToken ct)
     {
-        var tableRows = (await connection.QueryAsync<TableRow>(@"
+        // QueryMultiple：單一 round-trip 取回 5 個結果集
+        using var multi = await connection.QueryMultipleAsync(@"
 SELECT s.name AS Schema, t.name AS Name
 FROM sys.tables t
 JOIN sys.schemas s ON t.schema_id = s.schema_id
 WHERE t.name NOT LIKE '%diagram%'
-ORDER BY s.name, t.name")).ToList();
+ORDER BY s.name, t.name;
 
-        var columnRows = (await connection.QueryAsync<ColumnRow>(@"
 SELECT
     s.name AS TableSchema, tbl.name AS TableName,
     c.name AS Name, tp.name AS DataType,
@@ -97,9 +97,8 @@ JOIN sys.types tp ON c.user_type_id = tp.user_type_id
 JOIN sys.tables tbl ON c.object_id = tbl.object_id
 JOIN sys.schemas s ON tbl.schema_id = s.schema_id
 WHERE tbl.name NOT LIKE '%diagram%'
-ORDER BY s.name, tbl.name, c.column_id")).ToList();
+ORDER BY s.name, tbl.name, c.column_id;
 
-        var indexRows = (await connection.QueryAsync<IndexRow>(@"
 SELECT
     s.name AS TableSchema, t.name AS TableName,
     i.name AS IndexName, i.type_desc AS TypeDesc,
@@ -112,9 +111,8 @@ WHERE t.name NOT LIKE '%diagram%'
   AND i.name IS NOT NULL
   AND i.is_primary_key = 0
   AND i.is_unique_constraint = 0
-ORDER BY s.name, t.name, i.name")).ToList();
+ORDER BY s.name, t.name, i.name;
 
-        var indexColumnRows = (await connection.QueryAsync<IndexColumnRow>(@"
 SELECT
     s.name AS TableSchema, t.name AS TableName,
     i.index_id AS IndexId,
@@ -129,21 +127,14 @@ WHERE t.name NOT LIKE '%diagram%'
   AND i.name IS NOT NULL
   AND i.is_primary_key = 0
   AND i.is_unique_constraint = 0
-ORDER BY s.name, t.name, i.index_id, ic.key_ordinal")).ToList();
+ORDER BY s.name, t.name, i.index_id, ic.key_ordinal;
 
-        var constraintRows = (await connection.QueryAsync<ConstraintRow>(@"
--- Primary Keys
-SELECT
-    s.name AS TableSchema, t.name AS TableName,
+SELECT s.name AS TableSchema, t.name AS TableName,
     kc.name AS ConstraintName, 'PK' AS ConstraintType,
-    STUFF((
-        SELECT ',' + c2.name
-        FROM sys.index_columns ic2
+    STUFF((SELECT ',' + c2.name FROM sys.index_columns ic2
         JOIN sys.columns c2 ON ic2.object_id = c2.object_id AND ic2.column_id = c2.column_id
-        WHERE ic2.object_id = i.object_id AND ic2.index_id = i.index_id
-        ORDER BY ic2.key_ordinal
-        FOR XML PATH(''), TYPE
-    ).value('.','NVARCHAR(MAX)'),1,1,'') AS Columns,
+        WHERE ic2.object_id = i.object_id AND ic2.index_id = i.index_id ORDER BY ic2.key_ordinal
+        FOR XML PATH(''), TYPE).value('.','NVARCHAR(MAX)'),1,1,'') AS Columns,
     NULL AS ReferencedSchema, NULL AS ReferencedTable,
     NULL AS ReferencedColumns, NULL AS OnDelete, NULL AS OnUpdate,
     NULL AS Definition, NULL AS ColumnName
@@ -152,80 +143,57 @@ JOIN sys.indexes i ON kc.parent_object_id = i.object_id AND kc.unique_index_id =
 JOIN sys.tables t ON kc.parent_object_id = t.object_id
 JOIN sys.schemas s ON t.schema_id = s.schema_id
 WHERE kc.type = 'PK' AND t.name NOT LIKE '%diagram%'
-
 UNION ALL
-
--- Foreign Keys
-SELECT
-    ps.name, pt.name, fk.name, 'FK',
-    STUFF((
-        SELECT ',' + pc2.name
-        FROM sys.foreign_key_columns fkc2
+SELECT ps.name, pt.name, fk.name, 'FK',
+    STUFF((SELECT ',' + pc2.name FROM sys.foreign_key_columns fkc2
         JOIN sys.columns pc2 ON fkc2.parent_object_id = pc2.object_id AND fkc2.parent_column_id = pc2.column_id
         WHERE fkc2.constraint_object_id = fk.object_id ORDER BY fkc2.constraint_column_id
-        FOR XML PATH(''), TYPE
-    ).value('.','NVARCHAR(MAX)'),1,1,''),
+        FOR XML PATH(''), TYPE).value('.','NVARCHAR(MAX)'),1,1,''),
     rs.name, rt.name,
-    STUFF((
-        SELECT ',' + rc2.name
-        FROM sys.foreign_key_columns fkc2
+    STUFF((SELECT ',' + rc2.name FROM sys.foreign_key_columns fkc2
         JOIN sys.columns rc2 ON fkc2.referenced_object_id = rc2.object_id AND fkc2.referenced_column_id = rc2.column_id
         WHERE fkc2.constraint_object_id = fk.object_id ORDER BY fkc2.constraint_column_id
-        FOR XML PATH(''), TYPE
-    ).value('.','NVARCHAR(MAX)'),1,1,''),
-    fk.delete_referential_action_desc, fk.update_referential_action_desc,
-    NULL, NULL
+        FOR XML PATH(''), TYPE).value('.','NVARCHAR(MAX)'),1,1,''),
+    fk.delete_referential_action_desc, fk.update_referential_action_desc, NULL, NULL
 FROM sys.foreign_keys fk
 JOIN sys.tables pt ON fk.parent_object_id = pt.object_id
 JOIN sys.tables rt ON fk.referenced_object_id = rt.object_id
 JOIN sys.schemas ps ON pt.schema_id = ps.schema_id
 JOIN sys.schemas rs ON rt.schema_id = rs.schema_id
 WHERE pt.name NOT LIKE '%diagram%'
-
 UNION ALL
-
--- Unique Constraints
-SELECT
-    s.name, t.name, kc.name, 'UQ',
-    STUFF((
-        SELECT ',' + c2.name
-        FROM sys.index_columns ic2
+SELECT s.name, t.name, kc.name, 'UQ',
+    STUFF((SELECT ',' + c2.name FROM sys.index_columns ic2
         JOIN sys.columns c2 ON ic2.object_id = c2.object_id AND ic2.column_id = c2.column_id
-        WHERE ic2.object_id = i.object_id AND ic2.index_id = i.index_id
-        ORDER BY ic2.key_ordinal
-        FOR XML PATH(''), TYPE
-    ).value('.','NVARCHAR(MAX)'),1,1,''),
+        WHERE ic2.object_id = i.object_id AND ic2.index_id = i.index_id ORDER BY ic2.key_ordinal
+        FOR XML PATH(''), TYPE).value('.','NVARCHAR(MAX)'),1,1,''),
     NULL, NULL, NULL, NULL, NULL, NULL, NULL
 FROM sys.key_constraints kc
 JOIN sys.indexes i ON kc.parent_object_id = i.object_id AND kc.unique_index_id = i.index_id
 JOIN sys.tables t ON kc.parent_object_id = t.object_id
 JOIN sys.schemas s ON t.schema_id = s.schema_id
 WHERE kc.type = 'UQ' AND t.name NOT LIKE '%diagram%'
-
 UNION ALL
-
--- Check Constraints
-SELECT
-    s.name, t.name, cc.name, 'CHK',
-    NULL, NULL, NULL, NULL, NULL, NULL,
-    cc.definition, NULL
+SELECT s.name, t.name, cc.name, 'CHK',
+    NULL, NULL, NULL, NULL, NULL, NULL, cc.definition, NULL
 FROM sys.check_constraints cc
 JOIN sys.tables t ON cc.parent_object_id = t.object_id
 JOIN sys.schemas s ON t.schema_id = s.schema_id
 WHERE t.name NOT LIKE '%diagram%'
-
 UNION ALL
-
--- Default Constraints
-SELECT
-    s.name, t.name, dc.name, 'DEF',
-    NULL, NULL, NULL, NULL, NULL, NULL,
-    dc.definition, c.name
+SELECT s.name, t.name, dc.name, 'DEF',
+    NULL, NULL, NULL, NULL, NULL, NULL, dc.definition, c.name
 FROM sys.default_constraints dc
 JOIN sys.columns c ON dc.parent_object_id = c.object_id AND dc.parent_column_id = c.column_id
 JOIN sys.tables t ON dc.parent_object_id = t.object_id
 JOIN sys.schemas s ON t.schema_id = s.schema_id
-WHERE t.name NOT LIKE '%diagram%'")).ToList();
+WHERE t.name NOT LIKE '%diagram%';");
+
+        var tableRows = (await multi.ReadAsync<TableRow>()).ToList();
+        var columnRows = (await multi.ReadAsync<ColumnRow>()).ToList();
+        var indexRows = (await multi.ReadAsync<IndexRow>()).ToList();
+        var indexColumnRows = (await multi.ReadAsync<IndexColumnRow>()).ToList();
+        var constraintRows = (await multi.ReadAsync<ConstraintRow>()).ToList();
 
         return (
             tableRows,

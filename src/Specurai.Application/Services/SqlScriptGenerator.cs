@@ -15,23 +15,12 @@ public class SqlScriptGenerator : ISqlScriptGenerator
         string baseEnvName,
         string targetEnvName)
     {
+        // 預先建立程式物件查找表，避免 O(n×m) 線性掃描
+        var programObjectLookup = BuildProgramObjectLookup(baseSchema);
+
         var sb = new StringBuilder();
         AppendHeader(sb, baseEnvName, targetEnvName);
-
-        sb.AppendLine("BEGIN TRANSACTION;");
-        sb.AppendLine("BEGIN TRY");
-        sb.AppendLine();
-
-        foreach (var diff in selectedDifferences)
-        {
-            var sql = GenerateSqlForDifference(diff, baseSchema);
-            if (!string.IsNullOrWhiteSpace(sql))
-            {
-                sb.AppendLine($"    -- [{RiskLevelText(diff.RiskLevel)}] {diff.Description ?? diff.ObjectName}");
-                sb.AppendLine($"    {sql}");
-                sb.AppendLine();
-            }
-        }
+        AppendDiffStatements(sb, selectedDifferences, baseSchema, programObjectLookup);
 
         sb.AppendLine("    COMMIT TRANSACTION;");
         sb.AppendLine("    PRINT N'Migration 成功完成';");
@@ -43,11 +32,28 @@ public class SqlScriptGenerator : ISqlScriptGenerator
         sb.AppendLine("    THROW;");
         sb.AppendLine("END CATCH;");
 
+        var applyScript = sb.ToString();
+
+        // Dry Run 腳本：同樣結構但強制 ROLLBACK，不需外層包 ADO.NET transaction
+        var drySb = new StringBuilder();
+        AppendHeader(drySb, baseEnvName, targetEnvName);
+        AppendDiffStatements(drySb, selectedDifferences, baseSchema, programObjectLookup);
+        drySb.AppendLine("    ROLLBACK TRANSACTION;");
+        drySb.AppendLine("    PRINT N'[Dry Run] 腳本驗證通過，已強制回滾，資料庫無實際變更';");
+        drySb.AppendLine();
+        drySb.AppendLine("END TRY");
+        drySb.AppendLine("BEGIN CATCH");
+        drySb.AppendLine("    ROLLBACK TRANSACTION;");
+        drySb.AppendLine("    PRINT N'[Dry Run] 腳本驗證失敗：' + ERROR_MESSAGE();");
+        drySb.AppendLine("    THROW;");
+        drySb.AppendLine("END CATCH;");
+
         return new SyncScript
         {
             TargetEnvironment = targetEnvName,
             GeneratedAt = DateTime.Now,
-            ApplyScript = sb.ToString(),
+            ApplyScript = applyScript,
+            DryRunScript = drySb.ToString(),
             Differences = selectedDifferences
         };
     }
@@ -61,9 +67,53 @@ public class SqlScriptGenerator : ISqlScriptGenerator
         sb.AppendLine($"-- 產生時間：{DateTime.Now:yyyy-MM-dd HH:mm:ss}");
         sb.AppendLine("-- ================================================");
         sb.AppendLine();
+        sb.AppendLine("BEGIN TRANSACTION;");
+        sb.AppendLine("BEGIN TRY");
+        sb.AppendLine();
     }
 
-    private static string GenerateSqlForDifference(SchemaDifference diff, DatabaseSchema baseSchema)
+    private static void AppendDiffStatements(
+        StringBuilder sb,
+        IList<SchemaDifference> diffs,
+        DatabaseSchema baseSchema,
+        Dictionary<(string Schema, string Name, SchemaObjectType Type), SchemaProgramObject> programObjectLookup)
+    {
+        foreach (var diff in diffs)
+        {
+            var sql = GenerateSqlForDifference(diff, baseSchema, programObjectLookup);
+            if (!string.IsNullOrWhiteSpace(sql))
+            {
+                sb.AppendLine($"    -- [{RiskLevelText(diff.RiskLevel)}] {diff.Description ?? diff.ObjectName}");
+                sb.AppendLine($"    {sql}");
+                sb.AppendLine();
+            }
+        }
+    }
+
+    private static Dictionary<(string, string, SchemaObjectType), SchemaProgramObject> BuildProgramObjectLookup(
+        DatabaseSchema baseSchema)
+    {
+        var lookup = new Dictionary<(string, string, SchemaObjectType), SchemaProgramObject>(
+            StringComparer.OrdinalIgnoreCase.GetHashCode() == 0
+                ? EqualityComparer<(string, string, SchemaObjectType)>.Default
+                : new TupleIgnoreCaseComparer());
+
+        foreach (var v in baseSchema.Views)
+            lookup.TryAdd((v.Schema, v.Name, SchemaObjectType.View), v);
+        foreach (var p in baseSchema.StoredProcedures)
+            lookup.TryAdd((p.Schema, p.Name, SchemaObjectType.StoredProcedure), p);
+        foreach (var f in baseSchema.Functions)
+            lookup.TryAdd((f.Schema, f.Name, SchemaObjectType.Function), f);
+        foreach (var t in baseSchema.Triggers)
+            lookup.TryAdd((t.Schema, t.Name, SchemaObjectType.Trigger), t);
+
+        return lookup;
+    }
+
+    private static string GenerateSqlForDifference(
+        SchemaDifference diff,
+        DatabaseSchema baseSchema,
+        Dictionary<(string, string, SchemaObjectType), SchemaProgramObject> programObjectLookup)
     {
         return diff.ObjectType switch
         {
@@ -71,10 +121,9 @@ public class SqlScriptGenerator : ISqlScriptGenerator
             SchemaObjectType.Column => GenerateColumnSql(diff, baseSchema),
             SchemaObjectType.Index => GenerateIndexSql(diff, baseSchema),
             SchemaObjectType.Constraint => GenerateConstraintSql(diff, baseSchema),
-            SchemaObjectType.View => GenerateProgramObjectSql(diff, baseSchema, "VIEW"),
-            SchemaObjectType.StoredProcedure => GenerateProgramObjectSql(diff, baseSchema, "PROCEDURE"),
-            SchemaObjectType.Function => GenerateProgramObjectSql(diff, baseSchema, "FUNCTION"),
-            SchemaObjectType.Trigger => GenerateProgramObjectSql(diff, baseSchema, "TRIGGER"),
+            SchemaObjectType.View or SchemaObjectType.StoredProcedure
+                or SchemaObjectType.Function or SchemaObjectType.Trigger
+                => GenerateProgramObjectSql(diff, programObjectLookup),
             _ => string.Empty
         };
     }
@@ -91,20 +140,19 @@ public class SqlScriptGenerator : ISqlScriptGenerator
         var sb = new StringBuilder();
         sb.AppendLine($"CREATE TABLE [{table.Schema}].[{table.Name}] (");
 
-        var columnDefs = new List<string>();
-        foreach (var col in table.Columns)
+        for (int i = 0; i < table.Columns.Count; i++)
         {
+            var col = table.Columns[i];
             var nullable = col.IsNullable ? "NULL" : "NOT NULL";
             var identity = col.IsIdentity ? " IDENTITY(1,1)" : string.Empty;
-            var defaultVal = string.IsNullOrEmpty(col.DefaultValue)
-                ? string.Empty
-                : $" DEFAULT {col.DefaultValue}";
+            var defaultVal = string.IsNullOrEmpty(col.DefaultValue) ? string.Empty : $" DEFAULT {col.DefaultValue}";
             var dataType = col.GetFullDataType();
             var collation = string.IsNullOrEmpty(col.Collation) ? string.Empty : $" COLLATE {col.Collation}";
-            columnDefs.Add($"    [{col.Name}] {dataType}{collation}{identity} {nullable}{defaultVal}");
+            sb.Append($"    [{col.Name}] {dataType}{collation}{identity} {nullable}{defaultVal}");
+            if (i < table.Columns.Count - 1) sb.Append(',');
+            sb.AppendLine();
         }
 
-        sb.AppendLine(string.Join(",\n", columnDefs));
         sb.Append(");");
         return sb.ToString();
     }
@@ -120,9 +168,7 @@ public class SqlScriptGenerator : ISqlScriptGenerator
             if (col == null) return $"-- 無法找到欄位定義：{diff.ObjectName}";
 
             var nullable = col.IsNullable ? "NULL" : "NOT NULL";
-            var defaultVal = string.IsNullOrEmpty(col.DefaultValue)
-                ? string.Empty
-                : $" DEFAULT {col.DefaultValue}";
+            var defaultVal = string.IsNullOrEmpty(col.DefaultValue) ? string.Empty : $" DEFAULT {col.DefaultValue}";
             return $"ALTER TABLE [{schema}].[{tableName}] ADD [{col.Name}] {col.GetFullDataType()} {nullable}{defaultVal};";
         }
 
@@ -131,7 +177,6 @@ public class SqlScriptGenerator : ISqlScriptGenerator
             var col = table?.GetColumn(columnName);
             if (col == null) return $"-- 無法找到欄位定義：{diff.ObjectName}";
 
-            // 使用 SourceValue 作為新的長度（基準值）
             var newLength = int.TryParse(diff.SourceValue, out var len) ? len : col.MaxLength;
             var dataType = newLength.HasValue ? $"{col.DataType}({newLength})" : col.DataType;
             var nullable = col.IsNullable ? "NULL" : "NOT NULL";
@@ -159,9 +204,7 @@ public class SqlScriptGenerator : ISqlScriptGenerator
         var include = index.IncludeColumns.Count > 0
             ? $" INCLUDE ({string.Join(", ", index.IncludeColumns.Select(c => $"[{c}]"))})"
             : string.Empty;
-        var filter = string.IsNullOrEmpty(index.FilterDefinition)
-            ? string.Empty
-            : $" WHERE {index.FilterDefinition}";
+        var filter = string.IsNullOrEmpty(index.FilterDefinition) ? string.Empty : $" WHERE {index.FilterDefinition}";
 
         return $"CREATE {unique}{clustered}INDEX [{index.Name}] ON [{schema}].[{tableName}] ({columns}){include}{filter};";
     }
@@ -188,28 +231,13 @@ public class SqlScriptGenerator : ISqlScriptGenerator
         };
     }
 
-    private static string GenerateProgramObjectSql(SchemaDifference diff, DatabaseSchema baseSchema, string objectTypeSql)
+    private static string GenerateProgramObjectSql(
+        SchemaDifference diff,
+        Dictionary<(string, string, SchemaObjectType), SchemaProgramObject> lookup)
     {
         var (schema, objName) = ParseTwoParts(diff.ObjectName);
 
-        SchemaProgramObject? obj = objectTypeSql switch
-        {
-            "VIEW" => baseSchema.Views.FirstOrDefault(v =>
-                v.Schema.Equals(schema, StringComparison.OrdinalIgnoreCase) &&
-                v.Name.Equals(objName, StringComparison.OrdinalIgnoreCase)),
-            "PROCEDURE" => baseSchema.StoredProcedures.FirstOrDefault(p =>
-                p.Schema.Equals(schema, StringComparison.OrdinalIgnoreCase) &&
-                p.Name.Equals(objName, StringComparison.OrdinalIgnoreCase)),
-            "FUNCTION" => baseSchema.Functions.FirstOrDefault(f =>
-                f.Schema.Equals(schema, StringComparison.OrdinalIgnoreCase) &&
-                f.Name.Equals(objName, StringComparison.OrdinalIgnoreCase)),
-            "TRIGGER" => baseSchema.Triggers.FirstOrDefault(t =>
-                t.Schema.Equals(schema, StringComparison.OrdinalIgnoreCase) &&
-                t.Name.Equals(objName, StringComparison.OrdinalIgnoreCase)),
-            _ => null
-        };
-
-        if (obj?.Definition == null)
+        if (!lookup.TryGetValue((schema, objName, diff.ObjectType), out var obj) || obj.Definition == null)
             return $"-- 無法找到物件定義：{diff.ObjectName}";
 
         if (diff.DifferenceType == DifferenceType.Added)
@@ -253,4 +281,18 @@ public class SqlScriptGenerator : ISqlScriptGenerator
         RiskLevel.Medium => "中風險",
         _ => "未知"
     };
+
+    private sealed class TupleIgnoreCaseComparer : IEqualityComparer<(string, string, SchemaObjectType)>
+    {
+        public bool Equals((string, string, SchemaObjectType) x, (string, string, SchemaObjectType) y) =>
+            string.Equals(x.Item1, y.Item1, StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(x.Item2, y.Item2, StringComparison.OrdinalIgnoreCase) &&
+            x.Item3 == y.Item3;
+
+        public int GetHashCode((string, string, SchemaObjectType) obj) =>
+            HashCode.Combine(
+                StringComparer.OrdinalIgnoreCase.GetHashCode(obj.Item1),
+                StringComparer.OrdinalIgnoreCase.GetHashCode(obj.Item2),
+                obj.Item3);
+    }
 }

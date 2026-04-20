@@ -52,6 +52,8 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
     public ObservableCollection<ConnectionProfile> ConnectionProfiles { get; } = [];
     public ObservableCollection<MigrationDifferenceRowViewModel> DifferenceRows { get; } = [];
 
+    private int _selectedExecutableCount;
+
     // 設計時建構函式
     public SchemaMigrationDocumentViewModel()
     {
@@ -116,7 +118,12 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
                 SelectedBaseProfile.Name, SelectedTargetProfile.Name);
 
             foreach (var diff in _currentAnalysis.Comparison.Differences)
-                DifferenceRows.Add(new MigrationDifferenceRowViewModel(diff));
+            {
+                var row = new MigrationDifferenceRowViewModel(diff);
+                row.SelectionChanged += OnRowSelectionChanged;
+                DifferenceRows.Add(row);
+            }
+            _selectedExecutableCount = DifferenceRows.Count(r => r.IsSelected && r.IsExecutable);
 
             var total = DifferenceRows.Count;
             var blocked = _currentAnalysis.BlockedDifferences.Count;
@@ -140,6 +147,12 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
         !IsAnalyzing && !IsExecuting &&
         SelectedBaseProfile != null && SelectedTargetProfile != null &&
         SelectedBaseProfile.Id != SelectedTargetProfile.Id;
+
+    private void OnRowSelectionChanged(bool isNowSelected)
+    {
+        _selectedExecutableCount += isNowSelected ? 1 : -1;
+        NotifySelectionCommands();
+    }
 
     partial void OnLastReportChanged(MigrationReport? value)
         => OnPropertyChanged(nameof(ReportTitle));
@@ -247,8 +260,7 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
     }
 
     private bool CanExecuteMigration() =>
-        !IsAnalyzing && !IsExecuting &&
-        DifferenceRows.Any(r => r.IsSelected && r.IsExecutable);
+        !IsAnalyzing && !IsExecuting && _selectedExecutableCount > 0;
 
     [RelayCommand(CanExecute = nameof(CanGenerateScript))]
     private void PreviewSql()
@@ -354,7 +366,7 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
     }
 
     private bool CanGenerateScript() =>
-        _currentAnalysis != null && DifferenceRows.Any(r => r.IsSelected && r.IsExecutable);
+        _currentAnalysis != null && _selectedExecutableCount > 0;
 
     private bool CanExportReport() => LastReport != null;
 
@@ -367,6 +379,7 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
     {
         foreach (var row in DifferenceRows.Where(r => r.IsExecutable))
             row.IsSelected = true;
+        _selectedExecutableCount = DifferenceRows.Count(r => r.IsExecutable);
         NotifySelectionCommands();
     }
 
@@ -375,6 +388,7 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
     {
         foreach (var row in DifferenceRows.Where(r => r.IsExecutable))
             row.IsSelected = false;
+        _selectedExecutableCount = 0;
         NotifySelectionCommands();
     }
 

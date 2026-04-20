@@ -50,6 +50,9 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
     [ObservableProperty]
     private MigrationReport? _lastReport;
 
+    [ObservableProperty]
+    private string? _analysisReport;
+
     public ObservableCollection<ConnectionProfile> ConnectionProfiles { get; } = [];
     public ObservableCollection<MigrationDifferenceRowViewModel> DifferenceRows { get; } = [];
     public ObservableCollection<MigrationDifferenceRowViewModel> FilteredRows { get; } = [];
@@ -116,6 +119,7 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
         StatusMessage = "正在分析 Schema 差異...";
         DifferenceRows.Clear();
         FilteredRows.Clear();
+        AnalysisReport = null;
         _currentAnalysis = null;
 
         try
@@ -146,6 +150,7 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
                 DifferenceRows.Add(row);
             }
             _selectedExecutableCount = DifferenceRows.Count(r => r.IsSelected && r.IsExecutable);
+            AnalysisReport = _currentAnalysis.GenerateReport();
             ApplyFilter();
 
             var total = DifferenceRows.Count;
@@ -228,6 +233,9 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
 
     partial void OnLastReportChanged(MigrationReport? value)
         => OnPropertyChanged(nameof(ReportTitle));
+
+    partial void OnAnalysisReportChanged(string? value)
+        => DownloadAnalysisReportCommand.NotifyCanExecuteChanged();
 
     partial void OnSelectedBaseProfileChanged(ConnectionProfile? value)
         => AnalyzeCommand.NotifyCanExecuteChanged();
@@ -441,6 +449,33 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
         _currentAnalysis != null && _selectedExecutableCount > 0;
 
     private bool CanExportReport() => LastReport != null;
+
+    [RelayCommand(CanExecute = nameof(CanDownloadAnalysisReport))]
+    private async Task DownloadAnalysisReportAsync()
+    {
+        if (AnalysisReport == null) return;
+
+        var window = (Avalonia.Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)
+            ?.MainWindow;
+        if (window == null) return;
+
+        var file = await window.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+        {
+            Title = "儲存分析建議報告",
+            SuggestedFileName = $"migration_analysis_{DateTime.Now:yyyyMMdd_HHmmss}.txt",
+            FileTypeChoices = [new FilePickerFileType("文字檔案") { Patterns = ["*.txt"] }]
+        });
+
+        if (file != null)
+        {
+            await using var stream = await file.OpenWriteAsync();
+            await using var writer = new StreamWriter(stream);
+            await writer.WriteAsync(AnalysisReport);
+            StatusMessage = "分析報告已儲存";
+        }
+    }
+
+    private bool CanDownloadAnalysisReport() => AnalysisReport != null;
 
     public string ReportTitle => LastReport?.IsDryRun == true
         ? "🧪 Dry Run 報告（未實際提交）"

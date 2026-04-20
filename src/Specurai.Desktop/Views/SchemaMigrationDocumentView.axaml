@@ -111,10 +111,16 @@
                                     IsReadOnly="True"/>
 
                 <!-- 物件類型 -->
-                <DataGridTextColumn Header="物件類型"
-                                    Binding="{Binding ObjectTypeText}"
-                                    Width="90"
-                                    IsReadOnly="True"/>
+                <DataGridTemplateColumn Header="物件類型" Width="90" IsReadOnly="True">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate x:DataType="vm:MigrationDifferenceRowViewModel">
+                            <TextBlock Text="{Binding ObjectTypeText}"
+                                       VerticalAlignment="Center"
+                                       Padding="2,0"
+                                       ToolTip.Tip="{Binding ObjectTypeDescription}"/>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
 
                 <!-- 物件名稱 -->
                 <DataGridTextColumn Header="物件名稱"

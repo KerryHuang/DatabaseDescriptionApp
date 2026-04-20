@@ -70,8 +70,8 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
     public IReadOnlyList<FilterOptionViewModel> DifferenceTypeFilters { get; } = CreateFilters(
         "新增", "修改");
 
-    [ObservableProperty] private string _riskFilterLabel = "風險 ▾";
-    [ObservableProperty] private string _objectTypeFilterLabel = "物件類型 ▾";
+    [ObservableProperty] private string _riskFilterLabel = "風險（3）▾";
+    [ObservableProperty] private string _objectTypeFilterLabel = "物件類型（3）▾";
     [ObservableProperty] private string _differenceTypeFilterLabel = "差異類型 ▾";
 
     private static IReadOnlyList<FilterOptionViewModel> CreateFilters(params string[] labels) =>
@@ -97,6 +97,7 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
         _executor = executor;
         _connectionManager = connectionManager;
 
+        SetDefaultFilters();
         SubscribeFilterEvents();
         LoadProfiles();
     }
@@ -178,6 +179,17 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
 
     partial void OnFilterObjectNameChanged(string value) => ApplyFilter();
 
+    private void SetDefaultFilters()
+    {
+        // 預設風險篩選：高風險、中風險、低風險（不含禁止）
+        foreach (var f in RiskLevelFilters.Where(f => f.Label is "🔴 高風險" or "🟡 中風險" or "🟢 低風險"))
+            f.IsSelected = true;
+
+        // 預設物件類型：表格、欄位、檢視表
+        foreach (var f in ObjectTypeFilters.Where(f => f.Label is "表格" or "欄位" or "檢視表"))
+            f.IsSelected = true;
+    }
+
     private void SubscribeFilterEvents()
     {
         foreach (var f in RiskLevelFilters.Concat(ObjectTypeFilters).Concat(DifferenceTypeFilters))
@@ -205,9 +217,9 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
         if (activeDiff.Count > 0)
             query = query.Where(r => activeDiff.Contains(r.DifferenceTypeText));
 
-        // 預設排序：風險升序 → 物件類型（表格優先）→ 物件名稱
+        // 預設排序：風險降序（禁止→高→中→低）→ 物件類型（表格優先）→ 物件名稱
         var sorted = query
-            .OrderBy(r => (int)r.Difference.RiskLevel)
+            .OrderByDescending(r => (int)r.Difference.RiskLevel)
             .ThenBy(r => (int)r.Difference.ObjectType)
             .ThenBy(r => r.Difference.ObjectName)
             .ToList();

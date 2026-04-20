@@ -1,76 +1,33 @@
+---
+paths:
+  - "**/*.axaml"
+  - "**/*ViewModel.cs"
+  - "**/*View.axaml.cs"
+  - "**/*Window.axaml.cs"
+---
+
 # MVVM 模式規範
 
 本專案使用 CommunityToolkit.Mvvm 實作 MVVM 模式。
 
-## ViewModel 基本結構
+## ViewModel 結構
 
-所有 ViewModel 繼承自 `ViewModelBase`：
-
-```csharp
-public partial class MyViewModel : ViewModelBase
-{
-    // ...
-}
-```
-
-## 可觀察屬性
-
-使用 `[ObservableProperty]` 特性自動產生屬性：
-
-```csharp
-[ObservableProperty]
-private string _name;
-
-// 自動產生 Name 屬性和 OnNameChanged 部分方法
-```
-
-監聽屬性變更：
-
-```csharp
-partial void OnNameChanged(string value)
-{
-    // 屬性變更時執行
-}
-```
-
-## 命令
-
-使用 `[RelayCommand]` 特性自動產生命令：
-
-```csharp
-[RelayCommand]
-private async Task SaveAsync()
-{
-    // 自動產生 SaveCommand
-}
-
-[RelayCommand(CanExecute = nameof(CanSave))]
-private void Delete()
-{
-    // 自動產生 DeleteCommand，並連結 CanExecute
-}
-
-private bool CanSave => !string.IsNullOrEmpty(Name);
-```
+- 所有 ViewModel 繼承自 `ViewModelBase`（`partial class`）
+- 可觀察屬性：使用 `[ObservableProperty]` 特性（私有欄位 `_camelCase`）
+- 命令：使用 `[RelayCommand]` 特性；`CanExecute` 連結布林屬性
+- 屬性變更側效應：實作 `partial void OnXxxChanged(T value)`
 
 ## 設計時支援
 
-提供無參數建構函式供設計時使用：
-
-```csharp
-public MyViewModel()
-{
-    // Design-time constructor
-}
-
-public MyViewModel(IMyService service)
-{
-    _service = service;
-}
-```
+每個 ViewModel 必須提供**無參數建構函式**（設計時用）和**DI 建構函式**（執行時用）。
 
 ## View 與 ViewModel 對應
 
-- `MainWindow.axaml` → `MainWindowViewModel.cs`
-- `ConnectionSetupWindow.axaml` → `ConnectionSetupViewModel.cs`
 - View 透過 DI 取得 ViewModel 實例
+- AXAML Binding 盡量使用 `x:DataType` 編譯時綁定
+- 避免 `MultiBinding` + `BoolConverters.And`，改用 ViewModel 計算屬性
+
+## AXAML 特殊情境
+
+- DataGrid 按鈕命令：`#DataGridName.((vm:Type)DataContext).CommandName`
+- 行著色：code-behind `LoadingRow` 事件處理

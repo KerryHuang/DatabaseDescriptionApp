@@ -1,6 +1,6 @@
 ---
-name: update-docs
-description: Use when completing a feature, after all code is committed. Use when user says "update docs", "更新文件", "update readme". Updates README.md, UserGuide.md, CLAUDE.md and other project documentation to reflect new or changed features.
+name: updating-docs
+description: Use when completing a feature, after all code is committed. Use when user says "update docs", "更新文件", "update readme", "更新說明".
 ---
 
 # 更新專案文件
@@ -48,3 +48,9 @@ description: Use when completing a feature, after all code is committed. Use whe
 - 繁體中文撰寫
 - 不要刪除或修改與本次功能無關的內容
 - 快捷鍵表要完整列出所有功能，不只是新增的
+
+## 與 documentation-writer 代理的分工
+
+- **本技能（updating-docs）**：決定「更新哪些文件」和「執行步驟」（編排層）
+- **documentation-writer 代理**：負責「如何撰寫」XML 文件註解、README 段落等（執行層）
+- 複雜的文件撰寫任務可委派給 `documentation-writer` 代理執行

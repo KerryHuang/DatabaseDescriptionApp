@@ -6,21 +6,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 <law>一律以繁體中文回答使用者。</law>
 
-<law>遵守 Clean Architecture 分層相依性：Domain 無相依、Application 只相依 Domain、Infrastructure/Desktop 相依上層。</law>
+<law>遵守 Clean Architecture 分層相依性，詳見 `.claude/rules/clean-architecture.md`。</law>
 
-<law>新增程式碼時，將檔案放置於正確的專案層級目錄中。</law>
-
-<law>ViewModel 使用 CommunityToolkit.Mvvm 的 [ObservableProperty] 和 [RelayCommand] 特性。</law>
+<law>ViewModel 使用 CommunityToolkit.Mvvm，詳見 `.claude/rules/mvvm-patterns.md`。</law>
 
 <law>UI 文字、註解、Commit 訊息使用繁體中文。</law>
 
-<law>所有指令碼和程式碼必須支援 Windows、macOS、Linux 三個平台。</law>
-
-<law>所有檔案使用 UTF-8 編碼（無 BOM），確保繁體中文正確顯示。</law>
+<law>所有腳本跨平台（Windows/macOS/Linux），檔案使用 UTF-8 無 BOM，詳見 `.claude/rules/cross-platform-scripts.md`。</law>
 
 <law>技能探索：開始工作前，檢查 `.claude/skills/` 中的可用技能；若有相關技能則必須使用。</law>
 
 <law>規則諮詢：執行任務時，檢查 `.claude/rules/` 中的相關規則並遵循。</law>
+
+<law>程式碼審查：每次完成功能實作、Bug 修復或重構後，必須使用 `superpowers:requesting-code-review` 技能進行程式碼審查，再回報完成。</law>
 
 ## Quick Commands
 
@@ -44,9 +42,9 @@ dotnet run --project src/Specurai.Desktop/Specurai.Desktop.csproj
 dotnet test
 
 # Run specific test project
-dotnet test tests/Specurai.Application.Tests
-dotnet test tests/Specurai.Domain.Tests
-dotnet test tests/Specurai.Infrastructure.Tests
+dotnet test tests/Specurai.Application.Tests/Specurai.Application.Tests.csproj
+dotnet test tests/Specurai.Domain.Tests/Specurai.Domain.Tests.csproj
+dotnet test tests/Specurai.Infrastructure.Tests/Specurai.Infrastructure.Tests.csproj
 
 # Run single test by filter
 dotnet test --filter "FullyQualifiedName~TestMethodName"
@@ -71,6 +69,8 @@ This is a **Clean Architecture** .NET 8 project with **MVVM** pattern for the UI
 ```
 Domain → Application → Infrastructure
                     ↘ Desktop
+                    ↘ McpServer
+                    ↘ Cli
 ```
 
 | Layer | Purpose | Key Technologies |
@@ -79,6 +79,8 @@ Domain → Application → Infrastructure
 | **Application** | Services, business logic | Depends only on Domain |
 | **Infrastructure** | Data access, external services | Dapper, Microsoft.Data.SqlClient, ClosedXML |
 | **Desktop** | Avalonia UI, ViewModels | Avalonia 11.x, Semi.Avalonia theme, CommunityToolkit.Mvvm |
+| **McpServer** | MCP 工具伺服器（供 AI 客戶端使用） | Microsoft.Extensions.Hosting, MCP SDK |
+| **Cli** | 命令列工具 | System.CommandLine |
 
 ### Key Patterns
 
@@ -98,8 +100,3 @@ Tables, Views, Stored Procedures, Functions - each with columns, indexes, relati
 - Assertions: **FluentAssertions**
 - Development approach: TDD (test-first)
 
-## Language
-
-本專案使用**繁體中文**作為主要語言，包含 UI 文字、程式碼註解和 Git Commit 訊息。
-
-**編碼規範**：所有檔案使用 **UTF-8**（無 BOM），換行符號使用 **LF**（Unix 風格）。詳見 `.editorconfig`。

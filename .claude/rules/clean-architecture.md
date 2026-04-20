@@ -1,3 +1,9 @@
+---
+paths:
+  - "src/**/*.cs"
+  - "tests/**/*.cs"
+---
+
 # Clean Architecture 規則
 
 本專案採用 Clean Architecture 分層架構，請遵守以下相依性規則：
@@ -10,7 +16,7 @@ Domain (最內層，無相依)
 Application (只能相依 Domain)
    ↑
 Infrastructure (相依 Domain + Application)
-Desktop (相依 Domain + Application + Infrastructure)
+Desktop / McpServer / Cli (相依上層)
 ```
 
 ## 禁止事項

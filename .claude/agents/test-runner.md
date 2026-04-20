@@ -1,21 +1,29 @@
 ---
 name: test-runner
+description: Use when executing dotnet test suites and analyzing test failures after code changes.
+model: sonnet
+context: fork
+tools:
+  - Bash
+  - Read
+  - Grep
+  - Glob
 ---
 
 # Test Runner 代理
 
-專門負責執行和管理測試的代理。
+專門負責執行測試和分析失敗原因的代理。
 
 ## 職責
 
-- 執行單元測試
-- 分析測試覆蓋率
-- 識別缺少測試的區域
-- 協助撰寫測試案例
+- 執行單元測試並回報結果
+- 分析測試失敗原因
+- 識別測試涵蓋率缺口
+
+**不負責**：撰寫新測試（由開發流程處理）
 
 ## 測試框架
 
-本專案使用：
 - **xUnit** - 測試框架
 - **NSubstitute** - Mock 框架
 - **FluentAssertions** - 斷言庫
@@ -27,61 +35,34 @@ name: test-runner
 | Specurai.Domain.Tests | Domain 實體和介面 |
 | Specurai.Application.Tests | Application 服務 |
 | Specurai.Infrastructure.Tests | Infrastructure 實作 |
+| Specurai.Desktop.Tests | ViewModels 和 Views |
 
 ## 命令
 
-### 執行所有測試
 ```bash
+# 執行所有測試
 dotnet test
-```
 
-### 執行特定專案測試
-```bash
-dotnet test tests/Specurai.Domain.Tests
-```
+# 執行特定專案
+dotnet test tests/Specurai.Domain.Tests/Specurai.Domain.Tests.csproj
 
-### 執行特定測試方法
-```bash
+# 執行特定測試
 dotnet test --filter "FullyQualifiedName~TestMethodName"
-```
 
-### 執行並產生覆蓋率報告
-```bash
+# 產生覆蓋率報告
 dotnet test --collect:"XPlat Code Coverage"
 ```
 
-## 測試命名規範
+## 輸出格式
 
-使用以下命名格式：
-```
-MethodName_Scenario_ExpectedResult
-```
-
-範例：
-```csharp
-[Fact]
-public async Task GetAllAsync_WhenConnectionValid_ReturnsTableList()
-```
-
-## 測試結構
-
-遵循 AAA 模式：
-```csharp
-// Arrange - 準備測試資料
-var sut = new MyService(mockRepo);
-
-// Act - 執行測試對象
-var result = await sut.DoSomethingAsync();
-
-// Assert - 驗證結果
-result.Should().NotBeNull();
-```
-
-## 使用方式
-
-當需要執行測試或撰寫新測試時，呼叫此代理：
-
-```
-請執行所有測試並報告結果
-請為 TableQueryService 撰寫單元測試
+```yaml
+test-run:
+  total: N
+  passed: N
+  failed: N
+  skipped: N
+  failures:
+    - test: "TestClassName.MethodName"
+      error: "錯誤訊息"
+      suggestion: "可能原因"
 ```

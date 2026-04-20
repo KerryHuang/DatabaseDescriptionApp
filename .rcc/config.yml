@@ -1,0 +1,51 @@
+config_version: 1
+
+migration:
+  completed: false
+  initial_at: "2026-04-20"
+  last_at: "2026-04-20"
+  last_rcc_version: "11.1.0"
+
+release_automation:
+  decision: declined
+  tool: none
+  configured_at: "2026-04-20"
+  notes: "Custom git tag + GitHub Actions workflow. Tags (vX.Y.Z) trigger Velopack packaging and GitHub Release creation. SemVer managed manually via /push command."
+
+settings_scope:
+  safety_bypass: .claude/settings.json
+  permissions: .claude/settings.json
+  hooks: .claude/settings.json
+  personal_overrides: .claude/settings.local.json
+  user_global: ~/.claude/settings.json
+
+models:
+  orchestrator:
+    model: claude-opus-4-7
+    effort: xhigh
+  implementer:
+    model: claude-sonnet-4-6
+    effort: high
+  reviewer:
+    model: claude-sonnet-4-6
+    effort: high
+
+artifacts:
+  root: .rcc/
+  memory: .rcc/memory/
+  validation: .rcc/validation/
+  archive: .rcc/archive/
+
+decisions_log:
+  - date: "2026-04-20"
+    topic: release-automation
+    decision: declined — custom git tag workflow retained
+    rationale: Project uses git tag + GitHub Actions + Velopack for cross-platform packaging. release-please or semantic-release would conflict with the existing /push skill workflow.
+  - date: "2026-04-20"
+    topic: safety-bypass-location
+    decision: .claude/settings.json (team-shared, checked in)
+    rationale: Single-developer project with shared conventions; team-wide safety rules should be visible in the repo.
+  - date: "2026-04-20"
+    topic: orchestrator-model
+    decision: claude-opus-4-7 @ xhigh
+    rationale: Best-practice default for complex orchestration tasks requiring deep reasoning.

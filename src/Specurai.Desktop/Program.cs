@@ -1,6 +1,7 @@
 using Avalonia;
 using Microsoft.Extensions.DependencyInjection;
 using System;
+using System.Net.Http;
 using Specurai.Application.Services;
 using Specurai.Desktop.ViewModels;
 using Specurai.Domain.Interfaces;
@@ -39,6 +40,20 @@ sealed class Program
         // 註冊所有核心服務（共用）
         services.AddSpecuraiCore();
 
+        // Auto-Update：HttpClient + 平台分派
+        services.AddSingleton<HttpClient>();
+        services.AddSingleton<IUpdateService>(sp =>
+        {
+            var currentVersion = typeof(MainWindowViewModel).Assembly.GetName().Version?.ToString(3) ?? "0.0.0";
+            return UpdateServiceFactory.Create(
+                sp.GetRequiredService<HttpClient>(),
+                owner: "kerryhuang317",
+                repo: "DatabaseDescriptionApp",
+                currentVersion: currentVersion);
+        });
+        services.AddTransient<UpdateNotificationViewModel>(sp =>
+            new UpdateNotificationViewModel(sp.GetRequiredService<IUpdateService>()));
+
         // Desktop 特有：ColumnUsageExcelExporter
         services.AddSingleton<ColumnUsageExcelExporter>();
 
@@ -62,7 +77,8 @@ sealed class Program
                 sp.GetRequiredService<ITableQueryService>(),
                 sp.GetRequiredService<ISqlQueryRepository>(),
                 sp.GetRequiredService<IColumnTypeRepository>(),
-                sp.GetRequiredService<ObjectTreeViewModel>()));
+                sp.GetRequiredService<ObjectTreeViewModel>(),
+                sp.GetRequiredService<UpdateNotificationViewModel>()));
         services.AddTransient<ConnectionSetupViewModel>(sp =>
             new ConnectionSetupViewModel(
                 sp.GetRequiredService<IConnectionManager>(),

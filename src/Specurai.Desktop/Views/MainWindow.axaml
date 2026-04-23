@@ -191,6 +191,13 @@
                     </MenuItem>
                 </MenuItem>
                 <MenuItem Header="說明(_H)">
+                    <MenuItem Header="檢查更新(_U)" Command="{Binding CheckForUpdatesCommand}"
+                              ToolTip.Tip="向 GitHub 查詢最新版本">
+                        <MenuItem.Icon>
+                            <TextBlock Text="⬆️" FontSize="14"/>
+                        </MenuItem.Icon>
+                    </MenuItem>
+                    <Separator/>
                     <MenuItem Header="關於 Specurai(_A)" Command="{Binding ShowAboutCommand}"
                               ToolTip.Tip="顯示應用程式版本與相關資訊">
                         <MenuItem.Icon>
@@ -200,8 +207,19 @@
                 </MenuItem>
             </Menu>
 
-            <!-- 右側：側邊欄切換 + 主題切換 -->
+            <!-- 右側：有新版徽章 + 側邊欄切換 + 主題切換 -->
             <StackPanel Grid.Column="1" Orientation="Horizontal">
+                <Button Command="{Binding CheckForUpdatesCommand}"
+                        IsVisible="{Binding UpdateNotification.HasUpdate, FallbackValue=False}"
+                        ToolTip.Tip="點擊查看新版本資訊"
+                        FontSize="13"
+                        Padding="10,4"
+                        Margin="5,0"
+                        VerticalAlignment="Center">
+                    <TextBlock>
+                        <Run Text="⬆ 有新版本 v"/><Run Text="{Binding UpdateNotification.NewVersion}"/>
+                    </TextBlock>
+                </Button>
                 <Button Content="☰"
                         Command="{Binding ToggleSidebarCommand}"
                         ToolTip.Tip="切換側邊欄 (Ctrl+B)"

@@ -54,6 +54,14 @@ public partial class MainWindowViewModel : ViewModelBase
     [ObservableProperty]
     private DocumentViewModel? _selectedDocument;
 
+    [ObservableProperty]
+    private UpdateNotificationViewModel? _updateNotification;
+
+    /// <summary>
+    /// 更新對話框開啟請求事件（由 View 訂閱後實際顯示 Dialog）。
+    /// </summary>
+    public event Action<UpdateCheckResult?>? OpenUpdateDialogRequested;
+
     public ObservableCollection<ConnectionProfile> ConnectionProfiles { get; } = [];
 
     /// <summary>
@@ -78,7 +86,8 @@ public partial class MainWindowViewModel : ViewModelBase
         ITableQueryService tableQueryService,
         ISqlQueryRepository sqlQueryRepository,
         IColumnTypeRepository columnTypeRepository,
-        ObjectTreeViewModel objectTree)
+        ObjectTreeViewModel objectTree,
+        UpdateNotificationViewModel updateNotification)
     {
         _connectionManager = connectionManager;
         _exportService = exportService;
@@ -86,6 +95,7 @@ public partial class MainWindowViewModel : ViewModelBase
         _sqlQueryRepository = sqlQueryRepository;
         _columnTypeRepository = columnTypeRepository;
         ObjectTree = objectTree;
+        UpdateNotification = updateNotification;
 
         // 訂閱連線變更事件
         _connectionManager.CurrentProfileChanged += OnCurrentProfileChanged;
@@ -730,5 +740,13 @@ public partial class MainWindowViewModel : ViewModelBase
             IsDarkMode = app.ActualThemeVariant == ThemeVariant.Dark;
             ThemeIcon = IsDarkMode ? "☀️" : "🌙";
         }
+    }
+
+    [RelayCommand]
+    private async Task CheckForUpdatesAsync()
+    {
+        if (UpdateNotification is null) return;
+        await UpdateNotification.CheckAsync();
+        OpenUpdateDialogRequested?.Invoke(UpdateNotification.LatestResult);
     }
 }

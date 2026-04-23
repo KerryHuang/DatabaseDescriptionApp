@@ -1,0 +1,36 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Specurai.Desktop.ViewModels"
+        x:Class="Specurai.Desktop.Views.UpdateDialog"
+        x:DataType="vm:UpdateDialogViewModel"
+        Title="有新版本"
+        Width="560"
+        SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False">
+    <Design.DataContext>
+        <vm:UpdateDialogViewModel/>
+    </Design.DataContext>
+    <StackPanel Margin="24" Spacing="12">
+        <TextBlock FontSize="18" FontWeight="Bold">
+            <Run Text="新版本 v"/><Run Text="{Binding NewVersion}"/>
+        </TextBlock>
+
+        <Border BorderBrush="Gray" BorderThickness="1" CornerRadius="4" Padding="12" MaxHeight="260">
+            <ScrollViewer>
+                <TextBlock Text="{Binding ReleaseNotes}" TextWrapping="Wrap" FontFamily="Consolas"/>
+            </ScrollViewer>
+        </Border>
+
+        <ProgressBar Minimum="0" Maximum="100" Value="{Binding Progress}" Height="6"/>
+
+        <TextBlock Foreground="Red" Text="{Binding ErrorMessage}" TextWrapping="Wrap"
+                   IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10">
+            <Button Content="稍後" Click="OnCloseClick"/>
+            <Button Content="確認更新" Command="{Binding ConfirmCommand}" IsEnabled="{Binding CanConfirm}"/>
+            <Button Content="立即重啟" Command="{Binding RestartCommand}" IsEnabled="{Binding CanRestart}"/>
+        </StackPanel>
+    </StackPanel>
+</Window>

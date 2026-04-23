@@ -313,7 +313,8 @@ public class MainWindowViewModelTests
             _tableQueryService,
             _sqlQueryRepository,
             _columnTypeRepository,
-            _objectTree);
+            _objectTree,
+            new UpdateNotificationViewModel());
 
         // Act
         vm.SelectedProfile = profile;

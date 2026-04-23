@@ -1,0 +1,43 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:domain="using:Specurai.Domain.Entities"
+        x:Class="Specurai.Desktop.Views.MacOsUpdateInstructionsDialog"
+        x:DataType="domain:UpdateCheckResult"
+        Title="有新版本（macOS 手動安裝）"
+        Width="620"
+        SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False">
+    <StackPanel Margin="24" Spacing="12">
+        <TextBlock FontSize="18" FontWeight="Bold">
+            <Run Text="新版本 v"/><Run Text="{Binding NewVersion}"/>
+        </TextBlock>
+
+        <Border BorderBrush="Gray" BorderThickness="1" CornerRadius="4" Padding="12" MaxHeight="200">
+            <ScrollViewer>
+                <TextBlock Text="{Binding ReleaseNotes}" TextWrapping="Wrap" FontFamily="Consolas"/>
+            </ScrollViewer>
+        </Border>
+
+        <TextBlock FontWeight="Bold" Text="安裝步驟"/>
+        <StackPanel Spacing="6">
+            <TextBlock TextWrapping="Wrap" Text="1. 點擊「前往下載」，從 GitHub Release 頁面下載對應架構的 .dmg"/>
+            <TextBlock TextWrapping="Wrap" Text="2. 點兩下 .dmg，將 Specurai 拖曳到 Applications"/>
+            <TextBlock TextWrapping="Wrap" Text="3. 於終端機執行下列指令解除 Quarantine，然後重新開啟應用程式："/>
+        </StackPanel>
+
+        <Border Background="#F4F4F4" CornerRadius="4" Padding="10">
+            <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Grid.Column="0" FontFamily="Consolas"
+                           Text="xattr -cr /Applications/Specurai.app"
+                           VerticalAlignment="Center"/>
+                <Button Grid.Column="1" Content="複製" Click="OnCopyCommandClick"/>
+            </Grid>
+        </Border>
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10">
+            <Button Content="關閉" Click="OnCloseClick"/>
+            <Button Content="前往下載" Click="OnOpenReleaseClick" Classes="accent"/>
+        </StackPanel>
+    </StackPanel>
+</Window>

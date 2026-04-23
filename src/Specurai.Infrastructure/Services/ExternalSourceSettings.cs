@@ -17,7 +17,7 @@ public class ExternalSourceSettings : IExternalSourceSettings
         new() { PropertyNameCaseInsensitive = true };
 
     /// <summary>
-    /// 建立實例，使用預設組態路徑（含 macOS legacy 遷移）
+    /// 建立實例，使用 Specurai 標準資料目錄（與桌面 App 共用；macOS 上若有歷史殘留檔會自動回收）
     /// </summary>
     public ExternalSourceSettings()
     {

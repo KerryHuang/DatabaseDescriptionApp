@@ -536,8 +536,8 @@ dotnet publish src/Specurai.Desktop -c Release -r linux-x64 --self-contained -p:
 | 平台 | 路徑 |
 |------|------|
 | Windows | `%APPDATA%\Specurai\connections.json` |
-| macOS | `~/.config/Specurai/connections.json` |
-| Linux | `~/.config/Specurai/connections.json` |
+| macOS | `~/Library/Application Support/Specurai/connections.json` |
+| Linux | `~/.config/Specurai/connections.json`（若有設 `$XDG_CONFIG_HOME` 則改用之） |
 
 在任一工具中新增的連線，其他兩種介面可直接使用。
 

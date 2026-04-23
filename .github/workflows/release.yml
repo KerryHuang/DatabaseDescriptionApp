@@ -35,7 +35,10 @@ jobs:
         run: dotnet test --configuration Release --verbosity normal
 
       - name: 發布應用程式
-        run: dotnet publish src/Specurai.Desktop -c Release -r win-x64 --self-contained -o publish
+        run: >
+          dotnet publish src/Specurai.Desktop -c Release -r win-x64 --self-contained
+          -p:Version=${{ steps.get-version.outputs.version }}
+          -o publish
 
       - name: 建立 Velopack 安裝包
         run: |
@@ -81,7 +84,10 @@ jobs:
         run: dotnet test --configuration Release --verbosity normal
 
       - name: 發布應用程式
-        run: dotnet publish src/Specurai.Desktop -c Release -r ${{ matrix.runtime }} --self-contained -o publish
+        run: >
+          dotnet publish src/Specurai.Desktop -c Release -r ${{ matrix.runtime }} --self-contained
+          -p:Version=${{ steps.get-version.outputs.version }}
+          -o publish
 
       - name: 建立 macOS .app bundle 和 .dmg
         env:
@@ -125,7 +131,10 @@ jobs:
         run: dotnet test --configuration Release --verbosity normal
 
       - name: 發布應用程式
-        run: dotnet publish src/Specurai.Desktop -c Release -r linux-x64 --self-contained -o publish
+        run: >
+          dotnet publish src/Specurai.Desktop -c Release -r linux-x64 --self-contained
+          -p:Version=${{ steps.get-version.outputs.version }}
+          -o publish
 
       - name: 建立 Velopack 安裝包
         run: |

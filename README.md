@@ -713,16 +713,73 @@ MCP Server、CLI 與桌面應用程式處於相同的架構層級，共用 Domai
 
 支援 Claude Code、Claude Desktop、Cursor、Windsurf 等所有 MCP 客戶端。
 
-#### 方式一：dotnet tool 安裝（推薦）
+兩種安裝方式擇一：
+
+| 方式 | 適合對象 | 前置需求 |
+|------|----------|----------|
+| [方式一：獨立執行檔](#方式一獨立執行檔免安裝-net) | 一般使用者 | 無 |
+| [方式二：dotnet tool](#方式二dotnet-tool需已安裝-net-8-sdk) | 開發者、已有 .NET 環境 | .NET 8.0 SDK |
+
+#### 方式一：獨立執行檔（免安裝 .NET）
+
+從 [GitHub Releases](https://github.com/KerryHuang/DatabaseDescriptionApp/releases/latest) 下載對應平台的檔案：
+
+| 平台 | 檔案 |
+|------|------|
+| Windows x64 | `Specurai.McpServer-win-x64.zip` |
+| macOS Apple Silicon (M1/M2/M3/M4) | `Specurai.McpServer-osx-arm64.tar.gz` |
+| macOS Intel | `Specurai.McpServer-osx-x64.tar.gz` |
+| Linux x64 | `Specurai.McpServer-linux-x64.tar.gz` |
+
+> macOS 不確定架構，在終端機執行 `uname -m`：`arm64` = Apple Silicon，`x86_64` = Intel。
+
+##### Windows
+
+1. 下載 `Specurai.McpServer-win-x64.zip`
+2. 右鍵解壓縮到固定目錄，例如 `C:\Tools\SpecuraiMcp\`
+3. 記下執行檔完整路徑：`C:\Tools\SpecuraiMcp\Specurai.McpServer.exe`（下一步會用到）
+
+##### macOS
+
+1. 下載對應架構的 `.tar.gz`（Apple Silicon 用 `osx-arm64`、Intel 用 `osx-x64`）
+2. 解壓、補執行權限、移除 Gatekeeper 隔離標記：
+
+    ```bash
+    mkdir -p ~/Tools/SpecuraiMcp
+    tar xzf ~/Downloads/Specurai.McpServer-osx-arm64.tar.gz -C ~/Tools/SpecuraiMcp
+    chmod +x ~/Tools/SpecuraiMcp/Specurai.McpServer
+    # macOS 從瀏覽器下載的檔案會被打上 quarantine bit，首次執行會被 Gatekeeper 擋下
+    xattr -dr com.apple.quarantine ~/Tools/SpecuraiMcp/Specurai.McpServer
+    ```
+
+3. 記下執行檔完整路徑：`/Users/你的帳號/Tools/SpecuraiMcp/Specurai.McpServer`
+
+> **若執行時出現「無法驗證開發者」或「已損毀」：** 確認已執行 `xattr -dr com.apple.quarantine` 指令。
+
+##### Linux
+
+```bash
+mkdir -p ~/Tools/SpecuraiMcp
+tar xzf Specurai.McpServer-linux-x64.tar.gz -C ~/Tools/SpecuraiMcp
+chmod +x ~/Tools/SpecuraiMcp/Specurai.McpServer
+```
+
+記下路徑：`/home/你的帳號/Tools/SpecuraiMcp/Specurai.McpServer`
+
+下載、解壓完成後，跳到 [設定 MCP 客戶端](#設定-mcp-客戶端) 一節。
+
+#### 方式二：dotnet tool（需已安裝 .NET 8 SDK）
 
 **前置需求：** 安裝 [.NET 8.0 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
 
 | 平台 | 安裝方式 |
 |------|----------|
-| Windows | 從官網下載安裝程式，或執行 `winget install Microsoft.DotNet.SDK.8` |
-| macOS | 執行 `brew install dotnet@8`，或從官網下載安裝 |
-| Linux (Ubuntu/Debian) | 執行 `sudo apt install dotnet-sdk-8.0` |
-| Linux (Fedora) | 執行 `sudo dnf install dotnet-sdk-8.0` |
+| Windows | `winget install Microsoft.DotNet.SDK.8`，或從官網下載安裝程式 |
+| macOS | `brew install dotnet@8`，或從官網下載 `.pkg` 安裝 |
+| Linux (Ubuntu/Debian) | `sudo apt install dotnet-sdk-8.0` |
+| Linux (Fedora) | `sudo dnf install dotnet-sdk-8.0` |
+
+驗證：`dotnet --version` 應顯示 `8.x.x`。
 
 **安裝 MCP Server：**
 
@@ -730,19 +787,19 @@ MCP Server、CLI 與桌面應用程式處於相同的架構層級，共用 Domai
 dotnet tool install -g Specurai.McpServer
 ```
 
-> **macOS / Linux 注意：** 若出現 PATH 警告，需將 dotnet tools 加入 PATH：
->
-> ```bash
-> # macOS (zsh)
-> echo 'export PATH="$PATH:$HOME/.dotnet/tools"' >> ~/.zprofile
-> source ~/.zprofile
->
-> # Linux (bash)
-> echo 'export PATH="$PATH:$HOME/.dotnet/tools"' >> ~/.bashrc
-> source ~/.bashrc
-> ```
+**macOS / Linux 若出現 PATH 警告：**
 
-安裝完成後，`specurai-mcp` 指令即可在終端機中使用。
+```bash
+# macOS (zsh)
+echo 'export PATH="$PATH:$HOME/.dotnet/tools"' >> ~/.zprofile && source ~/.zprofile
+
+# Linux (bash)
+echo 'export PATH="$PATH:$HOME/.dotnet/tools"' >> ~/.bashrc && source ~/.bashrc
+```
+
+**Windows** 通常安裝完即可直接使用，無需額外設定 PATH。
+
+驗證：執行 `specurai-mcp --help` 應列出指令說明。
 
 **更新版本：**
 
@@ -750,35 +807,33 @@ dotnet tool install -g Specurai.McpServer
 dotnet tool update -g Specurai.McpServer
 ```
 
-#### 方式二：下載獨立執行檔
-
-不需安裝 .NET，從 [GitHub Releases](https://github.com/KerryHuang/DatabaseDescriptionApp/releases) 下載對應平台的檔案：
-
-| 平台 | 檔案 |
-|------|------|
-| Windows x64 | `Specurai.McpServer-win-x64.zip` |
-| macOS Apple Silicon | `Specurai.McpServer-osx-arm64.tar.gz` |
-| macOS Intel | `Specurai.McpServer-osx-x64.tar.gz` |
-| Linux x64 | `Specurai.McpServer-linux-x64.tar.gz` |
-
-解壓後記下執行檔的完整路徑，下一步設定時會用到。
-
 #### 設定 MCP 客戶端
+
+依你使用的 AI 客戶端選一種設定方式。下方範例同時列出 Windows 與 macOS 路徑。
 
 ##### Claude Code
 
-```bash
-# dotnet tool 安裝
-claude mcp add specurai -s user -- specurai-mcp
+**方式二（dotnet tool）：**
 
-# 獨立執行檔（請替換為實際路徑）
-# Windows:  claude mcp add specurai -s user -- C:\路徑\Specurai.McpServer.exe
-# macOS:    claude mcp add specurai -s user -- /路徑/Specurai.McpServer
+```bash
+claude mcp add specurai -s user -- specurai-mcp
 ```
+
+**方式一（獨立執行檔）：**
+
+```bash
+# Windows
+claude mcp add specurai -s user -- "C:\Tools\SpecuraiMcp\Specurai.McpServer.exe"
+
+# macOS / Linux
+claude mcp add specurai -s user -- /Users/你的帳號/Tools/SpecuraiMcp/Specurai.McpServer
+```
+
+驗證：`claude mcp list` 應顯示 `specurai` 狀態為 `Connected`。
 
 ##### Claude Desktop / Cursor / Windsurf
 
-開啟對應的設定檔，加入以下內容：
+開啟對應設定檔（若不存在需自行建立）：
 
 | 客戶端 | Windows | macOS |
 |--------|---------|-------|
@@ -786,7 +841,7 @@ claude mcp add specurai -s user -- specurai-mcp
 | Cursor | `%APPDATA%\Cursor\mcp.json` | `~/Library/Application Support/Cursor/mcp.json` |
 | Windsurf | `%APPDATA%\Windsurf\mcp_config.json` | `~/Library/Application Support/Windsurf/mcp_config.json` |
 
-**dotnet tool 安裝：**
+**方式二（dotnet tool）：**
 
 ```json
 {
@@ -798,19 +853,33 @@ claude mcp add specurai -s user -- specurai-mcp
 }
 ```
 
-**獨立執行檔（請替換為實際路徑）：**
+**方式一（獨立執行檔）— Windows：**
 
 ```json
 {
   "mcpServers": {
     "specurai": {
-      "command": "/完整路徑/Specurai.McpServer"
+      "command": "C:\\Tools\\SpecuraiMcp\\Specurai.McpServer.exe"
     }
   }
 }
 ```
 
-> **注意：** Windows 路徑使用 `\\` 或 `/`，且執行檔名為 `Specurai.McpServer.exe`。
+> Windows JSON 字串內的反斜線需 escape 為 `\\`，或直接改用正斜線 `C:/Tools/SpecuraiMcp/Specurai.McpServer.exe`。
+
+**方式一（獨立執行檔）— macOS / Linux：**
+
+```json
+{
+  "mcpServers": {
+    "specurai": {
+      "command": "/Users/你的帳號/Tools/SpecuraiMcp/Specurai.McpServer"
+    }
+  }
+}
+```
+
+儲存後重新啟動 AI 客戶端。
 
 #### 驗證安裝
 
@@ -821,6 +890,16 @@ claude mcp add specurai -s user -- specurai-mcp
 ```
 
 若顯示連線清單，即表示安裝成功。
+
+#### 疑難排解
+
+| 症狀 | 解決方式 |
+|------|----------|
+| macOS「無法驗證開發者」或「已損毀」 | 執行 `xattr -dr com.apple.quarantine <執行檔路徑>` |
+| macOS `zsh: permission denied` | 執行 `chmod +x <執行檔路徑>` 補執行權限 |
+| `specurai-mcp: command not found`（方式二） | 將 `$HOME/.dotnet/tools` 加入 PATH，或使用方式一改指向絕對路徑 |
+| `dotnet tool install` 找不到套件 | 套件尚未發布時請改用方式一（獨立執行檔） |
+| AI 客戶端連不到 MCP Server | 確認 JSON 語法、command 路徑絕對化、Windows 路徑用 `\\` 或 `/`、重啟客戶端 |
 
 ### 連線設定
 

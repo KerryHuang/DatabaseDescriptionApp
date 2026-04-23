@@ -83,6 +83,7 @@ specurai tables list
 | 維護計劃 | 精靈式建立 SQL Agent Job：備份、Recovery Model、使用者權限、保留天數 | Ctrl+Shift+D |
 | Excel 匯出 | 全庫規格一鍵匯出 | Ctrl+E |
 | MCP Server | 56 個 AI 工具，共用桌面連線設定，支援所有 MCP 客戶端 | — |
+| 自動更新 | 啟動時背景檢查 GitHub Release，新版本以右上角徽章通知；Windows/Linux 一鍵更新，macOS 以對話框提供下載連結與 `xattr` 指令 | — |
 
 詳細操作步驟請見 [docs/UserGuide.md](docs/UserGuide.md)。
 

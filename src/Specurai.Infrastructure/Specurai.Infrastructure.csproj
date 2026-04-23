@@ -23,4 +23,8 @@
     <EmbeddedResource Include="Scripts\*.sql" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="Specurai.Infrastructure.Tests" />
+  </ItemGroup>
+
 </Project>

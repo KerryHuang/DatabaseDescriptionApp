@@ -17,10 +17,12 @@ public class ExternalSourceSettings : IExternalSourceSettings
         new() { PropertyNameCaseInsensitive = true };
 
     /// <summary>
-    /// 建立實例，使用預設組態目錄
+    /// 建立實例，使用預設組態路徑（含 macOS legacy 遷移）
     /// </summary>
     public ExternalSourceSettings()
-        : this(GetDefaultDir()) { }
+    {
+        _configPath = SpecuraiPaths.ResolveConfigFile("external-source.json");
+    }
 
     /// <summary>
     /// 建立實例，使用指定的組態目錄（用於測試）
@@ -75,15 +77,6 @@ public class ExternalSourceSettings : IExternalSourceSettings
         {
             // 儲存失敗靜默略過，不中斷 UI 操作
         }
-    }
-
-    /// <summary>
-    /// 取得預設的組態目錄路徑（%AppData%/Specurai）
-    /// </summary>
-    private static string GetDefaultDir()
-    {
-        var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-        return Path.Combine(appData, "Specurai");
     }
 
     /// <summary>

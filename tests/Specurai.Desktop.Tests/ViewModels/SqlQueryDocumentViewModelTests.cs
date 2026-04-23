@@ -170,8 +170,10 @@ public class SqlQueryDocumentViewModelTests
     #region SelectedProfile 變更測試
 
     [Fact]
-    public void SelectedProfile_變更時_應通知ConnectionManager()
+    public void SelectedProfile_變更時_應載入本地連線字串而不影響全域連線()
     {
+        // SQL 查詢分頁採連線獨立設計：切換僅更新分頁內連線字串，
+        // 不得透過 SetCurrentProfile 影響全域連線（見 SqlQueryDocumentViewModel.OnSelectedProfileChanged）。
         // Arrange
         var profile = new ConnectionProfile
         {
@@ -182,6 +184,8 @@ public class SqlQueryDocumentViewModelTests
         };
         _connectionManager.GetAllProfiles().Returns(new List<ConnectionProfile> { profile });
         _connectionManager.GetCurrentProfile().Returns((ConnectionProfile?)null);
+        _connectionManager.GetConnectionString(profile.Id)
+            .Returns("Server=localhost;Database=TestDb;");
         _sqlQueryRepository.GetColumnDescriptionsAsync()
             .Returns(new Dictionary<string, string>());
 
@@ -191,7 +195,8 @@ public class SqlQueryDocumentViewModelTests
         vm.SelectedProfile = profile;
 
         // Assert
-        _connectionManager.Received().SetCurrentProfile(profile.Id);
+        _connectionManager.Received().GetConnectionString(profile.Id);
+        _connectionManager.DidNotReceive().SetCurrentProfile(Arg.Any<Guid>());
         vm.StatusMessage.Should().Contain("已切換至");
     }
 

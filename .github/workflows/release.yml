@@ -143,6 +143,7 @@ jobs:
     name: 建置 MCP Server
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         include:
           - runtime: win-x64
@@ -178,6 +179,7 @@ jobs:
       - name: 打包（Windows）
         if: contains(matrix.runtime, 'win')
         run: |
+          mkdir -p Releases
           cd mcp-publish
           zip -r ../Releases/${{ matrix.artifact }} .
           cd ..
@@ -202,6 +204,8 @@ jobs:
   publish-nuget:
     name: 發布 NuGet 套件
     runs-on: ubuntu-latest
+    env:
+      HAS_NUGET_KEY: ${{ secrets.NUGET_API_KEY != '' }}
     steps:
       - name: 檢出程式碼
         uses: actions/checkout@v4
@@ -223,12 +227,12 @@ jobs:
           -o nupkg
 
       - name: 發布至 NuGet
+        if: env.HAS_NUGET_KEY == 'true'
         run: >
           dotnet nuget push nupkg/*.nupkg
           --api-key ${{ secrets.NUGET_API_KEY }}
           --source https://api.nuget.org/v3/index.json
           --skip-duplicate
-        if: secrets.NUGET_API_KEY != ''
 
       - name: 上傳 NuGet 套件
         uses: actions/upload-artifact@v4
@@ -262,6 +266,13 @@ jobs:
           cp artifacts/mcp-server-osx-x64/* release-files/ 2>/dev/null || true
           cp artifacts/mcp-server-linux-x64/* release-files/ 2>/dev/null || true
           ls -la release-files/
+          # 確保 macOS MCP Server 獨立執行檔存在（Mac 使用者主要安裝路徑）
+          for artifact in Specurai.McpServer-osx-arm64.tar.gz Specurai.McpServer-osx-x64.tar.gz; do
+            if [ ! -f "release-files/$artifact" ]; then
+              echo "::error::缺少必要的 MCP Server 發布檔：$artifact"
+              exit 1
+            fi
+          done
 
       - name: 建立 Release
         uses: softprops/action-gh-release@v2
@@ -274,7 +285,24 @@ jobs:
           body: |
             ## MCP Server 安裝
 
-            ### 方式一：dotnet tool（推薦）
+            ### 方式一：下載獨立執行檔（免安裝 .NET SDK）
+
+            下載對應平台的檔案並解壓：
+
+            - **macOS (Apple Silicon)：** `Specurai.McpServer-osx-arm64.tar.gz`
+            - **macOS (Intel)：** `Specurai.McpServer-osx-x64.tar.gz`
+            - **Windows：** `Specurai.McpServer-win-x64.zip`
+            - **Linux：** `Specurai.McpServer-linux-x64.tar.gz`
+
+            macOS / Linux 解壓後需補執行權限（tar.gz 內已保留，首次開啟 macOS 可能需 `xattr -dr com.apple.quarantine Specurai.McpServer`）。
+
+            設定 AI 客戶端指向執行檔的絕對路徑，例如：
+
+            ```json
+            {"mcpServers":{"specurai":{"command":"/absolute/path/to/Specurai.McpServer"}}}
+            ```
+
+            ### 方式二：dotnet tool（需已安裝 .NET 8 SDK）
 
             ```bash
             dotnet tool install -g Specurai.McpServer
@@ -289,10 +317,6 @@ jobs:
             # 其他客戶端（Claude Desktop、Cursor、Windsurf）
             # 在設定檔加入：{"mcpServers":{"specurai":{"command":"specurai-mcp"}}}
             ```
-
-            ### 方式二：下載獨立執行檔
-
-            下載對應平台的 `Specurai.McpServer-*` 檔案，解壓後設定 AI 客戶端指向執行檔路徑。
 
             ## macOS 桌面應用程式安裝說明
 

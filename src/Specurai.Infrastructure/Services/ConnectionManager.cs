@@ -171,13 +171,8 @@ public class ConnectionManager : IConnectionManager
         _temporaryProfiles = [..profiles];
     }
 
-    private static string GetConfigPath()
-    {
-        var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-        var configDir = Path.Combine(appData, "Specurai");
-        Directory.CreateDirectory(configDir);
-        return Path.Combine(configDir, "connections.json");
-    }
+    private static string GetConfigPath() =>
+        SpecuraiPaths.ResolveConfigFile("connections.json");
 
     private void LoadProfiles()
     {

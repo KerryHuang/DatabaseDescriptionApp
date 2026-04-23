@@ -24,11 +24,7 @@ public class MssqlBackupService : IBackupService
 
     public MssqlBackupService()
     {
-        var appDataPath = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "Specurai");
-        Directory.CreateDirectory(appDataPath);
-        _historyFilePath = Path.Combine(appDataPath, "backup-history.json");
+        _historyFilePath = SpecuraiPaths.ResolveConfigFile("backup-history.json");
     }
 
     /// <inheritdoc />

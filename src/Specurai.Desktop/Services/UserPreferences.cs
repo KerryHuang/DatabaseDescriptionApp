@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Text.Json;
+using Specurai.Infrastructure.Services;
 
 namespace Specurai.Desktop.Services;
 
@@ -64,12 +65,8 @@ public static class UserPreferences
         }
     }
 
-    private static string GetConfigPath()
-    {
-        var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-        var configDir = Path.Combine(appData, "Specurai");
-        return Path.Combine(configDir, "preferences.json");
-    }
+    private static string GetConfigPath() =>
+        SpecuraiPaths.ResolveConfigFile("preferences.json");
 
     private class PreferencesData
     {

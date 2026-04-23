@@ -4,7 +4,7 @@ using Specurai.Infrastructure.Services;
 namespace Specurai.Infrastructure.Tests.Services;
 
 /// <summary>
-/// SpecuraiPaths 測試：覆蓋跨平台路徑解析與 legacy 遷移邏輯。
+/// SpecuraiPaths 測試：覆蓋跨平台路徑解析與殘留檔回收邏輯。
 /// 透過 internal 純函式 overload 讓測試不依賴實際 OS 行為（避免 .NET 8 ApplicationData 在 macOS 的 runtime 差異）。
 /// </summary>
 public class SpecuraiPathsTests

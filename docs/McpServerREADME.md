@@ -90,7 +90,8 @@ claude mcp add specurai -s user -- /絕對路徑/Specurai.McpServer
 | 平台 | 路徑 |
 |------|------|
 | Windows | `%APPDATA%\Specurai\connections.json` |
-| macOS / Linux | `~/.config/Specurai/connections.json` |
+| macOS | `~/Library/Application Support/Specurai/connections.json` |
+| Linux | `~/.config/Specurai/connections.json` |
 
 ## 可用工具（56 個）
 

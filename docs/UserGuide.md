@@ -1071,8 +1071,8 @@ Schema Migration 協助跨環境（開發→測試→正式，或主系統→客
 | 作業系統 | 位置 |
 |---------|------|
 | Windows | `%APPDATA%\Specurai\connections.json` |
-| macOS | `~/.config/Specurai/connections.json` |
-| Linux | `~/.config/Specurai/connections.json` |
+| macOS | `~/Library/Application Support/Specurai/connections.json` |
+| Linux | `~/.config/Specurai/connections.json`（若有設 `$XDG_CONFIG_HOME` 則改用之） |
 
 > ⚠️ **注意**：連線設定包含密碼資訊，請妥善保管。
 

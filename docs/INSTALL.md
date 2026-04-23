@@ -344,8 +344,8 @@ AI 會透過 MCP Server 的 `list_connections` 和 `switch_connection` 工具協
 | 平台 | 路徑 |
 |------|------|
 | Windows | `%APPDATA%\Specurai\connections.json` |
-| macOS | `~/.config/Specurai/connections.json` |
-| Linux | `~/.config/Specurai/connections.json` |
+| macOS | `~/Library/Application Support/Specurai/connections.json` |
+| Linux | `~/.config/Specurai/connections.json`（若有設 `$XDG_CONFIG_HOME` 則改用之） |
 
 ---
 

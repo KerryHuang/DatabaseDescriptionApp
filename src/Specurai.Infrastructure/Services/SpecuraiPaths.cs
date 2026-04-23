@@ -4,11 +4,18 @@ namespace Specurai.Infrastructure.Services;
 /// Specurai 跨平台資料目錄解析。
 /// </summary>
 /// <remarks>
-/// 不依賴 <see cref="Environment.SpecialFolder.ApplicationData"/> 的行為，改以手寫規則固定各平台路徑，
-/// 避開 .NET 8 在 macOS 的 breaking change：<c>ApplicationData</c> 從 <c>~/.config</c>
-/// 改為 <c>~/Library/Application Support</c>，跨 runtime 版本會產生不同路徑，導致 Desktop / MCP /
-/// CLI 在同一台 macOS 上看到不同的 connections.json。
+/// <para>
+/// 以手寫規則固定各平台路徑，確保 Desktop / MCP / CLI 三者在同一台機器上讀寫同一個資料夾
+/// （macOS 上為 <c>~/Library/Application Support/Specurai</c>）。不使用
+/// <see cref="Environment.SpecialFolder.ApplicationData"/>，因為它在 macOS 上會隨 .NET runtime
+/// 版本給出不同結果（.NET 7 回 <c>~/.config</c>、.NET 8 回 <c>~/Library/Application Support</c>），
+/// 在使用者 Desktop 跑新 runtime 但 MCP/CLI 跑舊 runtime 時會造成檔案分裂。
 /// 參見 <see href="https://learn.microsoft.com/en-us/dotnet/core/compatibility/core-libraries/8.0/getfolderpath-unix"/>。
+/// </para>
+/// <para>
+/// macOS 使用者若歷史上 MCP/CLI 曾在錯誤路徑（<c>~/.config/Specurai</c>）寫入檔案，
+/// <see cref="ResolveConfigFile"/> 會把遺留檔案搬回正確位置，作為資料不遺失的安全網。
+/// </para>
 /// </remarks>
 public static class SpecuraiPaths
 {
@@ -34,7 +41,8 @@ public static class SpecuraiPaths
 
     /// <summary>
     /// 解析 Specurai 設定檔完整路徑，保證目錄存在。
-    /// 若執行於 macOS 且新路徑不存在、但 legacy <c>~/.config/Specurai/&lt;fileName&gt;</c> 存在，會自動搬移至新路徑。
+    /// macOS 上若標準路徑不存在、但歷史上曾在 <c>~/.config/Specurai/&lt;fileName&gt;</c> 留下殘留檔
+    /// （例如早期 MCP/CLI 跑在 .NET 7 時的錯誤寫入位置），會把殘留檔搬回標準路徑作為資料不遺失的安全網。
     /// </summary>
     /// <param name="fileName">檔案名稱，例如 <c>connections.json</c>。</param>
     /// <returns>實際應使用的檔案完整路徑。</returns>
@@ -78,17 +86,21 @@ public static class SpecuraiPaths
     }
 
     /// <summary>
-    /// Legacy 檔案遷移的純函式版本。IO 動作透過 delegate 注入，便於測試。
+    /// 殘留檔回收的純函式版本。IO 動作透過 delegate 注入，便於測試。
     /// </summary>
     /// <remarks>
+    /// <para>
+    /// 標準路徑是 Desktop 讀寫的位置；<c>legacyPath</c> 泛指歷史上曾被錯誤寫入的其他位置
+    /// （macOS 上為 <c>~/.config/Specurai</c>），現已不再使用，但既有檔案需搬回標準路徑。
+    /// </para>
     /// 規則：
     /// <list type="bullet">
-    ///   <item>新路徑已存在：不搬、不刪 legacy，回傳新路徑。此策略保守處理「雙方都存在」的情境
-    ///     （例如 .NET 8 process 已在新路徑寫入、或使用者手動建檔），避免覆蓋新寫入的資料。</item>
-    ///   <item>新路徑不存在、legacy 不存在：回傳新路徑（呼叫端自行建立）。</item>
-    ///   <item>新路徑不存在、legacy 存在：搬移 legacy → new。</item>
-    ///   <item>搬移失敗：優先判斷是否為 race（其他 process 搶先完成）— 若新路徑此時已存在則視為
-    ///     race 成功，回傳新路徑；否則 fallback legacy 路徑以免資料遺失。</item>
+    ///   <item>標準路徑已存在：不搬、不刪殘留檔，回傳標準路徑。避免覆蓋 Desktop 或其他 process
+    ///     剛寫入的資料；殘留檔留在原位由使用者自行處置。</item>
+    ///   <item>標準路徑不存在、殘留檔也不存在：回傳標準路徑（呼叫端自行建立）。</item>
+    ///   <item>標準路徑不存在、殘留檔存在：把殘留檔搬回標準路徑。</item>
+    ///   <item>搬移失敗：優先判斷是否為 race（其他 process 搶先完成）— 若標準路徑此時已存在則視為
+    ///     race 成功，回傳標準路徑；否則 fallback 殘留檔路徑以免資料遺失。</item>
     /// </list>
     /// </remarks>
     internal static string MigrateLegacyFile(

@@ -1,27 +1,30 @@
 # Specurai 使用手冊
 
+> 本手冊聚焦於 **桌面應用程式** 的使用。CLI 指令與 MCP Server（AI 整合）安裝請見 [README.md](../README.md) 與 [INSTALL.md](INSTALL.md)。
+
 ## 目錄
 
-1. [簡介](#簡介)
-2. [安裝與啟動](#安裝與啟動)
-3. [設定資料庫連線](#設定資料庫連線)
-4. [瀏覽資料庫物件](#瀏覽資料庫物件)
-5. [查看物件詳細資訊](#查看物件詳細資訊)
-6. [編輯欄位說明](#編輯欄位說明)
-7. [SQL 查詢工具](#sql-查詢工具)
-8. [欄位搜尋與一致性分析](#欄位搜尋與一致性分析)
-9. [欄位統計](#欄位統計)
-10. [資料表統計](#資料表統計)
-11. [匯出 Excel 報表](#匯出-excel-報表)
-12. [備份與還原](#備份與還原)
-13. [結構比對](#結構比對)
-14. [健康監控](#健康監控)
-15. [效能診斷](#效能診斷)
-16. [缺少索引報表](#缺少索引報表)
-17. [未使用索引報表](#未使用索引報表)
-18. [資料庫維護計劃](#資料庫維護計劃)
-19. [快捷鍵一覽](#快捷鍵一覽)
-20. [常見問題](#常見問題)
+- [簡介](#簡介)
+- [安裝與啟動](#安裝與啟動)
+- [設定資料庫連線](#設定資料庫連線)
+- [瀏覽資料庫物件](#瀏覽資料庫物件)
+- [查看物件詳細資訊](#查看物件詳細資訊)
+- [編輯欄位說明](#編輯欄位說明)
+- [SQL 查詢工具](#sql-查詢工具)
+- [欄位搜尋與一致性分析](#欄位搜尋與一致性分析)
+- [欄位統計](#欄位統計)
+- [資料表統計](#資料表統計)
+- [匯出 Excel 報表](#匯出-excel-報表)
+- [備份與還原](#備份與還原)
+- [結構比對](#結構比對)
+- [Schema Migration（資料庫遷移）](#schema-migration資料庫遷移)
+- [健康監控](#健康監控)
+- [效能診斷](#效能診斷)
+- [缺少索引報表](#缺少索引報表)
+- [未使用索引報表](#未使用索引報表)
+- [資料庫維護計劃](#資料庫維護計劃)
+- [快捷鍵一覽](#快捷鍵一覽)
+- [常見問題](#常見問題)
 
 ---
 
@@ -49,14 +52,17 @@ Specurai 是一個資料庫規格查詢工具，可以幫助您：
 
 ### 下載
 
-從 [GitHub Releases](https://github.com/KerryHuang/DatabaseDescriptionApp/releases) 下載適合您作業系統的版本：
+從 [GitHub Releases](https://github.com/KerryHuang/DatabaseDescriptionApp/releases/latest) 下載對應平台的版本：
 
-| 作業系統 | 下載連結 | 說明 |
-|---------|----------|------|
-| Windows x64 | [Specurai-win-Setup.exe](https://github.com/KerryHuang/DatabaseDescriptionApp/releases/latest/download/Specurai-win-Setup.exe) | 安裝程式（推薦） |
-| Windows x64 | [Specurai-win-Portable.zip](https://github.com/KerryHuang/DatabaseDescriptionApp/releases/latest/download/Specurai-win-Portable.zip) | 可攜式版本 |
-| macOS (Apple Silicon) | [Specurai-osx-arm64.zip](https://github.com/KerryHuang/DatabaseDescriptionApp/releases/latest) | 從 Releases 頁面下載 |
-| Linux x64 | [Specurai.AppImage](https://github.com/KerryHuang/DatabaseDescriptionApp/releases/latest/download/Specurai.AppImage) | AppImage 格式 |
+| 平台 | 檔案 | 說明 |
+|------|------|------|
+| Windows x64 | `Specurai-win-Setup.exe` | 安裝程式（建立開始選單/桌面捷徑，支援自動更新） |
+| Windows x64 | `Specurai-win-Portable.zip` | 免安裝版本 |
+| macOS Apple Silicon | `Specurai-*-osx-arm64.dmg` | M1/M2/M3/M4 |
+| macOS Intel | `Specurai-*-osx-x64.dmg` | Intel Mac |
+| Linux x64 | `Specurai.AppImage` | 免安裝 AppImage |
+
+> macOS 不確定架構：執行 `uname -m`，`arm64` = Apple Silicon，`x86_64` = Intel。
 
 ### 系統需求
 
@@ -65,16 +71,29 @@ Specurai 是一個資料庫規格查詢工具，可以幫助您：
 
 ### 安裝步驟
 
-1. 下載對應您作業系統的壓縮檔
-2. 解壓縮到任意目錄
-3. 無需安裝 .NET Runtime，可直接執行
+**Windows：** 執行 `Setup.exe` 依精靈完成，或解壓 Portable 版執行 `Specurai.Desktop.exe`。
 
-### 啟動程式
+**macOS：**
 
-1. 找到解壓縮後的 Specurai 執行檔
-2. 雙擊執行（macOS/Linux 可能需要先賦予執行權限：`chmod +x Specurai`）
+1. 開啟 `.dmg`，將 Specurai 拖曳到 Applications
+2. 首次開啟前，終端機執行：
 
-首次啟動時，程式會顯示空白畫面，您需要先設定資料庫連線。
+   ```bash
+   xattr -cr /Applications/Specurai.app
+   ```
+
+   此步驟移除瀏覽器下載的 Gatekeeper 隔離標記，否則會出現「已損毀，無法打開」。
+
+3. 之後可從 Launchpad 或 Applications 正常開啟。
+
+**Linux：**
+
+```bash
+chmod +x Specurai.AppImage
+./Specurai.AppImage
+```
+
+首次啟動時畫面為空，請先 [設定資料庫連線](#設定資料庫連線)。
 
 ---
 
@@ -604,6 +623,50 @@ Specurai 提供資料庫備份與還原功能，支援完整備份、差異備�
 
 ---
 
+## Schema Migration（資料庫遷移）
+
+Schema Migration 協助跨環境（開發→測試→正式，或主系統→客戶實例）同步結構變更。相較「結構比對」側重於「檢視差異」，Migration 側重於「帶風險管控地實際套用變更」。
+
+### 開啟 Schema Migration
+
+- 選單：**工具 → Schema Migration**
+- 快捷鍵：**Ctrl+Shift+M**
+
+### 使用流程
+
+1. 選擇 **基準資料庫**（變更來源）與 **目標資料庫**（要更新的環境）
+2. 點擊 **「分析差異」** — 系統產出：
+   - 差異清單（新增、刪除、修改）
+   - 每項差異的 **風險等級**（低/中/高/禁止）
+   - 完整文字報告（執行建議順序、風險提示）
+3. 使用 **篩選器** 縮小範圍（風險、物件類型、差異類型，全部多選）
+4. 勾選要執行的項目
+   - 高/禁止風險的項目預設不可勾選，需明確取消保護才可勾選
+5. 預覽或執行：
+   - **預覽 SQL** — 彈窗顯示完整 T-SQL 腳本，可複製
+   - **下載 SQL** — 存成 `.sql` 檔手動在 SSMS 執行
+   - **Dry Run** — 模擬執行（自動回滾），僅驗證腳本語法與約束
+   - **執行 Migration** — 正式套用至目標資料庫（含自動回滾保護）
+6. 執行完成後顯示執行報告（狀態、耗時、備註），可下載
+
+### 風險等級
+
+| 等級 | 意義 | 範例 |
+|------|------|------|
+| 低 | 可安全執行 | 新增資料表、新增可空欄位 |
+| 中 | 建議先備份 | 修改預存程序、加索引 |
+| 高 | 可能造成資料遺失 | 修改欄位型別、縮短長度 |
+| 禁止 | 不建議自動執行 | DROP TABLE、DROP COLUMN |
+
+### 建議工作流
+
+1. 先跑 **Dry Run** 驗證腳本無誤
+2. 目標環境做 **完整備份**（可用 [備份與還原](#備份與還原)）
+3. 非尖峰時段執行 **Migration**
+4. 保留執行報告作為變更紀錄
+
+---
+
 ## 健康監控
 
 健康監控功能可以幫助 DBA 監控 SQL Server 伺服器的健康狀態，包含：
@@ -948,6 +1011,7 @@ Specurai 提供資料庫備份與還原功能，支援完整備份、差異備�
 | **Ctrl+F** | 開啟欄位搜尋視窗 |
 | **Ctrl+Shift+B** | 開啟備份與還原 |
 | **Ctrl+M** | 開啟結構比對 |
+| **Ctrl+Shift+M** | 開啟 Schema Migration |
 | **Ctrl+H** | 開啟健康監控 |
 | **Ctrl+P** | 開啟效能診斷 |
 | **Ctrl+I** | 開啟缺少索引報表 |
@@ -1030,15 +1094,31 @@ Specurai 提供資料庫備份與還原功能，支援完整備份、差異備�
 - 考慮查詢本身是否需要最佳化
 - 注意索引過多也會影響寫入效能
 
+### Q10：macOS 開啟時顯示「已損毀，無法打開」？
+
+這是瀏覽器下載檔案被 Gatekeeper 標記為 quarantine 所致。終端機執行：
+
+```bash
+xattr -cr /Applications/Specurai.app
+```
+
+之後從 Launchpad 或 Applications 開啟即可。
+
+### Q11：Schema Migration 與結構比對有何不同？
+
+兩者都偵測跨環境差異，差別在目的：
+
+| 功能 | 目的 | 輸出 |
+|------|------|------|
+| 結構比對 | **檢視**差異、產生同步腳本、匯出報表 | SQL 腳本 / Excel / HTML |
+| Schema Migration | **執行**差異，含風險管控、Dry Run、自動回滾 | 直接套用至目標資料庫 |
+
+單純想看差異用結構比對；要實際套用變更用 Schema Migration。
+
 ---
 
 ## 技術支援
 
-如果您遇到問題或有建議，歡迎透過以下方式聯繫：
-
 - GitHub Issues：[提交問題](https://github.com/KerryHuang/DatabaseDescriptionApp/issues)
-
----
-
-*Specurai 使用手冊 v2.0.0*
-*最後更新：2026 年 2 月*
+- 完整安裝指引（含 MCP Server）：[INSTALL.md](INSTALL.md)
+- 專案首頁與 CLI / MCP 說明：[README.md](../README.md)

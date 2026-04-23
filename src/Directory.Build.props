@@ -1,0 +1,29 @@
+<Project>
+
+  <!--
+    本機 build 時自動從 git tag 取版號，讓關於畫面與 Release 版本一致。
+    CI workflow 透過 p:Version 明確傳入時，此 target 不會覆蓋。
+
+    規則：
+    1. 若 Version 屬性為空或是 SDK 預設 1.0.0：執行 git describe 取最新 tag，
+       去掉前綴 v，設為 Version。
+    2. git 失敗或沒有 tag（例如 shallow clone、剛初始化的 repo）：維持原值，不中斷 build。
+  -->
+  <Target Name="_SetVersionFromGitTag"
+          BeforeTargets="GetAssemblyVersion;PrepareForBuild"
+          Condition="'$(Version)' == '' Or '$(Version)' == '1.0.0'">
+    <Exec Command="git describe --tags --abbrev=0"
+          ConsoleToMSBuild="true"
+          IgnoreExitCode="true"
+          ContinueOnError="true"
+          StandardErrorImportance="Low"
+          StandardOutputImportance="Low">
+      <Output TaskParameter="ConsoleOutput" PropertyName="_GitDescribe" />
+      <Output TaskParameter="ExitCode" PropertyName="_GitDescribeExitCode" />
+    </Exec>
+    <PropertyGroup Condition="'$(_GitDescribeExitCode)' == '0' And '$(_GitDescribe)' != ''">
+      <Version>$(_GitDescribe.Trim().TrimStart('v'))</Version>
+    </PropertyGroup>
+  </Target>
+
+</Project>

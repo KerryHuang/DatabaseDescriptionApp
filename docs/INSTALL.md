@@ -58,10 +58,75 @@ MCP Server 有兩種安裝方式，請根據使用者情況選擇：
 
 | 方式 | 適合對象 | 前置需求 |
 |------|----------|----------|
-| **dotnet tool**（推薦） | 開發者、有 .NET 環境 | .NET 8.0 SDK |
-| **獨立執行檔** | 一般使用者、不想裝 .NET | 無 |
+| **獨立執行檔**（推薦） | 一般使用者、不想裝 .NET | 無 |
+| **dotnet tool** | 開發者、已有 .NET 環境 | .NET 8.0 SDK |
 
-### 方式一：dotnet tool 安裝（推薦）
+### 方式一：下載獨立執行檔（推薦）
+
+免安裝 .NET，下載對應平台的檔案即可。
+
+#### 步驟 1：下載
+
+前往 [GitHub Releases](https://github.com/KerryHuang/DatabaseDescriptionApp/releases/latest) 下載對應平台的 MCP Server：
+
+| 平台 | 檔案名稱 |
+|------|----------|
+| Windows x64 | `Specurai.McpServer-win-x64.zip` |
+| macOS Apple Silicon (M1/M2/M3/M4) | `Specurai.McpServer-osx-arm64.tar.gz` |
+| macOS Intel | `Specurai.McpServer-osx-x64.tar.gz` |
+| Linux x64 | `Specurai.McpServer-linux-x64.tar.gz` |
+
+> macOS 不確定架構：在終端機執行 `uname -m`。`arm64` = Apple Silicon，`x86_64` = Intel。
+
+#### 步驟 2：解壓縮
+
+**Windows（PowerShell）：**
+
+```powershell
+# 解壓縮到 C:\Tools\SpecuraiMcp
+Expand-Archive -Path $env:USERPROFILE\Downloads\Specurai.McpServer-win-x64.zip `
+               -DestinationPath C:\Tools\SpecuraiMcp -Force
+```
+
+或直接右鍵解壓縮 `.zip` 到目標目錄。
+
+**macOS（Apple Silicon 為例，Intel 請將 `osx-arm64` 換成 `osx-x64`）：**
+
+```bash
+mkdir -p ~/Tools/SpecuraiMcp
+tar xzf ~/Downloads/Specurai.McpServer-osx-arm64.tar.gz -C ~/Tools/SpecuraiMcp
+
+# 補執行權限
+chmod +x ~/Tools/SpecuraiMcp/Specurai.McpServer
+
+# 移除 Gatekeeper 隔離標記（瀏覽器下載的檔案會被打上 quarantine bit，首次執行會被擋）
+xattr -dr com.apple.quarantine ~/Tools/SpecuraiMcp/Specurai.McpServer
+```
+
+> **若出現「無法驗證開發者」或「已損毀」：** 確認上方 `xattr -dr com.apple.quarantine` 已執行。
+> **若出現 `zsh: permission denied`：** 確認上方 `chmod +x` 已執行。
+
+**Linux：**
+
+```bash
+mkdir -p ~/Tools/SpecuraiMcp
+tar xzf Specurai.McpServer-linux-x64.tar.gz -C ~/Tools/SpecuraiMcp
+chmod +x ~/Tools/SpecuraiMcp/Specurai.McpServer
+```
+
+#### 步驟 3：記下執行檔完整路徑
+
+下一步設定 MCP 客戶端時需要用到：
+
+| 平台 | 範例路徑 |
+|------|----------|
+| Windows | `C:\Tools\SpecuraiMcp\Specurai.McpServer.exe` |
+| macOS | `/Users/你的帳號/Tools/SpecuraiMcp/Specurai.McpServer` |
+| Linux | `/home/你的帳號/Tools/SpecuraiMcp/Specurai.McpServer` |
+
+### 方式二：dotnet tool
+
+適合已有 .NET 環境的開發者，安裝後可用 `specurai-mcp` 指令直接執行。
 
 #### 步驟 1：安裝 .NET 8.0 SDK
 
@@ -113,6 +178,8 @@ dotnet --version
 dotnet tool install -g Specurai.McpServer
 ```
 
+> **若顯示「找不到套件」：** 表示 NuGet 套件尚未發布，請改用方式一（獨立執行檔）。
+
 #### 步驟 3：設定 PATH（macOS / Linux）
 
 如果出現 PATH 警告，需將 dotnet tools 路徑加入系統 PATH：
@@ -141,45 +208,6 @@ specurai-mcp --help
 
 若指令可執行，即表示安裝成功。
 
-### 方式二：下載獨立執行檔
-
-#### 步驟 1：下載
-
-前往 [GitHub Releases](https://github.com/KerryHuang/DatabaseDescriptionApp/releases) 下載對應平台的 MCP Server：
-
-| 平台 | 檔案名稱 |
-|------|----------|
-| Windows x64 | `Specurai.McpServer-win-x64.zip` |
-| macOS Apple Silicon | `Specurai.McpServer-osx-arm64.tar.gz` |
-| macOS Intel | `Specurai.McpServer-osx-x64.tar.gz` |
-| Linux x64 | `Specurai.McpServer-linux-x64.tar.gz` |
-
-#### 步驟 2：解壓縮
-
-**Windows：** 右鍵解壓縮 `.zip` 到目標目錄，例如 `C:\Tools\SpecuraiMcp\`
-
-**macOS / Linux：**
-
-```bash
-# 建立目錄
-mkdir -p ~/Tools/SpecuraiMcp
-
-# 解壓縮（請替換為實際下載的檔案名稱）
-tar xzf Specurai.McpServer-osx-arm64.tar.gz -C ~/Tools/SpecuraiMcp
-
-# 設定執行權限（macOS / Linux）
-chmod +x ~/Tools/SpecuraiMcp/Specurai.McpServer
-```
-
-#### 步驟 3：記下執行檔完整路徑
-
-下一步設定 MCP 客戶端時需要用到：
-
-| 平台 | 範例路徑 |
-|------|----------|
-| Windows | `C:\Tools\SpecuraiMcp\Specurai.McpServer.exe` |
-| macOS / Linux | `/Users/你的帳號/Tools/SpecuraiMcp/Specurai.McpServer` |
-
 ---
 
 ## 四、設定 MCP 客戶端
@@ -188,20 +216,20 @@ chmod +x ~/Tools/SpecuraiMcp/Specurai.McpServer
 
 ### Claude Code
 
-**dotnet tool 安裝：**
+**獨立執行檔（方式一）：**
 
 ```bash
-claude mcp add specurai -s user -- specurai-mcp
-```
-
-**獨立執行檔：**
-
-```bash
-# Windows
-claude mcp add specurai -s user -- C:\Tools\SpecuraiMcp\Specurai.McpServer.exe
+# Windows（請替換為實際路徑）
+claude mcp add specurai -s user -- "C:\Tools\SpecuraiMcp\Specurai.McpServer.exe"
 
 # macOS / Linux
 claude mcp add specurai -s user -- /Users/你的帳號/Tools/SpecuraiMcp/Specurai.McpServer
+```
+
+**dotnet tool（方式二）：**
+
+```bash
+claude mcp add specurai -s user -- specurai-mcp
 ```
 
 驗證設定：
@@ -222,7 +250,33 @@ claude mcp list
 | macOS | `~/Library/Application Support/Claude/claude_desktop_config.json` |
 | Linux | `~/.config/Claude/claude_desktop_config.json` |
 
-**dotnet tool 安裝 — 加入以下內容：**
+**獨立執行檔（方式一）— Windows：**
+
+```json
+{
+  "mcpServers": {
+    "specurai": {
+      "command": "C:\\Tools\\SpecuraiMcp\\Specurai.McpServer.exe"
+    }
+  }
+}
+```
+
+> Windows JSON 內的反斜線需 escape 為 `\\`，或直接改用正斜線 `C:/Tools/SpecuraiMcp/Specurai.McpServer.exe`。
+
+**獨立執行檔（方式一）— macOS / Linux：**
+
+```json
+{
+  "mcpServers": {
+    "specurai": {
+      "command": "/Users/你的帳號/Tools/SpecuraiMcp/Specurai.McpServer"
+    }
+  }
+}
+```
+
+**dotnet tool（方式二）— 所有平台：**
 
 ```json
 {
@@ -233,20 +287,6 @@ claude mcp list
   }
 }
 ```
-
-**獨立執行檔 — 加入以下內容（請替換路徑）：**
-
-```json
-{
-  "mcpServers": {
-    "specurai": {
-      "command": "/完整路徑/Specurai.McpServer"
-    }
-  }
-}
-```
-
-> **注意：** Windows 路徑需使用 `\\`，例如 `"C:\\Tools\\SpecuraiMcp\\Specurai.McpServer.exe"`
 
 設定完成後，重新啟動 Claude Desktop。
 

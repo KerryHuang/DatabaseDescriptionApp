@@ -3,6 +3,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="using:Specurai.Desktop.ViewModels"
+             xmlns:behaviors="using:Specurai.Desktop.Behaviors"
              mc:Ignorable="d" d:DesignWidth="1200" d:DesignHeight="800"
              x:Class="Specurai.Desktop.Views.PerformanceDiagnosticsDocumentView"
              x:DataType="vm:PerformanceDiagnosticsDocumentViewModel">
@@ -59,7 +60,7 @@
                     </WrapPanel>
 
                     <!-- 資料表格 -->
-                    <DataGrid Grid.Row="3" ItemsSource="{Binding WaitStatistics}" Margin="10,0,10,10"
+                    <DataGrid Grid.Row="3" behaviors:DataGridCellCopyBehavior.Enable="True" ItemsSource="{Binding WaitStatistics}" Margin="10,0,10,10"
                               AutoGenerateColumns="False" IsReadOnly="True" CanUserResizeColumns="True"
                               GridLinesVisibility="Horizontal">
                         <DataGrid.Columns>
@@ -129,7 +130,7 @@
                                 </TextBlock>
                                 <Button Content="執行查詢" Command="{Binding RunExpensiveQueriesCommand}" Padding="10,3"/>
                             </StackPanel>
-                            <DataGrid ItemsSource="{Binding ExpensiveQueries}" Height="180"
+                            <DataGrid behaviors:DataGridCellCopyBehavior.Enable="True" ItemsSource="{Binding ExpensiveQueries}" Height="180"
                                       SelectedItem="{Binding SelectedExpensiveQuery}"
                                       AutoGenerateColumns="False" IsReadOnly="True" CanUserResizeColumns="True"
                                       GridLinesVisibility="Horizontal">
@@ -155,7 +156,7 @@
                                 </TextBlock>
                                 <Button Content="執行查詢" Command="{Binding RunExpensiveProceduresCommand}" Padding="10,3"/>
                             </StackPanel>
-                            <DataGrid ItemsSource="{Binding ExpensiveProcedures}" Height="180"
+                            <DataGrid behaviors:DataGridCellCopyBehavior.Enable="True" ItemsSource="{Binding ExpensiveProcedures}" Height="180"
                                       SelectedItem="{Binding SelectedExpensiveProcedure}"
                                       AutoGenerateColumns="False" IsReadOnly="True" CanUserResizeColumns="True"
                                       GridLinesVisibility="Horizontal">
@@ -181,7 +182,7 @@
                                 </TextBlock>
                                 <Button Content="執行查詢" Command="{Binding RunCpuIntensiveQueriesCommand}" Padding="10,3"/>
                             </StackPanel>
-                            <DataGrid ItemsSource="{Binding CpuIntensiveQueries}" Height="180"
+                            <DataGrid behaviors:DataGridCellCopyBehavior.Enable="True" ItemsSource="{Binding CpuIntensiveQueries}" Height="180"
                                       SelectedItem="{Binding SelectedCpuIntensiveQuery}"
                                       AutoGenerateColumns="False" IsReadOnly="True" CanUserResizeColumns="True"
                                       GridLinesVisibility="Horizontal">
@@ -265,7 +266,7 @@
                     </WrapPanel>
 
                     <!-- 資料表格 -->
-                    <DataGrid Grid.Row="3" ItemsSource="{Binding IndexStatuses}" Margin="10,0,10,10"
+                    <DataGrid Grid.Row="3" behaviors:DataGridCellCopyBehavior.Enable="True" ItemsSource="{Binding IndexStatuses}" Margin="10,0,10,10"
                               AutoGenerateColumns="False" IsReadOnly="True" CanUserResizeColumns="True"
                               GridLinesVisibility="Horizontal">
                         <DataGrid.Columns>
@@ -334,7 +335,7 @@
                     </WrapPanel>
 
                     <!-- 資料表格 -->
-                    <DataGrid Grid.Row="3" ItemsSource="{Binding MissingIndexes}" Margin="10,0,10,10"
+                    <DataGrid Grid.Row="3" behaviors:DataGridCellCopyBehavior.Enable="True" ItemsSource="{Binding MissingIndexes}" Margin="10,0,10,10"
                               SelectedItem="{Binding SelectedMissingIndex}"
                               AutoGenerateColumns="False" IsReadOnly="True" CanUserResizeColumns="True"
                               GridLinesVisibility="Horizontal">
@@ -408,7 +409,7 @@
                     </WrapPanel>
 
                     <!-- 資料表格 -->
-                    <DataGrid Grid.Row="3" ItemsSource="{Binding Statistics}" Margin="10,0,10,10"
+                    <DataGrid Grid.Row="3" behaviors:DataGridCellCopyBehavior.Enable="True" ItemsSource="{Binding Statistics}" Margin="10,0,10,10"
                               AutoGenerateColumns="False" IsReadOnly="True" CanUserResizeColumns="True"
                               GridLinesVisibility="Horizontal">
                         <DataGrid.Columns>
@@ -481,7 +482,7 @@
                     </WrapPanel>
 
                     <!-- 資料表格 -->
-                    <DataGrid Grid.Row="3" ItemsSource="{Binding ErrorLogs}" Margin="10,0,10,10"
+                    <DataGrid Grid.Row="3" behaviors:DataGridCellCopyBehavior.Enable="True" ItemsSource="{Binding ErrorLogs}" Margin="10,0,10,10"
                               SelectedItem="{Binding SelectedErrorLog}"
                               AutoGenerateColumns="False" IsReadOnly="True" CanUserResizeColumns="True"
                               GridLinesVisibility="Horizontal">

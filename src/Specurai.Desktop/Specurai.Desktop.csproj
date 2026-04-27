@@ -43,4 +43,8 @@
     <ProjectReference Include="..\Specurai.Application\Specurai.Application.csproj" />
     <ProjectReference Include="..\Specurai.Infrastructure\Specurai.Infrastructure.csproj" />
   </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Specurai.Desktop.Tests" />
+  </ItemGroup>
 </Project>

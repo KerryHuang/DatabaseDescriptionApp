@@ -104,10 +104,9 @@ public static class DataGridCellCopyBehavior
     private static void CopyCurrentCell(DataGrid grid)
     {
         if (grid.SelectedItem is null) return;
-        var path = GetBindingPath(grid.CurrentColumn);
-        if (path == null) return;
+        if (grid.CurrentColumn is not DataGridBoundColumn bound) return;
 
-        var value = GetCellValue(grid.SelectedItem, path) ?? string.Empty;
+        var value = ExtractCellText(bound, grid.SelectedItem) ?? string.Empty;
         SetClipboardText(grid, value);
     }
 
@@ -116,9 +115,8 @@ public static class DataGridCellCopyBehavior
         if (grid.SelectedItem is null) return;
 
         var values = grid.Columns
-            .Select(GetBindingPath)
-            .Where(p => p != null)
-            .Select(p => GetCellValue(grid.SelectedItem!, p!) ?? string.Empty);
+            .OfType<DataGridBoundColumn>()
+            .Select(c => ExtractCellText(c, grid.SelectedItem!) ?? string.Empty);
 
         var text = string.Join("\t", values);
         SetClipboardText(grid, text);
@@ -129,16 +127,24 @@ public static class DataGridCellCopyBehavior
         TopLevel.GetTopLevel(grid)?.Clipboard?.SetTextAsync(text);
     }
 
-    // --- 取繫結路徑 ---
-
-    private static string? GetBindingPath(DataGridColumn? column)
+    // --- 取得儲存格文字 ---
+    // 先走快速路徑（classic Binding，含 SqlQuery 動態欄位 Dictionary indexer）；
+    // 對 compiled binding（AXAML 預設）等其他 IBinding 實作，
+    // 透過暫時 TextBlock 套用 column.Binding 並以 row 作 DataContext 取值，
+    // 對所有 binding 型別通用。
+    private static string? ExtractCellText(DataGridBoundColumn column, object row)
     {
-        if (column is DataGridBoundColumn bound &&
-            bound.Binding is Binding b)
+        if (column.Binding is Binding classic && !string.IsNullOrEmpty(classic.Path))
         {
-            return NormalizeBindingPath(b.Path);
+            var path = NormalizeBindingPath(classic.Path);
+            return path != null ? GetCellValue(row, path) : null;
         }
-        return null;
+
+        if (column.Binding is null) return null;
+
+        var temp = new TextBlock { DataContext = row };
+        using var subscription = temp.Bind(TextBlock.TextProperty, column.Binding);
+        return temp.Text;
     }
 
     // --- 純函式（Task 1 已測試）---

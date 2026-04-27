@@ -6,6 +6,7 @@
              xmlns:converters="using:Specurai.Desktop.Converters"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:behaviors="using:Specurai.Desktop.Behaviors"
              mc:Ignorable="d" d:DesignWidth="1200" d:DesignHeight="700"
              x:Class="Specurai.Desktop.Views.ColumnSearchDocumentView"
              x:DataType="vm:ColumnSearchDocumentViewModel">
@@ -107,6 +108,7 @@
             <!-- 搜尋結果（未分析時顯示） -->
             <Grid RowDefinitions="*,Auto" IsVisible="{Binding !ShowTypeAnalysis}">
                 <DataGrid Grid.Row="0"
+                          behaviors:DataGridCellCopyBehavior.Enable="True"
                           ItemsSource="{Binding ColumnSearchResults}"
                           SelectedItem="{Binding SelectedSearchResult}"
                           AutoGenerateColumns="False"
@@ -196,6 +198,7 @@
                             <TextBlock Text="欄位型態一致性分析" FontWeight="SemiBold"/>
                         </Border>
                         <DataGrid Grid.Row="1"
+                                  behaviors:DataGridCellCopyBehavior.Enable="True"
                                   ItemsSource="{Binding ColumnGroups}"
                                   SelectedItem="{Binding SelectedGroup}"
                                   AutoGenerateColumns="False"
@@ -284,6 +287,7 @@
 
                         <!-- 詳細資料表格 -->
                         <DataGrid Grid.Row="2"
+                                  behaviors:DataGridCellCopyBehavior.Enable="True"
                                   ItemsSource="{Binding FilteredColumns}"
                                   SelectedItem="{Binding SelectedColumnType}"
                                   AutoGenerateColumns="False"

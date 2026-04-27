@@ -4,6 +4,7 @@
              xmlns:domain="using:Specurai.Domain.Entities"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:behaviors="using:Specurai.Desktop.Behaviors"
              mc:Ignorable="d" d:DesignWidth="1200" d:DesignHeight="700"
              x:Class="Specurai.Desktop.Views.UsageAnalysisDocumentView"
              x:DataType="vm:UsageAnalysisDocumentViewModel">
@@ -138,6 +139,7 @@
 
             <!-- 單環境 - 資料表維度 -->
             <DataGrid Name="TableDataGrid"
+                      behaviors:DataGridCellCopyBehavior.Enable="True"
                       ItemsSource="{Binding TableResults}"
                       AutoGenerateColumns="False"
                       IsReadOnly="True"
@@ -218,6 +220,7 @@
 
             <!-- 單環境 - 欄位維度 -->
             <DataGrid Name="ColumnDataGrid"
+                      behaviors:DataGridCellCopyBehavior.Enable="True"
                       ItemsSource="{Binding ColumnResults}"
                       AutoGenerateColumns="False"
                       IsReadOnly="True"
@@ -308,7 +311,8 @@
             </DataGrid>
 
             <!-- 多環境比對 - 資料表維度 -->
-            <DataGrid ItemsSource="{Binding ComparisonTableRows}"
+            <DataGrid behaviors:DataGridCellCopyBehavior.Enable="True"
+                      ItemsSource="{Binding ComparisonTableRows}"
                       AutoGenerateColumns="False"
                       IsReadOnly="True"
                       CanUserSortColumns="True"
@@ -321,7 +325,8 @@
             </DataGrid>
 
             <!-- 多環境比對 - 欄位維度 -->
-            <DataGrid ItemsSource="{Binding ComparisonColumnRows}"
+            <DataGrid behaviors:DataGridCellCopyBehavior.Enable="True"
+                      ItemsSource="{Binding ComparisonColumnRows}"
                       AutoGenerateColumns="False"
                       IsReadOnly="True"
                       CanUserSortColumns="True"

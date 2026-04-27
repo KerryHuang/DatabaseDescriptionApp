@@ -4,6 +4,7 @@
              xmlns:lvc="using:LiveChartsCore.SkiaSharpView.Avalonia"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:behaviors="using:Specurai.Desktop.Behaviors"
              mc:Ignorable="d" d:DesignWidth="900" d:DesignHeight="600"
              x:Class="Specurai.Desktop.Views.TableStatisticsDocumentView"
              x:DataType="vm:TableStatisticsDocumentViewModel">
@@ -74,7 +75,8 @@
             <!-- 資料表格 -->
             <TabItem Header="資料表格">
                 <Panel>
-                    <DataGrid ItemsSource="{Binding Statistics}"
+                    <DataGrid behaviors:DataGridCellCopyBehavior.Enable="True"
+                              ItemsSource="{Binding Statistics}"
                               AutoGenerateColumns="False"
                               CanUserResizeColumns="True"
                               CanUserSortColumns="True"

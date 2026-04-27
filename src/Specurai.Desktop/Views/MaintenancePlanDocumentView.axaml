@@ -3,6 +3,7 @@
              xmlns:vm="using:Specurai.Desktop.ViewModels"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:behaviors="using:Specurai.Desktop.Behaviors"
              mc:Ignorable="d" d:DesignWidth="900" d:DesignHeight="600"
              x:Class="Specurai.Desktop.Views.MaintenancePlanDocumentView"
              x:DataType="vm:MaintenancePlanDocumentViewModel">
@@ -53,6 +54,7 @@
             <Grid Grid.Row="1" RowDefinitions="*,5,*" Margin="10">
                 <!-- 上方：Job 清單 -->
                 <DataGrid Grid.Row="0"
+                          behaviors:DataGridCellCopyBehavior.Enable="True"
                           ItemsSource="{Binding Jobs}"
                           SelectedItem="{Binding SelectedJob}"
                           IsReadOnly="True"
@@ -75,7 +77,8 @@
                 <!-- 下方：執行歷史 -->
                 <DockPanel Grid.Row="2">
                     <TextBlock DockPanel.Dock="Top" Text="執行歷史" FontWeight="SemiBold" Margin="0,4,0,4"/>
-                    <DataGrid ItemsSource="{Binding JobHistory}"
+                    <DataGrid behaviors:DataGridCellCopyBehavior.Enable="True"
+                              ItemsSource="{Binding JobHistory}"
                               IsReadOnly="True"
                               AutoGenerateColumns="False"
                               GridLinesVisibility="Horizontal">
@@ -127,6 +130,7 @@
                 <!-- 檢查結果 -->
                 <TextBlock Grid.Row="1" Text="前置檢查結果" FontWeight="SemiBold" Margin="0,0,0,4"/>
                 <DataGrid Grid.Row="2"
+                          behaviors:DataGridCellCopyBehavior.Enable="True"
                           ItemsSource="{Binding CheckResults}"
                           AutoGenerateColumns="False"
                           IsReadOnly="False"

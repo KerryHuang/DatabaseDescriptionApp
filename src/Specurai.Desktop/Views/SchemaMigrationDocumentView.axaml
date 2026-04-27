@@ -3,6 +3,7 @@
              xmlns:vm="using:Specurai.Desktop.ViewModels"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:behaviors="using:Specurai.Desktop.Behaviors"
              mc:Ignorable="d" d:DesignWidth="1100" d:DesignHeight="750"
              x:Class="Specurai.Desktop.Views.SchemaMigrationDocumentView"
              x:DataType="vm:SchemaMigrationDocumentViewModel">
@@ -188,6 +189,7 @@
 
         <!-- 差異分析表格 -->
         <DataGrid Grid.Row="3"
+                  behaviors:DataGridCellCopyBehavior.Enable="True"
                   ItemsSource="{Binding FilteredRows}"
                   AutoGenerateColumns="False"
                   CanUserSortColumns="True"
@@ -273,6 +275,7 @@
                     </StackPanel>
                 </Border>
                 <DataGrid Grid.Row="1"
+                          behaviors:DataGridCellCopyBehavior.Enable="True"
                           ItemsSource="{Binding LastReport.Entries}"
                           AutoGenerateColumns="False"
                           IsReadOnly="True"

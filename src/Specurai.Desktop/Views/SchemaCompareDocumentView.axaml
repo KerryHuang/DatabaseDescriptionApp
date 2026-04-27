@@ -6,6 +6,7 @@
              xmlns:conv="using:Specurai.Desktop.Converters"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:behaviors="using:Specurai.Desktop.Behaviors"
              mc:Ignorable="d" d:DesignWidth="1000" d:DesignHeight="700"
              x:Class="Specurai.Desktop.Views.SchemaCompareDocumentView"
              x:DataType="vm:SchemaCompareDocumentViewModel">
@@ -201,6 +202,7 @@
 
                             <!-- 差異清單 -->
                             <DataGrid Grid.Row="1"
+                                      behaviors:DataGridCellCopyBehavior.Enable="True"
                                       ItemsSource="{Binding FilteredDifferences}"
                                       SelectedItem="{Binding SelectedDifference}"
                                       AutoGenerateColumns="False"

@@ -77,6 +77,17 @@ public partial class ColumnSearchDocumentViewModel : DocumentViewModel
     [ObservableProperty]
     private int _emptyDescriptionCount;
 
+    [ObservableProperty]
+    private bool _showApplyDataTypeConfirm;
+
+    [ObservableProperty]
+    private string _applyDataTypePreview = string.Empty;
+
+    [ObservableProperty]
+    private int _differentDataTypeCount;
+
+    private List<ColumnSearchResult> _pendingDataTypeTargets = [];
+
     public ObservableCollection<ConnectionProfile> ConnectionProfiles { get; } = [];
     public ObservableCollection<ColumnSearchResult> ColumnSearchResults { get; } = [];
     public ObservableCollection<ColumnTypeGroupViewModel> ColumnGroups { get; } = [];
@@ -252,7 +263,10 @@ public partial class ColumnSearchDocumentViewModel : DocumentViewModel
                 _connectionManager?.SetCurrentProfile(profile.Id);
                 results = await _sqlQueryRepository.SearchColumnsAsync(searchText, IsExactMatch, tableText);
                 foreach (var r in results)
+                {
                     r.DatabaseName = profile.Database;
+                    r.ProfileId = profile.Id;
+                }
             }
             else if (_columnSearchService != null)
             {
@@ -691,6 +705,131 @@ public partial class ColumnSearchDocumentViewModel : DocumentViewModel
     private void CancelApplyDescription()
     {
         ShowApplyDescriptionConfirm = false;
+    }
+
+    /// <summary>
+    /// 準備以選中列的資料型別更新相同 Schema + 物件名稱的其他列（顯示確認對話框）
+    /// </summary>
+    [RelayCommand]
+    private void PrepareApplyDataType()
+    {
+        if (SelectedSearchResult == null)
+        {
+            StatusMessage = "請先選擇一筆資料";
+            return;
+        }
+
+        var targets = ColumnSearchResults
+            .Where(r => string.Equals(r.SchemaName, SelectedSearchResult.SchemaName, StringComparison.OrdinalIgnoreCase) &&
+                        string.Equals(r.ObjectName, SelectedSearchResult.ObjectName, StringComparison.OrdinalIgnoreCase) &&
+                        !string.Equals(r.DataType, SelectedSearchResult.DataType, StringComparison.OrdinalIgnoreCase) &&
+                        r != SelectedSearchResult)
+            .ToList();
+
+        if (targets.Count == 0)
+        {
+            StatusMessage = "沒有需要更新的欄位（相同 Schema + 物件名稱的欄位資料型別皆一致）";
+            return;
+        }
+
+        _pendingDataTypeTargets = targets;
+        DifferentDataTypeCount = targets.Count;
+        ApplyDataTypePreview =
+            $"將 [{SelectedSearchResult.SchemaName}].[{SelectedSearchResult.ObjectName}].[{SelectedSearchResult.ColumnName}]" +
+            $" 的資料型別「{SelectedSearchResult.DataType}」套用至 {targets.Count} 個不一致的欄位：\n" +
+            string.Join("\n", targets.Take(5).Select(r =>
+                $"  • [{r.DatabaseName}] [{r.SchemaName}].[{r.ObjectName}].[{r.ColumnName}]：{r.DataType} → {SelectedSearchResult.DataType}")) +
+            (targets.Count > 5 ? $"\n  ... 等共 {targets.Count} 個" : "");
+
+        ShowApplyDataTypeConfirm = true;
+    }
+
+    /// <summary>
+    /// 確認以選中列的資料型別更新其他列
+    /// </summary>
+    [RelayCommand]
+    private async Task ConfirmApplyDataTypeAsync()
+    {
+        if (_columnTypeRepository == null || _connectionManager == null || SelectedSearchResult == null)
+            return;
+
+        ShowApplyDataTypeConfirm = false;
+
+        if (SelectedSearchResult == null)
+            return;
+
+        var newDataType = SelectedSearchResult.DataType;
+        var targets = _pendingDataTypeTargets;
+        _pendingDataTypeTargets = [];
+
+        var originalProfileId = _connectionManager.GetCurrentProfile()?.Id;
+
+        try
+        {
+            IsUpdating = true;
+            var successCount = 0;
+            var failCount = 0;
+
+            for (var i = 0; i < targets.Count; i++)
+            {
+                var item = targets[i];
+                StatusMessage = $"更新資料型別中 ({i + 1}/{targets.Count})：[{item.DatabaseName}] {item.FullObjectName}.{item.ColumnName}";
+
+                // 優先使用記錄的 ProfileId 精確切換連線（避免跨伺服器同名 DB 問題）
+                var profileId = item.ProfileId != Guid.Empty
+                    ? item.ProfileId
+                    : ConnectionProfiles.FirstOrDefault(p =>
+                        string.Equals(p.Database, item.DatabaseName, StringComparison.OrdinalIgnoreCase))?.Id ?? Guid.Empty;
+
+                if (profileId == Guid.Empty)
+                {
+                    StatusMessage = $"找不到資料庫 [{item.DatabaseName}] 的連線設定，略過";
+                    failCount++;
+                    continue;
+                }
+
+                _connectionManager.SetCurrentProfile(profileId);
+
+                try
+                {
+                    await _columnTypeRepository.UpdateColumnDataTypeAsync(
+                        item.SchemaName, item.ObjectName, item.ColumnName, newDataType);
+
+                    item.DataType = newDataType;
+                    successCount++;
+                }
+                catch (Exception ex)
+                {
+                    StatusMessage = $"更新 [{item.DatabaseName}] [{item.FullObjectName}].[{item.ColumnName}] 失敗：{ex.Message}";
+                    failCount++;
+                }
+            }
+
+            StatusMessage = $"資料型別更新完成：成功 {successCount} 個，失敗 {failCount} 個，重新查詢中...";
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"更新資料型別錯誤：{ex.Message}";
+        }
+        finally
+        {
+            // 無論成功或失敗，都還原原始連線
+            if (originalProfileId.HasValue)
+                _connectionManager.SetCurrentProfile(originalProfileId.Value);
+
+            IsUpdating = false;
+        }
+
+        await SearchColumnsAsync();
+    }
+
+    /// <summary>
+    /// 取消更新資料型別
+    /// </summary>
+    [RelayCommand]
+    private void CancelApplyDataType()
+    {
+        ShowApplyDataTypeConfirm = false;
     }
 
     /// <summary>

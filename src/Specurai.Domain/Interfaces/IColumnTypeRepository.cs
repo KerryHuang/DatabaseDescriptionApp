@@ -50,4 +50,17 @@ public interface IColumnTypeRepository
     /// <returns>目前資料的最大長度</returns>
     Task<int> GetMaxDataLengthAsync(
         string schema, string table, string column, CancellationToken ct = default);
+
+    /// <summary>
+    /// 更新欄位完整資料型別（含約束處理）
+    /// </summary>
+    /// <param name="schema">Schema 名稱</param>
+    /// <param name="table">資料表名稱</param>
+    /// <param name="column">欄位名稱</param>
+    /// <param name="newDataType">新的完整資料型別（例如 varchar(50)、int）</param>
+    /// <param name="ct">取消權杖</param>
+    /// <returns>是否成功</returns>
+    Task<bool> UpdateColumnDataTypeAsync(
+        string schema, string table, string column,
+        string newDataType, CancellationToken ct = default);
 }

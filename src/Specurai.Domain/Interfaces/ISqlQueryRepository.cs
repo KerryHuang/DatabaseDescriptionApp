@@ -20,6 +20,11 @@ public class ColumnSearchResult
     public string DatabaseName { get; set; } = string.Empty;
 
     /// <summary>
+    /// 來源連線設定 ID（用於多資料庫操作時精確切換連線）
+    /// </summary>
+    public Guid ProfileId { get; set; }
+
+    /// <summary>
     /// 同名欄位中出現次數最多的資料型別
     /// </summary>
     public string PrimaryDataType { get; set; } = string.Empty;

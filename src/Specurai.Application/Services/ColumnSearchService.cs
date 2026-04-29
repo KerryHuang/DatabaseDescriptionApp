@@ -49,6 +49,7 @@ public class ColumnSearchService : IColumnSearchService
                 foreach (var result in results)
                 {
                     result.DatabaseName = databaseName;
+                    result.ProfileId = profileId;
                 }
 
                 return results;

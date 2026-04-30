@@ -113,5 +113,24 @@ public class SchemaMigrationDocumentViewModelTests
         vm.FilteredRows.Should().NotContain(r => r.Difference.ObjectName == "dbo.Orders.[OrderDate]");
     }
 
+    [Fact]
+    public void FilterTableName與FilterColumnName_同時設定_取交集()
+    {
+        // Arrange
+        var vm = new SchemaMigrationDocumentViewModel();
+        vm.DifferenceRows.Add(new MigrationDifferenceRowViewModel(
+            new SchemaDifference { ObjectType = SchemaObjectType.Column, ObjectName = "dbo.Orders.[CustomerName]",    RiskLevel = RiskLevel.Low, DifferenceType = DifferenceType.Added }));
+        vm.DifferenceRows.Add(new MigrationDifferenceRowViewModel(
+            new SchemaDifference { ObjectType = SchemaObjectType.Column, ObjectName = "dbo.Customers.[CustomerName]", RiskLevel = RiskLevel.Low, DifferenceType = DifferenceType.Added }));
+
+        // Act
+        vm.FilterTableName = "Orders";
+        vm.FilterColumnName = "Customer";
+
+        // Assert
+        vm.FilteredRows.Should().ContainSingle()
+            .Which.Difference.ObjectName.Should().Be("dbo.Orders.[CustomerName]");
+    }
+
     #endregion
 }

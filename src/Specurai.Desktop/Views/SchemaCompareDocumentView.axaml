@@ -143,7 +143,7 @@
             <GridSplitter Grid.Column="1" Width="5" Background="Transparent"/>
 
             <!-- 右側面板：比對結果 -->
-            <Grid Grid.Column="2" RowDefinitions="Auto,*">
+            <Grid Grid.Column="2" RowDefinitions="Auto,Auto,*">
                 <!-- 風險篩選 -->
                 <Border Grid.Row="0" Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
                         Margin="5,5,5,0" CornerRadius="5" Padding="10">
@@ -159,8 +159,26 @@
                     </StackPanel>
                 </Border>
 
+                <!-- 名稱篩選列 -->
+                <Border Grid.Row="1" Background="{DynamicResource SystemControlBackgroundAltHighBrush}"
+                        Margin="5,5,5,0" CornerRadius="5" Padding="8,6">
+                    <WrapPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBlock Text="資料表名稱：" VerticalAlignment="Center" FontSize="12" Margin="0,0,4,0"/>
+                        <TextBox Text="{Binding FilterTableName}"
+                                 Watermark="輸入資料表名稱關鍵字..."
+                                 Width="200" FontSize="12"
+                                 VerticalContentAlignment="Center"
+                                 Margin="0,0,20,0"/>
+                        <TextBlock Text="欄位名稱：" VerticalAlignment="Center" FontSize="12" Margin="0,0,4,0"/>
+                        <TextBox Text="{Binding FilterColumnName}"
+                                 Watermark="輸入欄位名稱關鍵字..."
+                                 Width="200" FontSize="12"
+                                 VerticalContentAlignment="Center"/>
+                    </WrapPanel>
+                </Border>
+
                 <!-- 比對結果內容 -->
-                <Grid Grid.Row="1" RowDefinitions="Auto,*" Margin="5">
+                <Grid Grid.Row="2" RowDefinitions="Auto,*" Margin="5">
                     <!-- 環境比對結果清單 -->
                     <Border Grid.Row="0" Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
                             CornerRadius="5" Padding="10" Margin="0,5,0,0"

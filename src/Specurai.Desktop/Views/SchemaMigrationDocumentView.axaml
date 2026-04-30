@@ -86,8 +86,17 @@
 
                 <Separator Margin="0,2,12,2"/>
 
-                <TextBox Text="{Binding FilterObjectName}" Width="150" FontSize="12"
-                         Watermark="搜尋物件名稱…" VerticalContentAlignment="Center"
+                <TextBlock Text="資料表名稱：" VerticalAlignment="Center" FontSize="12" Margin="0,0,4,0"/>
+                <TextBox Text="{Binding FilterTableName}"
+                         Watermark="輸入資料表名稱關鍵字..."
+                         Width="180" FontSize="12"
+                         VerticalContentAlignment="Center"
+                         Margin="0,0,16,0"/>
+                <TextBlock Text="欄位名稱：" VerticalAlignment="Center" FontSize="12" Margin="0,0,4,0"/>
+                <TextBox Text="{Binding FilterColumnName}"
+                         Watermark="輸入欄位名稱關鍵字..."
+                         Width="180" FontSize="12"
+                         VerticalContentAlignment="Center"
                          Margin="0,0,8,0"/>
 
                 <!-- 風險多選 -->

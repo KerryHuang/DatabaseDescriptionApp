@@ -3,6 +3,8 @@ using NSubstitute;
 using Specurai.Application.Services;
 using Specurai.Desktop.ViewModels;
 using Specurai.Domain.Entities;
+using Specurai.Domain.Entities.SchemaCompare;
+using Specurai.Domain.Enums;
 using Specurai.Domain.Interfaces;
 
 namespace Specurai.Desktop.Tests.ViewModels;
@@ -68,4 +70,48 @@ public class SchemaMigrationDocumentViewModelTests
         // Act & Assert
         vm.ExecuteMigrationCommand.CanExecute(null).Should().BeFalse();
     }
+
+    #region 資料表名稱與欄位名稱篩選測試
+
+    [Fact]
+    public void FilterTableName_設定關鍵字_FilteredRows只顯示ObjectName包含該關鍵字的列()
+    {
+        // Arrange
+        var vm = new SchemaMigrationDocumentViewModel();
+        vm.DifferenceRows.Add(new MigrationDifferenceRowViewModel(
+            new SchemaDifference { ObjectType = SchemaObjectType.Table, ObjectName = "dbo.Orders",    RiskLevel = RiskLevel.Low, DifferenceType = DifferenceType.Added }));
+        vm.DifferenceRows.Add(new MigrationDifferenceRowViewModel(
+            new SchemaDifference { ObjectType = SchemaObjectType.Table, ObjectName = "dbo.Customers", RiskLevel = RiskLevel.Low, DifferenceType = DifferenceType.Added }));
+
+        // Act
+        vm.FilterTableName = "Orders";
+
+        // Assert
+        vm.FilteredRows.Should().ContainSingle()
+            .Which.Difference.ObjectName.Should().Be("dbo.Orders");
+    }
+
+    [Fact]
+    public void FilterColumnName_設定關鍵字_欄位列篩選且非欄位列維持顯示()
+    {
+        // Arrange
+        var vm = new SchemaMigrationDocumentViewModel();
+        vm.DifferenceRows.Add(new MigrationDifferenceRowViewModel(
+            new SchemaDifference { ObjectType = SchemaObjectType.Table,  ObjectName = "dbo.Orders",                RiskLevel = RiskLevel.Low, DifferenceType = DifferenceType.Added }));
+        vm.DifferenceRows.Add(new MigrationDifferenceRowViewModel(
+            new SchemaDifference { ObjectType = SchemaObjectType.Column, ObjectName = "dbo.Orders.[CustomerName]", RiskLevel = RiskLevel.Low, DifferenceType = DifferenceType.Added }));
+        vm.DifferenceRows.Add(new MigrationDifferenceRowViewModel(
+            new SchemaDifference { ObjectType = SchemaObjectType.Column, ObjectName = "dbo.Orders.[OrderDate]",    RiskLevel = RiskLevel.Low, DifferenceType = DifferenceType.Added }));
+
+        // Act
+        vm.FilterColumnName = "Customer";
+
+        // Assert
+        vm.FilteredRows.Should().HaveCount(2);
+        vm.FilteredRows.Should().Contain(r => r.Difference.ObjectType == SchemaObjectType.Table);
+        vm.FilteredRows.Should().Contain(r => r.Difference.ObjectName == "dbo.Orders.[CustomerName]");
+        vm.FilteredRows.Should().NotContain(r => r.Difference.ObjectName == "dbo.Orders.[OrderDate]");
+    }
+
+    #endregion
 }

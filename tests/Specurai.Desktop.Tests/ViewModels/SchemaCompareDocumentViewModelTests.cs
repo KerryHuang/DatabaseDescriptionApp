@@ -435,6 +435,95 @@ public class SchemaCompareDocumentViewModelTests
 
     #endregion
 
+    #region 資料表名稱與欄位名稱篩選測試
+
+    [Fact]
+    public void FilterTableName_設定關鍵字_只顯示ObjectName包含該關鍵字的差異()
+    {
+        // Arrange
+        var vm = new SchemaCompareDocumentViewModel();
+        vm.ShowLowRisk = true;
+        var comparison = new SchemaComparison
+        {
+            BaseEnvironment = "Base",
+            TargetEnvironment = "Target",
+            Differences =
+            [
+                new SchemaDifference { ObjectType = SchemaObjectType.Table, ObjectName = "dbo.Orders",    RiskLevel = RiskLevel.Low, DifferenceType = DifferenceType.Added },
+                new SchemaDifference { ObjectType = SchemaObjectType.Table, ObjectName = "dbo.Customers", RiskLevel = RiskLevel.Low, DifferenceType = DifferenceType.Added },
+            ]
+        };
+        vm.ComparisonResults.Add(comparison);
+        vm.SelectedComparison = comparison;
+
+        // Act
+        vm.FilterTableName = "Orders";
+
+        // Assert
+        vm.FilteredDifferences.Should().ContainSingle()
+            .Which.ObjectName.Should().Be("dbo.Orders");
+    }
+
+    [Fact]
+    public void FilterColumnName_設定關鍵字_只篩選欄位列且非欄位列維持顯示()
+    {
+        // Arrange
+        var vm = new SchemaCompareDocumentViewModel();
+        vm.ShowLowRisk = true;
+        var comparison = new SchemaComparison
+        {
+            BaseEnvironment = "Base",
+            TargetEnvironment = "Target",
+            Differences =
+            [
+                new SchemaDifference { ObjectType = SchemaObjectType.Table,  ObjectName = "dbo.Orders",                  RiskLevel = RiskLevel.Low, DifferenceType = DifferenceType.Added },
+                new SchemaDifference { ObjectType = SchemaObjectType.Column, ObjectName = "dbo.Orders.[CustomerName]",   RiskLevel = RiskLevel.Low, DifferenceType = DifferenceType.Added },
+                new SchemaDifference { ObjectType = SchemaObjectType.Column, ObjectName = "dbo.Orders.[OrderDate]",      RiskLevel = RiskLevel.Low, DifferenceType = DifferenceType.Added },
+            ]
+        };
+        vm.ComparisonResults.Add(comparison);
+        vm.SelectedComparison = comparison;
+
+        // Act
+        vm.FilterColumnName = "Customer";
+
+        // Assert
+        vm.FilteredDifferences.Should().HaveCount(2);
+        vm.FilteredDifferences.Should().Contain(d => d.ObjectType == SchemaObjectType.Table);
+        vm.FilteredDifferences.Should().Contain(d => d.ObjectName == "dbo.Orders.[CustomerName]");
+        vm.FilteredDifferences.Should().NotContain(d => d.ObjectName == "dbo.Orders.[OrderDate]");
+    }
+
+    [Fact]
+    public void FilterTableName與FilterColumnName_同時設定_取交集()
+    {
+        // Arrange
+        var vm = new SchemaCompareDocumentViewModel();
+        vm.ShowLowRisk = true;
+        var comparison = new SchemaComparison
+        {
+            BaseEnvironment = "Base",
+            TargetEnvironment = "Target",
+            Differences =
+            [
+                new SchemaDifference { ObjectType = SchemaObjectType.Column, ObjectName = "dbo.Orders.[CustomerName]",    RiskLevel = RiskLevel.Low, DifferenceType = DifferenceType.Added },
+                new SchemaDifference { ObjectType = SchemaObjectType.Column, ObjectName = "dbo.Customers.[CustomerName]", RiskLevel = RiskLevel.Low, DifferenceType = DifferenceType.Added },
+            ]
+        };
+        vm.ComparisonResults.Add(comparison);
+        vm.SelectedComparison = comparison;
+
+        // Act
+        vm.FilterTableName = "Orders";
+        vm.FilterColumnName = "Customer";
+
+        // Assert
+        vm.FilteredDifferences.Should().ContainSingle()
+            .Which.ObjectName.Should().Be("dbo.Orders.[CustomerName]");
+    }
+
+    #endregion
+
     #region 統計資訊測試
 
     [Fact]

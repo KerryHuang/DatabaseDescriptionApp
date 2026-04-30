@@ -125,6 +125,14 @@ public partial class SchemaCompareDocumentViewModel : DocumentViewModel
     [NotifyPropertyChangedFor(nameof(FilteredDifferences))]
     private bool _showForbidden = true;
 
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(FilteredDifferences))]
+    private string _filterTableName = string.Empty;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(FilteredDifferences))]
+    private string _filterColumnName = string.Empty;
+
     /// <summary>
     /// 篩選後的差異清單
     /// </summary>
@@ -141,8 +149,22 @@ public partial class SchemaCompareDocumentViewModel : DocumentViewModel
                     (ShowMediumRisk && d.RiskLevel == RiskLevel.Medium) ||
                     (ShowHighRisk && d.RiskLevel == RiskLevel.High) ||
                     (ShowForbidden && d.RiskLevel == RiskLevel.Forbidden))
+                .Where(d => string.IsNullOrEmpty(FilterTableName) ||
+                            d.ObjectName.Contains(FilterTableName, StringComparison.OrdinalIgnoreCase))
+                .Where(d => string.IsNullOrEmpty(FilterColumnName) ||
+                            d.ObjectType != SchemaObjectType.Column ||
+                            ExtractColumnName(d.ObjectName).Contains(FilterColumnName, StringComparison.OrdinalIgnoreCase))
                 .ToList();
         }
+    }
+
+    private static string ExtractColumnName(string objectName)
+    {
+        var start = objectName.LastIndexOf(".[", StringComparison.Ordinal);
+        if (start < 0) return objectName;
+        var end = objectName.LastIndexOf(']');
+        if (end <= start + 2) return objectName;
+        return objectName.Substring(start + 2, end - start - 2);
     }
 
     #endregion

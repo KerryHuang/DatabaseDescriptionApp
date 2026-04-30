@@ -60,7 +60,8 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
     private int _selectedExecutableCount;
 
     // 篩選屬性
-    [ObservableProperty] private string _filterObjectName = string.Empty;
+    [ObservableProperty] private string _filterTableName = string.Empty;
+    [ObservableProperty] private string _filterColumnName = string.Empty;
 
     // 多選篩選選項
     public IReadOnlyList<FilterOptionViewModel> RiskLevelFilters { get; } = CreateFilters(
@@ -178,7 +179,8 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
         SelectedBaseProfile != null && SelectedTargetProfile != null &&
         SelectedBaseProfile.Id != SelectedTargetProfile.Id;
 
-    partial void OnFilterObjectNameChanged(string value) => ApplyFilter();
+    partial void OnFilterTableNameChanged(string value) => ApplyFilter();
+    partial void OnFilterColumnNameChanged(string value) => ApplyFilter();
 
     private void SetDefaultFilters()
     {
@@ -224,8 +226,13 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
 
         var query = DifferenceRows.AsEnumerable();
 
-        if (!string.IsNullOrEmpty(FilterObjectName))
-            query = query.Where(r => r.Difference.ObjectName.Contains(FilterObjectName, StringComparison.OrdinalIgnoreCase));
+        if (!string.IsNullOrEmpty(FilterTableName))
+            query = query.Where(r => r.Difference.ObjectName.Contains(FilterTableName, StringComparison.OrdinalIgnoreCase));
+
+        if (!string.IsNullOrEmpty(FilterColumnName))
+            query = query.Where(r =>
+                r.Difference.ObjectType != SchemaObjectType.Column ||
+                ExtractColumnName(r.Difference.ObjectName).Contains(FilterColumnName, StringComparison.OrdinalIgnoreCase));
         if (activeRisk.Count > 0)
             query = query.Where(r => activeRisk.Contains(r.RiskLevelText));
         if (activeType.Count > 0)
@@ -248,7 +255,8 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
     [RelayCommand]
     private void ClearFilters()
     {
-        FilterObjectName = string.Empty;
+        FilterTableName = string.Empty;
+        FilterColumnName = string.Empty;
         foreach (var f in RiskLevelFilters.Concat(ObjectTypeFilters).Concat(DifferenceTypeFilters))
             f.IsSelected = false;
     }
@@ -538,5 +546,14 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
         ExecuteMigrationCommand.NotifyCanExecuteChanged();
         PreviewSqlCommand.NotifyCanExecuteChanged();
         DownloadSqlCommand.NotifyCanExecuteChanged();
+    }
+
+    private static string ExtractColumnName(string objectName)
+    {
+        var start = objectName.LastIndexOf(".[", StringComparison.Ordinal);
+        if (start < 0) return objectName;
+        var end = objectName.LastIndexOf(']');
+        if (end <= start + 2) return objectName;
+        return objectName.Substring(start + 2, end - start - 2);
     }
 }

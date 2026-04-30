@@ -3,6 +3,7 @@
              xmlns:vm="using:Specurai.Desktop.ViewModels"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:behaviors="using:Specurai.Desktop.Behaviors"
              mc:Ignorable="d" d:DesignWidth="1200" d:DesignHeight="700"
              x:Class="Specurai.Desktop.Views.MissingIndexReportDocumentView"
              x:DataType="vm:MissingIndexReportDocumentViewModel">
@@ -74,6 +75,7 @@
         <!-- 主內容：DataGrid -->
         <Panel Grid.Row="1" Margin="5">
             <DataGrid x:Name="MissingIndexDataGrid"
+                      behaviors:DataGridCellCopyBehavior.Enable="True"
                       ItemsSource="{Binding MissingIndexes}"
                       SelectedItem="{Binding SelectedMissingIndex}"
                       AutoGenerateColumns="False"

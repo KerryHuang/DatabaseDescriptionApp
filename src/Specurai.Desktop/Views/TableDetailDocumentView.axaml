@@ -3,6 +3,7 @@
              xmlns:vm="using:Specurai.Desktop.ViewModels"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:behaviors="using:Specurai.Desktop.Behaviors"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="500"
              x:Class="Specurai.Desktop.Views.TableDetailDocumentView"
              x:DataType="vm:TableDetailDocumentViewModel">
@@ -63,6 +64,7 @@
                     </Border>
                     <!-- 欄位表格 -->
                     <DataGrid x:Name="ColumnsGrid"
+                              behaviors:DataGridCellCopyBehavior.Enable="True"
                               ItemsSource="{Binding FilteredColumns}"
                               AutoGenerateColumns="False"
                               IsReadOnly="False"
@@ -84,6 +86,7 @@
             <!-- 索引頁籤 (Table only) -->
             <TabItem Header="索引">
                 <DataGrid x:Name="IndexDataGrid"
+                          behaviors:DataGridCellCopyBehavior.Enable="True"
                           ItemsSource="{Binding Indexes}"
                           SelectedItem="{Binding SelectedIndex}"
                           AutoGenerateColumns="False"
@@ -113,7 +116,8 @@
             </TabItem>
             <!-- 關聯頁籤 (Table only) -->
             <TabItem Header="關聯">
-                <DataGrid ItemsSource="{Binding Relations}"
+                <DataGrid behaviors:DataGridCellCopyBehavior.Enable="True"
+                          ItemsSource="{Binding Relations}"
                           AutoGenerateColumns="False"
                           IsReadOnly="True"
                           GridLinesVisibility="All">
@@ -128,7 +132,8 @@
             </TabItem>
             <!-- 參數頁籤 (SP/Function) -->
             <TabItem Header="參數">
-                <DataGrid ItemsSource="{Binding Parameters}"
+                <DataGrid behaviors:DataGridCellCopyBehavior.Enable="True"
+                          ItemsSource="{Binding Parameters}"
                           AutoGenerateColumns="False"
                           IsReadOnly="True"
                           GridLinesVisibility="All">

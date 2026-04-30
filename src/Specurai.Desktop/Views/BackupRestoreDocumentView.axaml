@@ -4,6 +4,7 @@
              xmlns:domain="using:Specurai.Domain.Entities"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:behaviors="using:Specurai.Desktop.Behaviors"
              mc:Ignorable="d" d:DesignWidth="900" d:DesignHeight="600"
              x:Class="Specurai.Desktop.Views.BackupRestoreDocumentView"
              x:DataType="vm:BackupRestoreDocumentViewModel">
@@ -267,6 +268,7 @@
 
                     <!-- 歷史清單 -->
                     <DataGrid Grid.Row="1" Margin="10,0"
+                              behaviors:DataGridCellCopyBehavior.Enable="True"
                               ItemsSource="{Binding BackupHistoryList}"
                               SelectedItem="{Binding SelectedHistoryItem}"
                               AutoGenerateColumns="False"

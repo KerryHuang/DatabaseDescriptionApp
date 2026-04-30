@@ -6,6 +6,7 @@
              xmlns:converters="using:Specurai.Desktop.Converters"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:behaviors="using:Specurai.Desktop.Behaviors"
              mc:Ignorable="d" d:DesignWidth="1200" d:DesignHeight="700"
              x:Class="Specurai.Desktop.Views.ColumnSearchDocumentView"
              x:DataType="vm:ColumnSearchDocumentViewModel">
@@ -107,6 +108,7 @@
             <!-- 搜尋結果（未分析時顯示） -->
             <Grid RowDefinitions="*,Auto" IsVisible="{Binding !ShowTypeAnalysis}">
                 <DataGrid Grid.Row="0"
+                          behaviors:DataGridCellCopyBehavior.Enable="True"
                           ItemsSource="{Binding ColumnSearchResults}"
                           SelectedItem="{Binding SelectedSearchResult}"
                           AutoGenerateColumns="False"
@@ -160,6 +162,10 @@
                                 Command="{Binding PrepareApplyDescriptionCommand}"
                                 IsEnabled="{Binding !IsUpdating}"
                                 ToolTip.Tip="將選中資料的說明套用到其他同名但說明為空的欄位"/>
+                        <Button Content="以此更新相同物件的資料型別"
+                                Command="{Binding PrepareApplyDataTypeCommand}"
+                                IsEnabled="{Binding !IsUpdating}"
+                                ToolTip.Tip="以選中列的資料型別，更新相同 Schema + 物件名稱但資料型別不同的欄位"/>
                         <ProgressBar IsIndeterminate="True" Width="80" IsVisible="{Binding IsUpdating}"/>
                     </StackPanel>
                 </Border>
@@ -185,6 +191,26 @@
                 </Border>
             </Border>
 
+            <!-- 更新資料型別確認對話框覆蓋層 -->
+            <Border IsVisible="{Binding ShowApplyDataTypeConfirm}"
+                    Background="#80000000"
+                    HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+                <Border Background="{DynamicResource SystemControlBackgroundAltHighBrush}"
+                        CornerRadius="8" Padding="20"
+                        HorizontalAlignment="Center" VerticalAlignment="Center"
+                        MinWidth="400" MaxWidth="600">
+                    <StackPanel Spacing="15">
+                        <TextBlock Text="確認更新資料型別" FontSize="18" FontWeight="Bold"/>
+                        <TextBlock Text="{Binding ApplyDataTypePreview}" TextWrapping="Wrap"/>
+                        <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
+                            <Button Content="取消" Command="{Binding CancelApplyDataTypeCommand}" MinWidth="80"/>
+                            <Button Content="確認更新" Command="{Binding ConfirmApplyDataTypeCommand}" MinWidth="80"
+                                    Classes="accent"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+            </Border>
+
             <!-- 型態一致性分析結果（分析後顯示） -->
             <Grid ColumnDefinitions="*,10,1.2*" IsVisible="{Binding ShowTypeAnalysis}">
                 <!-- 左側：欄位群組清單 -->
@@ -196,6 +222,7 @@
                             <TextBlock Text="欄位型態一致性分析" FontWeight="SemiBold"/>
                         </Border>
                         <DataGrid Grid.Row="1"
+                                  behaviors:DataGridCellCopyBehavior.Enable="True"
                                   ItemsSource="{Binding ColumnGroups}"
                                   SelectedItem="{Binding SelectedGroup}"
                                   AutoGenerateColumns="False"
@@ -284,6 +311,7 @@
 
                         <!-- 詳細資料表格 -->
                         <DataGrid Grid.Row="2"
+                                  behaviors:DataGridCellCopyBehavior.Enable="True"
                                   ItemsSource="{Binding FilteredColumns}"
                                   SelectedItem="{Binding SelectedColumnType}"
                                   AutoGenerateColumns="False"

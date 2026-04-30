@@ -4,6 +4,7 @@
              xmlns:domain="using:Specurai.Domain.Entities"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:behaviors="using:Specurai.Desktop.Behaviors"
              mc:Ignorable="d" d:DesignWidth="900" d:DesignHeight="500"
              x:Class="Specurai.Desktop.Views.SqlQueryDocumentView"
              x:DataType="vm:SqlQueryDocumentViewModel">
@@ -90,21 +91,14 @@
             <!-- 結果區 -->
             <Border Grid.Row="2" Margin="0,0,0,5">
                 <DataGrid x:Name="ResultGrid"
+                          behaviors:DataGridCellCopyBehavior.Enable="True"
                           ItemsSource="{Binding QueryResults}"
                           AutoGenerateColumns="False"
                           IsReadOnly="True"
                           GridLinesVisibility="All"
                           CanUserResizeColumns="True"
                           CanUserReorderColumns="True"
-                          CanUserSortColumns="True"
-                          ClipboardCopyMode="None">
-                    <DataGrid.ContextMenu>
-                        <ContextMenu>
-                            <MenuItem Header="複製儲存格" Click="OnCopyCellClicked"/>
-                            <MenuItem Header="複製整列" Click="OnCopyRowClicked"/>
-                        </ContextMenu>
-                    </DataGrid.ContextMenu>
-                </DataGrid>
+                          CanUserSortColumns="True"/>
             </Border>
         </Grid>
 

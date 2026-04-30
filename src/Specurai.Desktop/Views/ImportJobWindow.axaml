@@ -1,6 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:Specurai.Desktop.ViewModels"
+        xmlns:behaviors="using:Specurai.Desktop.Behaviors"
         x:Class="Specurai.Desktop.Views.ImportJobWindow"
         x:DataType="vm:ImportJobWindowViewModel"
         Icon="/Assets/Specurai.png"
@@ -21,6 +22,7 @@
         <!-- Job 清單 -->
         <DataGrid Grid.Row="1"
                   x:Name="JobsGrid"
+                  behaviors:DataGridCellCopyBehavior.Enable="True"
                   ItemsSource="{Binding AvailableJobs}"
                   AutoGenerateColumns="False"
                   CanUserSortColumns="True"

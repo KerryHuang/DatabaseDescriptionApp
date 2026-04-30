@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using Microsoft.Data.SqlClient;
 using Specurai.Domain.Entities;
 using Specurai.Domain.Interfaces;
@@ -391,6 +392,56 @@ public class ColumnTypeRepository : IColumnTypeRepository
 
         var result = await command.ExecuteScalarAsync(ct);
         return result == null || result == DBNull.Value ? 0 : Convert.ToInt32(result);
+    }
+
+    // 允許的資料型別格式：型別名稱 + 可選的 (數字|MAX) 或 (精度,小數位)
+    private static readonly Regex DataTypePattern =
+        new(@"^[A-Za-z]+(\(\s*(\d+|MAX)(\s*,\s*\d+)?\s*\))?$", RegexOptions.Compiled);
+
+    public async Task<bool> UpdateColumnDataTypeAsync(
+        string schema, string table, string column,
+        string newDataType, CancellationToken ct = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(newDataType);
+
+        if (!DataTypePattern.IsMatch(newDataType.Trim()))
+            throw new ArgumentException($"無效的資料型別格式：{newDataType}", nameof(newDataType));
+
+        var connectionString = _connectionStringProvider();
+        if (string.IsNullOrEmpty(connectionString))
+            throw new InvalidOperationException("未設定資料庫連線");
+
+        await using var connection = new SqlConnection(connectionString);
+        await connection.OpenAsync(ct);
+
+        var columnInfo = await GetColumnInfoAsync(connection, schema, table, column, ct);
+        if (columnInfo == null)
+            throw new InvalidOperationException($"找不到欄位 [{schema}].[{table}].[{column}]");
+
+        var constraints = await GetColumnConstraintsAsync(schema, table, column, ct);
+
+        await using var transaction = connection.BeginTransaction();
+
+        try
+        {
+            foreach (var constraint in constraints.OrderByDescending(c => (int)c.Type))
+                await ExecuteNonQueryAsync(connection, transaction, constraint.DropSql, ct);
+
+            var nullableSpec = columnInfo.IsNullable ? "NULL" : "NOT NULL";
+            var alterSql = $"ALTER TABLE [{schema}].[{table}] ALTER COLUMN [{column}] {newDataType} {nullableSpec}";
+            await ExecuteNonQueryAsync(connection, transaction, alterSql, ct);
+
+            foreach (var constraint in constraints.OrderBy(c => (int)c.Type))
+                await ExecuteNonQueryAsync(connection, transaction, constraint.CreateSql, ct);
+
+            await transaction.CommitAsync(ct);
+            return true;
+        }
+        catch
+        {
+            await transaction.RollbackAsync(ct);
+            throw;
+        }
     }
 
     private static async Task<ColumnTypeInfo?> GetColumnInfoAsync(

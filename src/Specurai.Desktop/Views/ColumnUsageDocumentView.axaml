@@ -5,6 +5,7 @@
              xmlns:converters="using:Specurai.Desktop.Converters"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:behaviors="using:Specurai.Desktop.Behaviors"
              mc:Ignorable="d" d:DesignWidth="1200" d:DesignHeight="700"
              x:Class="Specurai.Desktop.Views.ColumnUsageDocumentView"
              x:DataType="vm:ColumnUsageDocumentViewModel">
@@ -186,6 +187,7 @@
 
                     <!-- 資料表格 -->
                     <DataGrid Grid.Row="3"
+                              behaviors:DataGridCellCopyBehavior.Enable="True"
                               ItemsSource="{Binding FilteredUsages}"
                               AutoGenerateColumns="False"
                               IsReadOnly="True"

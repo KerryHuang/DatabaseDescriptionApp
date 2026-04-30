@@ -6,6 +6,7 @@
              xmlns:lvc="using:LiveChartsCore.SkiaSharpView.Avalonia"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:behaviors="using:Specurai.Desktop.Behaviors"
              mc:Ignorable="d" d:DesignWidth="900" d:DesignHeight="600"
              x:Class="Specurai.Desktop.Views.HealthMonitoringDocumentView"
              x:DataType="vm:HealthMonitoringDocumentViewModel">
@@ -266,7 +267,9 @@
                             </StackPanel>
                         </Border>
                         <!-- 指標清單 -->
-                        <DataGrid Grid.Row="1" ItemsSource="{Binding CurrentMetrics}"
+                        <DataGrid Grid.Row="1"
+                                  behaviors:DataGridCellCopyBehavior.Enable="True"
+                                  ItemsSource="{Binding CurrentMetrics}"
                                   AutoGenerateColumns="False"
                                   IsReadOnly="True"
                                   CanUserResizeColumns="True"
@@ -339,7 +342,8 @@
 
                         <!-- 告警清單或無資料提示 -->
                         <Panel Grid.Row="2">
-                            <DataGrid ItemsSource="{Binding RecentAlerts}"
+                            <DataGrid behaviors:DataGridCellCopyBehavior.Enable="True"
+                                      ItemsSource="{Binding RecentAlerts}"
                                       AutoGenerateColumns="False"
                                       IsReadOnly="True"
                                       CanUserResizeColumns="True"
@@ -432,7 +436,8 @@
 
                 <!-- 監控設定分頁 -->
                 <TabItem Header="監控設定">
-                    <DataGrid ItemsSource="{Binding Categories}"
+                    <DataGrid behaviors:DataGridCellCopyBehavior.Enable="True"
+                              ItemsSource="{Binding Categories}"
                               AutoGenerateColumns="False"
                               CanUserResizeColumns="True"
                               Margin="10">

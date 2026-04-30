@@ -10,6 +10,7 @@ using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Specurai.Application.Services;
+using Specurai.Desktop.Helpers;
 using Specurai.Domain.Entities;
 using Specurai.Domain.Entities.SchemaCompare;
 using Specurai.Domain.Enums;
@@ -153,18 +154,9 @@ public partial class SchemaCompareDocumentViewModel : DocumentViewModel
                             d.ObjectName.Contains(FilterTableName, StringComparison.OrdinalIgnoreCase))
                 .Where(d => string.IsNullOrEmpty(FilterColumnName) ||
                             d.ObjectType != SchemaObjectType.Column ||
-                            ExtractColumnName(d.ObjectName).Contains(FilterColumnName, StringComparison.OrdinalIgnoreCase))
+                            SchemaObjectNameHelper.ExtractColumnName(d.ObjectName).Contains(FilterColumnName, StringComparison.OrdinalIgnoreCase))
                 .ToList();
         }
-    }
-
-    private static string ExtractColumnName(string objectName)
-    {
-        var start = objectName.LastIndexOf(".[", StringComparison.Ordinal);
-        if (start < 0) return objectName;
-        var end = objectName.LastIndexOf(']');
-        if (end <= start + 2) return objectName;
-        return objectName.Substring(start + 2, end - start - 2);
     }
 
     #endregion

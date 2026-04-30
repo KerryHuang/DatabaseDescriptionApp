@@ -10,6 +10,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
 using Specurai.Application.Services;
+using Specurai.Desktop.Helpers;
 using Specurai.Domain.Entities;
 using Specurai.Domain.Entities.SchemaCompare;
 using Specurai.Domain.Enums;
@@ -232,7 +233,7 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
         if (!string.IsNullOrEmpty(FilterColumnName))
             query = query.Where(r =>
                 r.Difference.ObjectType != SchemaObjectType.Column ||
-                ExtractColumnName(r.Difference.ObjectName).Contains(FilterColumnName, StringComparison.OrdinalIgnoreCase));
+                SchemaObjectNameHelper.ExtractColumnName(r.Difference.ObjectName).Contains(FilterColumnName, StringComparison.OrdinalIgnoreCase));
         if (activeRisk.Count > 0)
             query = query.Where(r => activeRisk.Contains(r.RiskLevelText));
         if (activeType.Count > 0)
@@ -548,12 +549,4 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
         DownloadSqlCommand.NotifyCanExecuteChanged();
     }
 
-    private static string ExtractColumnName(string objectName)
-    {
-        var start = objectName.LastIndexOf(".[", StringComparison.Ordinal);
-        if (start < 0) return objectName;
-        var end = objectName.LastIndexOf(']');
-        if (end <= start + 2) return objectName;
-        return objectName.Substring(start + 2, end - start - 2);
-    }
 }

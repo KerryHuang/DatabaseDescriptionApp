@@ -66,7 +66,7 @@ public class SchemaDifference
     /// <summary>
     /// Schema 名稱（例如 dbo、Sales、Production）
     /// </summary>
-    public string Schema { get; set; } = "dbo";
+    public string Schema { get; set; } = string.Empty;
 
     /// <summary>
     /// 差異類型

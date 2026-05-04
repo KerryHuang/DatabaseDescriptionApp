@@ -118,6 +118,28 @@ public class SchemaCompareServiceTests
         diff.Schema.Should().Be("Production");
     }
 
+    [Fact]
+    public async Task CompareAsync_非dbo約束差異_Schema應正確填入()
+    {
+        // Arrange
+        var baseSchema = CreateTestSchema("基準環境");
+        var table = new SchemaTable { Schema = "Sales", Name = "Orders" };
+        table.Constraints.Add(new SchemaConstraint { Name = "UQ_Orders_Code", ConstraintType = ConstraintType.Unique });
+        baseSchema.Tables.Add(table);
+
+        var targetSchema = CreateTestSchema("目標環境");
+        var targetTable = new SchemaTable { Schema = "Sales", Name = "Orders" };
+        targetSchema.Tables.Add(targetTable);
+
+        // Act
+        var result = await _service.CompareAsync(baseSchema, targetSchema);
+
+        // Assert
+        var diff = result.Differences.Should().ContainSingle().Subject;
+        diff.ObjectType.Should().Be(SchemaObjectType.Constraint);
+        diff.Schema.Should().Be("Sales");
+    }
+
     #endregion
 
     #region 欄位比對測試

@@ -37,6 +37,7 @@ public class SqlScriptGeneratorTests
         {
             ObjectType = SchemaObjectType.Table,
             ObjectName = "[dbo].[Products]",
+            Schema = "dbo",
             DifferenceType = DifferenceType.Added,
             RiskLevel = RiskLevel.Low
         };
@@ -60,6 +61,7 @@ public class SqlScriptGeneratorTests
         {
             ObjectType = SchemaObjectType.Column,
             ObjectName = "[dbo].[Products].[Name]",
+            Schema = "dbo",
             DifferenceType = DifferenceType.Added,
             RiskLevel = RiskLevel.Low
         };
@@ -80,6 +82,7 @@ public class SqlScriptGeneratorTests
         {
             ObjectType = SchemaObjectType.Column,
             ObjectName = "[dbo].[Products].[Name]",
+            Schema = "dbo",
             DifferenceType = DifferenceType.Modified,
             PropertyName = "MaxLength",
             SourceValue = "500",

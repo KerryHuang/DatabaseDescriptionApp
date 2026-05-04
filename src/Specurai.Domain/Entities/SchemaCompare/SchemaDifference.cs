@@ -64,6 +64,11 @@ public class SchemaDifference
     public string ObjectName { get; set; } = string.Empty;
 
     /// <summary>
+    /// Schema 名稱（例如 dbo、Sales、Production）
+    /// </summary>
+    public string Schema { get; set; } = "dbo";
+
+    /// <summary>
     /// 差異類型
     /// </summary>
     public DifferenceType DifferenceType { get; set; }

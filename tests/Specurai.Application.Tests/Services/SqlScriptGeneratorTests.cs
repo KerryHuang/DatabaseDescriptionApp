@@ -148,6 +148,30 @@ public class SqlScriptGeneratorTests
 
         // Assert
         script.ApplyScript.Should().Contain("CREATE TABLE [Sales].[Orders]");
+        // 非 dbo Schema 必須先確保 Schema 存在
+        script.ApplyScript.Should().Contain("IF NOT EXISTS (SELECT 1 FROM sys.schemas WHERE name = N'Sales')");
+        script.ApplyScript.Should().Contain("EXEC(N'CREATE SCHEMA [Sales]')");
+    }
+
+    [Fact]
+    public void Generate_dbo表格_腳本不應包含CREATE_SCHEMA()
+    {
+        // Arrange
+        var baseSchema = CreateBaseSchema();
+        var diff = new SchemaDifference
+        {
+            ObjectType = SchemaObjectType.Table,
+            ObjectName = "[dbo].[Products]",
+            Schema = "dbo",
+            DifferenceType = DifferenceType.Added,
+            RiskLevel = RiskLevel.Low
+        };
+
+        // Act
+        var script = _generator.Generate([diff], baseSchema, "基準", "目標");
+
+        // Assert — dbo 一定存在，不需要 CREATE SCHEMA
+        script.ApplyScript.Should().NotContain("CREATE SCHEMA [dbo]");
     }
 
     [Fact]

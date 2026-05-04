@@ -50,10 +50,13 @@
                   IsReadOnly="False"
                   LoadingRow="RecoveryModelGrid_LoadingRow">
             <DataGrid.Columns>
-                <DataGridTextColumn Header="資料庫名稱"
-                                    Binding="{Binding DatabaseName}"
-                                    IsReadOnly="True"
-                                    Width="*"/>
+                <DataGridTemplateColumn Header="資料庫名稱" IsReadOnly="True" Width="*">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate x:DataType="vm:RecoveryModelRowViewModel">
+                            <TextBlock Text="{Binding DatabaseName}" VerticalAlignment="Center" Margin="4,0"/>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
                 <DataGridTemplateColumn Header="Recovery Model" Width="200">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate x:DataType="vm:RecoveryModelRowViewModel">

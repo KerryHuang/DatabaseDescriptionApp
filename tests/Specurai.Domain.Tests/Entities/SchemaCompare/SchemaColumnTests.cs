@@ -60,6 +60,44 @@ public class SchemaColumnTests
         result.Should().Be(expected);
     }
 
+    [Theory]
+    [InlineData("datetime", 23, 3)]      // sys.columns 回傳 23,3 但 datetime 不接受精度
+    [InlineData("smalldatetime", 16, 0)]
+    [InlineData("date", 10, 0)]
+    [InlineData("timestamp", 0, 0)]      // rowversion 別名
+    [InlineData("rowversion", 0, 0)]
+    [InlineData("int", 10, 0)]
+    [InlineData("bigint", 19, 0)]
+    [InlineData("smallint", 5, 0)]
+    [InlineData("tinyint", 3, 0)]
+    [InlineData("bit", 1, 0)]
+    [InlineData("money", 19, 4)]
+    [InlineData("float", 53, null)]
+    [InlineData("real", 24, null)]
+    [InlineData("text", 0, 0)]
+    [InlineData("ntext", 0, 0)]
+    [InlineData("image", 0, 0)]
+    [InlineData("xml", 0, 0)]
+    [InlineData("uniqueidentifier", 0, 0)]
+    public void GetFullDataType_固定精度型別_不應加上精度括號(
+        string dataType, int? precision, int? scale)
+    {
+        // Arrange
+        var column = new SchemaColumn
+        {
+            Name = "Test",
+            DataType = dataType,
+            Precision = precision,
+            Scale = scale
+        };
+
+        // Act
+        var result = column.GetFullDataType();
+
+        // Assert
+        result.Should().Be(dataType);
+    }
+
     [Fact]
     public void GetFullDataType_Decimal_應該包含精度和小數位數()
     {

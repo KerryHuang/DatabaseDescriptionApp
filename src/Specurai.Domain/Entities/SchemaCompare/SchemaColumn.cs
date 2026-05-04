@@ -50,18 +50,35 @@ public class SchemaColumn
     /// </summary>
     public string? Collation { get; set; }
 
+    // SQL Server 固定精度型別：不接受任何長度或精度參數
+    private static readonly HashSet<string> FixedPrecisionTypes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "datetime", "smalldatetime", "date",
+        "timestamp", "rowversion",
+        "int", "bigint", "smallint", "tinyint", "bit",
+        "money", "smallmoney",
+        "float", "real",
+        "text", "ntext", "image",
+        "xml", "uniqueidentifier", "sql_variant",
+        "geography", "geometry", "hierarchyid"
+    };
+
     /// <summary>
     /// 取得完整的資料型別字串
     /// </summary>
     public string GetFullDataType()
     {
+        // 固定精度型別不加括號
+        if (FixedPrecisionTypes.Contains(DataType))
+            return DataType;
+
         // 有長度的類型（如 NVARCHAR、VARCHAR、CHAR）
         if (MaxLength.HasValue)
         {
             return $"{DataType}({MaxLength.Value})";
         }
 
-        // 有精度和小數位的類型（如 DECIMAL）
+        // 有精度和小數位的類型（如 DECIMAL、DATETIME2、TIME）
         if (Precision.HasValue && Scale.HasValue)
         {
             return $"{DataType}({Precision.Value},{Scale.Value})";

@@ -115,6 +115,9 @@ public class SqlScriptGenerator : ISqlScriptGenerator
         DatabaseSchema baseSchema,
         Dictionary<(string, string, SchemaObjectType), SchemaProgramObject> programObjectLookup)
     {
+        if (string.IsNullOrEmpty(diff.Schema))
+            return $"-- [Schema 未設定，略過] {diff.ObjectName}";
+
         return diff.ObjectType switch
         {
             SchemaObjectType.Table => GenerateTableSql(diff, baseSchema),

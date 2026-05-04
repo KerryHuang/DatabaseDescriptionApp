@@ -133,4 +133,72 @@ public class SchemaMigrationDocumentViewModelTests
     }
 
     #endregion
+
+    #region Schema 篩選測試
+
+    [Fact]
+    public void RebuildSchemaFilters_分析後_應產生依名稱排序的不重複結構描述清單()
+    {
+        // Arrange
+        var vm = new SchemaMigrationDocumentViewModel();
+        vm.DifferenceRows.Add(new MigrationDifferenceRowViewModel(
+            new SchemaDifference { ObjectName = "[Sales].[Orders]", Schema = "Sales", ObjectType = SchemaObjectType.Table, RiskLevel = RiskLevel.Low, DifferenceType = DifferenceType.Added }));
+        vm.DifferenceRows.Add(new MigrationDifferenceRowViewModel(
+            new SchemaDifference { ObjectName = "[dbo].[Products]", Schema = "dbo", ObjectType = SchemaObjectType.Table, RiskLevel = RiskLevel.Low, DifferenceType = DifferenceType.Added }));
+        vm.DifferenceRows.Add(new MigrationDifferenceRowViewModel(
+            new SchemaDifference { ObjectName = "[Sales].[Invoices]", Schema = "Sales", ObjectType = SchemaObjectType.Table, RiskLevel = RiskLevel.Low, DifferenceType = DifferenceType.Added }));
+
+        // Act — 模擬 AnalyzeAsync 後的重建行為
+        var method = vm.GetType().GetMethod("RebuildSchemaFilters",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        method!.Invoke(vm, null);
+
+        // Assert
+        vm.SchemaFilters.Should().HaveCount(2);
+        vm.SchemaFilters.Should().Contain(f => f.Label == "Sales");
+        vm.SchemaFilters.Should().Contain(f => f.Label == "dbo");
+    }
+
+    [Fact]
+    public void SchemaFilter_選取特定Schema_FilteredRows只顯示該Schema的列()
+    {
+        // Arrange
+        var vm = new SchemaMigrationDocumentViewModel();
+        vm.DifferenceRows.Add(new MigrationDifferenceRowViewModel(
+            new SchemaDifference { ObjectName = "[Sales].[Orders]", Schema = "Sales", ObjectType = SchemaObjectType.Table, RiskLevel = RiskLevel.Low, DifferenceType = DifferenceType.Added }));
+        vm.DifferenceRows.Add(new MigrationDifferenceRowViewModel(
+            new SchemaDifference { ObjectName = "[dbo].[Products]", Schema = "dbo", ObjectType = SchemaObjectType.Table, RiskLevel = RiskLevel.Low, DifferenceType = DifferenceType.Added }));
+
+        var method = vm.GetType().GetMethod("RebuildSchemaFilters",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        method!.Invoke(vm, null);
+
+        // Act — 勾選 "Sales"
+        vm.SchemaFilters.First(f => f.Label == "Sales").IsSelected = true;
+
+        // Assert
+        vm.FilteredRows.Should().ContainSingle()
+            .Which.Difference.Schema.Should().Be("Sales");
+    }
+
+    [Fact]
+    public void SchemaFilterLabel_選取一個Schema_標籤應顯示數量()
+    {
+        // Arrange
+        var vm = new SchemaMigrationDocumentViewModel();
+        vm.DifferenceRows.Add(new MigrationDifferenceRowViewModel(
+            new SchemaDifference { ObjectName = "[Sales].[Orders]", Schema = "Sales", ObjectType = SchemaObjectType.Table, RiskLevel = RiskLevel.Low, DifferenceType = DifferenceType.Added }));
+
+        var method = vm.GetType().GetMethod("RebuildSchemaFilters",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        method!.Invoke(vm, null);
+
+        // Act
+        vm.SchemaFilters.First().IsSelected = true;
+
+        // Assert
+        vm.SchemaFilterLabel.Should().Be("結構描述（1）▾");
+    }
+
+    #endregion
 }

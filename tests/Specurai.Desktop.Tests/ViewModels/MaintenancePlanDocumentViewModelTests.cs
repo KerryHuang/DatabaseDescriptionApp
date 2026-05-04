@@ -291,5 +291,21 @@ public class MaintenancePlanDocumentViewModelTests
         vm.TestDatabaseName.Should().Be("WayDoSoft01-test");
     }
 
+    [Theory]
+    [InlineData("Windows", false)]
+    [InlineData("Linux", false)]
+    [InlineData("其他", true)]
+    public void IsDatabaseNameEditable_平台選擇時_應正確回傳(string platform, bool expected)
+    {
+        // Arrange
+        var vm = new MaintenancePlanDocumentViewModel();
+
+        // Act
+        vm.SelectedPlatform = platform;
+
+        // Assert
+        vm.IsDatabaseNameEditable.Should().Be(expected);
+    }
+
     #endregion
 }

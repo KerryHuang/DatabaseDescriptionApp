@@ -61,6 +61,28 @@ public class SchemaColumnTests
     }
 
     [Theory]
+    [InlineData("datetime2", 27, 7, "datetime2(7)")]   // sys.columns precision=27 但只用 scale
+    [InlineData("time", 16, 7, "time(7)")]
+    [InlineData("datetimeoffset", 34, 7, "datetimeoffset(7)")]
+    public void GetFullDataType_只接受Scale的時間型別_應只輸出Scale(
+        string dataType, int? precision, int? scale, string expected)
+    {
+        var col = new SchemaColumn { Name = "T", DataType = dataType, Precision = precision, Scale = scale };
+        col.GetFullDataType().Should().Be(expected);
+    }
+
+    [Theory]
+    [InlineData("nvarchar", -1, "nvarchar(MAX)")]
+    [InlineData("varchar", -1, "varchar(MAX)")]
+    [InlineData("varbinary", -1, "varbinary(MAX)")]
+    public void GetFullDataType_MaxLength負一_應輸出MAX(
+        string dataType, int maxLength, string expected)
+    {
+        var col = new SchemaColumn { Name = "T", DataType = dataType, MaxLength = maxLength };
+        col.GetFullDataType().Should().Be(expected);
+    }
+
+    [Theory]
     [InlineData("datetime", 23, 3)]      // sys.columns 回傳 23,3 但 datetime 不接受精度
     [InlineData("smalldatetime", 16, 0)]
     [InlineData("date", 10, 0)]

@@ -101,10 +101,11 @@ public partial class RecoveryModelDocumentViewModel : DocumentViewModel
 
         try
         {
+            var dirtyCount = dirty.Count;
             var changes = dirty.Select(r => (r.DatabaseName, r.SelectedRecoveryModel));
             await _service.SaveChangesAsync(changes, ct);
             await LoadAsync(ct);
-            StatusMessage = $"已成功變更 {dirty.Count} 個資料庫";
+            StatusMessage = $"已成功變更 {dirtyCount} 個資料庫";
         }
         catch (Exception ex)
         {

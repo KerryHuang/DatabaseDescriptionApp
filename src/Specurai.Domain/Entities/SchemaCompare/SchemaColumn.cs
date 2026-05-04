@@ -63,6 +63,13 @@ public class SchemaColumn
         "geography", "geometry", "hierarchyid"
     };
 
+    // SQL Server 只接受 Scale（小數秒精度）的時間型別，不使用 Precision
+    // sys.columns 的 precision 是內部儲存精度（如 datetime2 是 27），不能直接傳入
+    private static readonly HashSet<string> ScaleOnlyTypes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "datetime2", "time", "datetimeoffset"
+    };
+
     /// <summary>
     /// 取得完整的資料型別字串
     /// </summary>
@@ -72,13 +79,20 @@ public class SchemaColumn
         if (FixedPrecisionTypes.Contains(DataType))
             return DataType;
 
-        // 有長度的類型（如 NVARCHAR、VARCHAR、CHAR）
+        // 有長度的類型（如 NVARCHAR、VARCHAR、CHAR）；-1 代表 MAX
         if (MaxLength.HasValue)
         {
-            return $"{DataType}({MaxLength.Value})";
+            var len = MaxLength.Value == -1 ? "MAX" : MaxLength.Value.ToString();
+            return $"{DataType}({len})";
         }
 
-        // 有精度和小數位的類型（如 DECIMAL、DATETIME2、TIME）
+        // 只接受 Scale 的時間型別（datetime2、time、datetimeoffset）
+        if (ScaleOnlyTypes.Contains(DataType))
+        {
+            return Scale.HasValue ? $"{DataType}({Scale.Value})" : DataType;
+        }
+
+        // 有精度和小數位的類型（如 DECIMAL、NUMERIC）
         if (Precision.HasValue && Scale.HasValue)
         {
             return $"{DataType}({Precision.Value},{Scale.Value})";

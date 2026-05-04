@@ -146,7 +146,7 @@
                 </StackPanel>
 
                 <!-- 差異類型多選 -->
-                <StackPanel Orientation="Horizontal" Margin="0,0,8,0">
+                <StackPanel Orientation="Horizontal" Margin="0,0,4,0">
                     <ToggleButton x:Name="DiffFilterBtn"
                                   Content="{Binding DifferenceTypeFilterLabel}"
                                   FontSize="12" Padding="6,2"/>
@@ -157,6 +157,29 @@
                                 BorderBrush="{DynamicResource SystemControlForegroundBaseMediumBrush}"
                                 BorderThickness="1" Padding="4">
                             <ItemsControl ItemsSource="{Binding DifferenceTypeFilters}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:FilterOptionViewModel">
+                                        <CheckBox IsChecked="{Binding IsSelected}" Content="{Binding Label}"
+                                                  Padding="4,2" FontSize="12"/>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </Border>
+                    </Popup>
+                </StackPanel>
+
+                <!-- 結構描述多選 -->
+                <StackPanel Orientation="Horizontal" Margin="0,0,8,0">
+                    <ToggleButton x:Name="SchemaFilterBtn"
+                                  Content="{Binding SchemaFilterLabel}"
+                                  FontSize="12" Padding="6,2"/>
+                    <Popup IsOpen="{Binding #SchemaFilterBtn.IsChecked}"
+                           PlacementTarget="{Binding #SchemaFilterBtn}"
+                           Placement="Bottom" IsLightDismissEnabled="True">
+                        <Border Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}"
+                                BorderBrush="{DynamicResource SystemControlForegroundBaseMediumBrush}"
+                                BorderThickness="1" Padding="4">
+                            <ItemsControl ItemsSource="{Binding SchemaFilters}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate x:DataType="vm:FilterOptionViewModel">
                                         <CheckBox IsChecked="{Binding IsSelected}" Content="{Binding Label}"
@@ -235,6 +258,12 @@
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
+
+                <!-- 結構描述 -->
+                <DataGridTextColumn Header="結構描述"
+                                    Binding="{Binding SchemaText}"
+                                    Width="90"
+                                    IsReadOnly="True"/>
 
                 <!-- 物件名稱 -->
                 <DataGridTextColumn Header="物件名稱"

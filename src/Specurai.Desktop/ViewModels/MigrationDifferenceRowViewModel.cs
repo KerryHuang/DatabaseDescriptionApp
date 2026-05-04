@@ -33,6 +33,8 @@ public partial class MigrationDifferenceRowViewModel : ViewModelBase
         _ => "未知"
     };
 
+    public string SchemaText => Difference.Schema;
+
     public string ObjectTypeText => Difference.ObjectType switch
     {
         SchemaObjectType.Table => "表格",

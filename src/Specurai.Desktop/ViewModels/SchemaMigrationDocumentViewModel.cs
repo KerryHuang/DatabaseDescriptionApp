@@ -70,10 +70,12 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
     public IReadOnlyList<FilterOptionViewModel> ObjectTypeFilters { get; } = CreateFilters(
         "表格", "欄位", "索引", "約束", "檢視表", "預存程序", "函數", "觸發程序");
     [ObservableProperty] private IReadOnlyList<FilterOptionViewModel> _differenceTypeFilters = [];
+    [ObservableProperty] private IReadOnlyList<FilterOptionViewModel> _schemaFilters = [];
 
     [ObservableProperty] private string _riskFilterLabel = "風險（1）▾";
     [ObservableProperty] private string _objectTypeFilterLabel = "物件類型（3）▾";
     [ObservableProperty] private string _differenceTypeFilterLabel = "差異類型 ▾";
+    [ObservableProperty] private string _schemaFilterLabel = "結構描述 ▾";
 
     private static IReadOnlyList<FilterOptionViewModel> CreateFilters(params string[] labels) =>
         labels.Select(l => new FilterOptionViewModel { Label = l }).ToList();
@@ -154,6 +156,7 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
             _selectedExecutableCount = DifferenceRows.Count(r => r.IsSelected && r.IsExecutable);
             AnalysisReport = _currentAnalysis.GenerateReport();
             RebuildDifferenceTypeFilters();
+            RebuildSchemaFilters();
             ApplyFilter();
 
             var total = DifferenceRows.Count;
@@ -215,15 +218,30 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
         DifferenceTypeFilterLabel = "差異類型 ▾";
     }
 
+    private void RebuildSchemaFilters()
+    {
+        var labels = DifferenceRows
+            .Select(r => r.Difference.Schema)
+            .Distinct()
+            .OrderBy(x => x)
+            .ToArray();
+        SchemaFilters = CreateFilters(labels);
+        foreach (var f in SchemaFilters)
+            f.SelectionChanged += _ => ApplyFilter();
+        SchemaFilterLabel = "結構描述 ▾";
+    }
+
     private void ApplyFilter()
     {
         var activeRisk = RiskLevelFilters.Where(f => f.IsSelected).Select(f => f.Label).ToHashSet();
         var activeType = ObjectTypeFilters.Where(f => f.IsSelected).Select(f => f.Label).ToHashSet();
         var activeDiff = DifferenceTypeFilters.Where(f => f.IsSelected).Select(f => f.Label).ToHashSet();
+        var activeSchema = SchemaFilters.Where(f => f.IsSelected).Select(f => f.Label).ToHashSet();
 
         RiskFilterLabel = activeRisk.Count == 0 ? "風險 ▾" : $"風險（{activeRisk.Count}）▾";
         ObjectTypeFilterLabel = activeType.Count == 0 ? "物件類型 ▾" : $"物件類型（{activeType.Count}）▾";
         DifferenceTypeFilterLabel = activeDiff.Count == 0 ? "差異類型 ▾" : $"差異類型（{activeDiff.Count}）▾";
+        SchemaFilterLabel = activeSchema.Count == 0 ? "結構描述 ▾" : $"結構描述（{activeSchema.Count}）▾";
 
         var query = DifferenceRows.AsEnumerable();
 
@@ -240,6 +258,8 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
             query = query.Where(r => activeType.Contains(r.ObjectTypeText));
         if (activeDiff.Count > 0)
             query = query.Where(r => activeDiff.Contains(r.DifferenceTypeText));
+        if (activeSchema.Count > 0)
+            query = query.Where(r => activeSchema.Contains(r.Difference.Schema));
 
         // 預設排序：風險降序（禁止→高→中→低）→ 物件類型（表格優先）→ 物件名稱
         var sorted = query
@@ -258,7 +278,7 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
     {
         FilterTableName = string.Empty;
         FilterColumnName = string.Empty;
-        foreach (var f in RiskLevelFilters.Concat(ObjectTypeFilters).Concat(DifferenceTypeFilters))
+        foreach (var f in RiskLevelFilters.Concat(ObjectTypeFilters).Concat(DifferenceTypeFilters).Concat(SchemaFilters))
             f.IsSelected = false;
     }
 

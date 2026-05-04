@@ -80,6 +80,44 @@ public class SchemaCompareServiceTests
         diff.Description.Should().Contain("基準");
     }
 
+    [Fact]
+    public async Task CompareAsync_非dbo表格差異_Schema應正確填入()
+    {
+        // Arrange
+        var baseSchema = CreateTestSchema("基準環境");
+        baseSchema.Tables.Add(new SchemaTable { Schema = "Sales", Name = "Orders" });
+        var targetSchema = CreateTestSchema("目標環境");
+
+        // Act
+        var result = await _service.CompareAsync(baseSchema, targetSchema);
+
+        // Assert
+        var diff = result.Differences.Should().ContainSingle().Subject;
+        diff.Schema.Should().Be("Sales");
+    }
+
+    [Fact]
+    public async Task CompareAsync_非dbo程式物件差異_Schema應正確填入()
+    {
+        // Arrange
+        var baseSchema = CreateTestSchema("基準環境");
+        baseSchema.Views.Add(new SchemaProgramObject
+        {
+            Schema = "Production",
+            Name = "vw_WorkOrder",
+            ObjectType = ProgramObjectType.View,
+            Definition = "CREATE VIEW [Production].[vw_WorkOrder] AS SELECT 1 AS Id"
+        });
+        var targetSchema = CreateTestSchema("目標環境");
+
+        // Act
+        var result = await _service.CompareAsync(baseSchema, targetSchema);
+
+        // Assert
+        var diff = result.Differences.Should().ContainSingle().Subject;
+        diff.Schema.Should().Be("Production");
+    }
+
     #endregion
 
     #region 欄位比對測試

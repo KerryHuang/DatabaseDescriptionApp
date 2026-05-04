@@ -257,4 +257,45 @@ public class SqlScriptGeneratorTests
         // Assert — Modified 應改為 ALTER PROCEDURE 並用 EXEC() 包裝
         script.ApplyScript.Should().Contain("EXEC(N'ALTER PROCEDURE");
     }
+
+    [Fact]
+    public void Generate_修改有索引的欄位_應先DROP索引再ALTER再RECREATE()
+    {
+        // Arrange
+        var baseSchema = new DatabaseSchema { ConnectionName = "基準環境" };
+        var table = new SchemaTable { Schema = "dbo", Name = "Orders" };
+        table.Columns.Add(new SchemaColumn { Name = "CAL_NAME", DataType = "NVARCHAR", MaxLength = 50, IsNullable = true });
+        table.Indexes.Add(new SchemaIndex
+        {
+            Name = "IX_CAL_NAME",
+            IsClustered = false,
+            IsUnique = false,
+            Columns = ["CAL_NAME"]
+        });
+        baseSchema.Tables.Add(table);
+
+        var diff = new SchemaDifference
+        {
+            ObjectType = SchemaObjectType.Column,
+            ObjectName = "[dbo].[Orders].[CAL_NAME]",
+            Schema = "dbo",
+            DifferenceType = DifferenceType.Modified,
+            PropertyName = "MaxLength",
+            SourceValue = "100",
+            RiskLevel = RiskLevel.Medium
+        };
+
+        // Act
+        var script = _generator.Generate([diff], baseSchema, "基準", "目標");
+
+        // Assert
+        var apply = script.ApplyScript;
+        var dropPos = apply.IndexOf("DROP INDEX [IX_CAL_NAME]", StringComparison.Ordinal);
+        var alterPos = apply.IndexOf("ALTER TABLE [dbo].[Orders] ALTER COLUMN", StringComparison.Ordinal);
+        var createPos = apply.IndexOf("CREATE NONCLUSTERED INDEX [IX_CAL_NAME]", StringComparison.Ordinal);
+
+        dropPos.Should().BeGreaterThan(0);
+        alterPos.Should().BeGreaterThan(dropPos);   // DROP 在 ALTER 前
+        createPos.Should().BeGreaterThan(alterPos); // ALTER 在 RECREATE 前
+    }
 }

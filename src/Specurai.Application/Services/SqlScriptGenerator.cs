@@ -142,6 +142,14 @@ public class SqlScriptGenerator : ISqlScriptGenerator
         if (table == null) return $"-- 無法找到表格定義：{diff.ObjectName}";
 
         var sb = new StringBuilder();
+
+        // 確保 Schema 存在，非 dbo 的 Schema 在目標資料庫可能尚未建立
+        if (!table.Schema.Equals("dbo", StringComparison.OrdinalIgnoreCase))
+        {
+            sb.AppendLine($"IF NOT EXISTS (SELECT 1 FROM sys.schemas WHERE name = N'{table.Schema}')");
+            sb.AppendLine($"    EXEC(N'CREATE SCHEMA [{table.Schema}]');");
+        }
+
         sb.AppendLine($"CREATE TABLE [{table.Schema}].[{table.Name}] (");
 
         for (int i = 0; i < table.Columns.Count; i++)

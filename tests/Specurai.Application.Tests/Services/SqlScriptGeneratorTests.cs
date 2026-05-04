@@ -121,4 +121,54 @@ public class SqlScriptGeneratorTests
         script.ApplyScript.Should().Contain("基準環境：Production");
         script.ApplyScript.Should().Contain("目標環境：Staging");
     }
+
+    [Fact]
+    public void Generate_非dbo表格_腳本應使用正確Schema()
+    {
+        // Arrange
+        var baseSchema = new DatabaseSchema { ConnectionName = "基準環境" };
+        var table = new SchemaTable { Schema = "Sales", Name = "Orders" };
+        table.Columns.Add(new SchemaColumn { Name = "Id", DataType = "INT", IsNullable = false });
+        baseSchema.Tables.Add(table);
+
+        var diff = new SchemaDifference
+        {
+            ObjectType = SchemaObjectType.Table,
+            ObjectName = "[Sales].[Orders]",
+            Schema = "Sales",
+            DifferenceType = DifferenceType.Added,
+            RiskLevel = RiskLevel.Low
+        };
+
+        // Act
+        var script = _generator.Generate([diff], baseSchema, "基準", "目標");
+
+        // Assert
+        script.ApplyScript.Should().Contain("CREATE TABLE [Sales].[Orders]");
+    }
+
+    [Fact]
+    public void Generate_非dbo欄位_腳本應使用正確Schema()
+    {
+        // Arrange
+        var baseSchema = new DatabaseSchema { ConnectionName = "基準環境" };
+        var table = new SchemaTable { Schema = "Sales", Name = "Orders" };
+        table.Columns.Add(new SchemaColumn { Name = "Qty", DataType = "INT", IsNullable = false });
+        baseSchema.Tables.Add(table);
+
+        var diff = new SchemaDifference
+        {
+            ObjectType = SchemaObjectType.Column,
+            ObjectName = "[Sales].[Orders].[Qty]",
+            Schema = "Sales",
+            DifferenceType = DifferenceType.Added,
+            RiskLevel = RiskLevel.Low
+        };
+
+        // Act
+        var script = _generator.Generate([diff], baseSchema, "基準", "目標");
+
+        // Assert
+        script.ApplyScript.Should().Contain("ALTER TABLE [Sales].[Orders] ADD [Qty]");
+    }
 }

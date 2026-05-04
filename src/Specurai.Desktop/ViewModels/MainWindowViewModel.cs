@@ -62,7 +62,17 @@ public partial class MainWindowViewModel : ViewModelBase
     /// </summary>
     public event Action<UpdateCheckResult?>? OpenUpdateDialogRequested;
 
+    [ObservableProperty]
+    private string _profileFilterText = string.Empty;
+
     public ObservableCollection<ConnectionProfile> ConnectionProfiles { get; } = [];
+
+    public ObservableCollection<ConnectionProfile> FilteredConnectionProfiles { get; } = [];
+
+    partial void OnProfileFilterTextChanged(string value)
+    {
+        RefreshFilteredProfiles();
+    }
 
     /// <summary>
     /// MDI 文件集合
@@ -142,11 +152,14 @@ public partial class MainWindowViewModel : ViewModelBase
             ConnectionProfiles.Add(profile);
         }
 
+        RefreshFilteredProfiles();
+
         // 選擇目前的連線
         var currentProfile = _connectionManager?.GetCurrentProfile();
         if (currentProfile != null)
         {
-            SelectedProfile = ConnectionProfiles.FirstOrDefault(p => p.Id == currentProfile.Id);
+            SelectedProfile = FilteredConnectionProfiles.FirstOrDefault(p => p.Id == currentProfile.Id)
+                           ?? ConnectionProfiles.FirstOrDefault(p => p.Id == currentProfile.Id);
             IsConnected = true;
         }
         else
@@ -154,6 +167,17 @@ public partial class MainWindowViewModel : ViewModelBase
             SelectedProfile = null;
             IsConnected = false;
         }
+    }
+
+    private void RefreshFilteredProfiles()
+    {
+        FilteredConnectionProfiles.Clear();
+        var filter = ProfileFilterText?.Trim() ?? string.Empty;
+        var filtered = string.IsNullOrEmpty(filter)
+            ? ConnectionProfiles
+            : ConnectionProfiles.Where(p => p.Name.Contains(filter, StringComparison.OrdinalIgnoreCase));
+        foreach (var profile in filtered)
+            FilteredConnectionProfiles.Add(profile);
     }
 
     partial void OnSelectedProfileChanged(ConnectionProfile? value)

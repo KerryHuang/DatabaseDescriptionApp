@@ -263,10 +263,14 @@
                     <!-- 連線選擇區 -->
                     <Border DockPanel.Dock="Top" Padding="10" Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}">
                         <StackPanel Spacing="8">
-                            <ComboBox ItemsSource="{Binding ConnectionProfiles}"
+                            <TextBox Text="{Binding ProfileFilterText, Mode=TwoWay}"
+                                     Watermark="篩選連線..."
+                                     HorizontalAlignment="Stretch"/>
+                            <ComboBox ItemsSource="{Binding FilteredConnectionProfiles}"
                                       SelectedItem="{Binding SelectedProfile}"
                                       PlaceholderText="請選擇連線..."
-                                      HorizontalAlignment="Stretch">
+                                      HorizontalAlignment="Stretch"
+                                      MaxDropDownHeight="400">
                                 <ComboBox.ItemTemplate>
                                     <DataTemplate x:DataType="domain:ConnectionProfile">
                                         <TextBlock Text="{Binding Name}"/>

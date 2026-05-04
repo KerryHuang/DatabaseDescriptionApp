@@ -515,6 +515,25 @@ public partial class MainWindowViewModel : ViewModelBase
     }
 
     [RelayCommand]
+    private async Task OpenRecoveryModel()
+    {
+        var existing = Documents.OfType<RecoveryModelDocumentViewModel>().FirstOrDefault();
+        if (existing != null)
+        {
+            SelectedDocument = existing;
+            return;
+        }
+
+        var doc = App.Services?.GetRequiredService<RecoveryModelDocumentViewModel>()
+            ?? new RecoveryModelDocumentViewModel();
+        doc.ConfirmCallback = ConfirmSaveCallback;
+        doc.CloseRequested += OnDocumentCloseRequested;
+        Documents.Add(doc);
+        SelectedDocument = doc;
+        await doc.LoadCommand.ExecuteAsync(null);
+    }
+
+    [RelayCommand]
     private void OpenBackupRestore()
     {
         // 檢查是否已開啟

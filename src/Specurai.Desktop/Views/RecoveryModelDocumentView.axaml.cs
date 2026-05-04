@@ -17,6 +17,11 @@ public partial class RecoveryModelDocumentView : UserControl
     private static void ApplyRowColor(DataGridRow row)
     {
         if (row.DataContext is RecoveryModelRowViewModel vm)
-            row.Foreground = vm.IsDirty ? new SolidColorBrush(Color.Parse("#f38ba8")) : null;
+        {
+            if (vm.IsDirty)
+                row.Foreground = new SolidColorBrush(Color.Parse("#f38ba8"));
+            else
+                row.ClearValue(DataGridRow.ForegroundProperty);
+        }
     }
 }

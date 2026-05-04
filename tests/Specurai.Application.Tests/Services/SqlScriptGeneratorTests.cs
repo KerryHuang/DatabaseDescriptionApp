@@ -174,4 +174,63 @@ public class SqlScriptGeneratorTests
         // Assert
         script.ApplyScript.Should().Contain("ALTER TABLE [Sales].[Orders] ADD [Qty]");
     }
+
+    [Fact]
+    public void Generate_新增檢視表_腳本應使用EXEC動態執行()
+    {
+        // Arrange
+        var baseSchema = new DatabaseSchema { ConnectionName = "基準環境" };
+        baseSchema.Views.Add(new SchemaProgramObject
+        {
+            Schema = "dbo",
+            Name = "vw_Orders",
+            ObjectType = ProgramObjectType.View,
+            Definition = "CREATE VIEW [dbo].[vw_Orders] AS SELECT 1 AS Id"
+        });
+
+        var diff = new SchemaDifference
+        {
+            ObjectType = SchemaObjectType.View,
+            ObjectName = "[dbo].[vw_Orders]",
+            Schema = "dbo",
+            DifferenceType = DifferenceType.Added,
+            RiskLevel = RiskLevel.Low
+        };
+
+        // Act
+        var script = _generator.Generate([diff], baseSchema, "基準", "目標");
+
+        // Assert — 必須用 EXEC() 包裝，否則在 BEGIN TRY 內 CREATE VIEW 會語法錯誤
+        script.ApplyScript.Should().Contain("EXEC(N'CREATE VIEW");
+        script.ApplyScript.Should().NotContain("\nCREATE VIEW");
+    }
+
+    [Fact]
+    public void Generate_修改預存程序_腳本應使用EXEC動態執行()
+    {
+        // Arrange
+        var baseSchema = new DatabaseSchema { ConnectionName = "基準環境" };
+        baseSchema.StoredProcedures.Add(new SchemaProgramObject
+        {
+            Schema = "dbo",
+            Name = "sp_GetOrders",
+            ObjectType = ProgramObjectType.StoredProcedure,
+            Definition = "CREATE PROCEDURE [dbo].[sp_GetOrders] AS SELECT 1"
+        });
+
+        var diff = new SchemaDifference
+        {
+            ObjectType = SchemaObjectType.StoredProcedure,
+            ObjectName = "[dbo].[sp_GetOrders]",
+            Schema = "dbo",
+            DifferenceType = DifferenceType.Modified,
+            RiskLevel = RiskLevel.Low
+        };
+
+        // Act
+        var script = _generator.Generate([diff], baseSchema, "基準", "目標");
+
+        // Assert — Modified 應改為 ALTER PROCEDURE 並用 EXEC() 包裝
+        script.ApplyScript.Should().Contain("EXEC(N'ALTER PROCEDURE");
+    }
 }

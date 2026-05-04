@@ -203,7 +203,35 @@ public class SqlScriptGenerator : ISqlScriptGenerator
             var newLength = int.TryParse(diff.SourceValue, out var len) ? len : col.MaxLength;
             var dataType = newLength.HasValue ? $"{col.DataType}({newLength})" : col.DataType;
             var nullable = col.IsNullable ? "NULL" : "NOT NULL";
-            return $"ALTER TABLE [{schema}].[{tableName}] ALTER COLUMN [{columnName}] {dataType} {nullable};";
+
+            // 若欄位有相依索引，需先 DROP 再 ALTER COLUMN 再 RECREATE
+            var dependentIndexes = table?.Indexes
+                .Where(idx => idx.Columns.Any(c => c.Equals(columnName, StringComparison.OrdinalIgnoreCase)) ||
+                              idx.IncludeColumns.Any(c => c.Equals(columnName, StringComparison.OrdinalIgnoreCase)))
+                .ToList() ?? [];
+
+            if (dependentIndexes.Count == 0)
+                return $"ALTER TABLE [{schema}].[{tableName}] ALTER COLUMN [{columnName}] {dataType} {nullable};";
+
+            var sb = new StringBuilder();
+            foreach (var idx in dependentIndexes)
+                sb.AppendLine($"DROP INDEX [{idx.Name}] ON [{schema}].[{tableName}];");
+
+            sb.AppendLine($"ALTER TABLE [{schema}].[{tableName}] ALTER COLUMN [{columnName}] {dataType} {nullable};");
+
+            foreach (var idx in dependentIndexes)
+            {
+                var unique = idx.IsUnique ? "UNIQUE " : string.Empty;
+                var clustered = idx.IsClustered ? "CLUSTERED " : "NONCLUSTERED ";
+                var cols = string.Join(", ", idx.Columns.Select(c => $"[{c}]"));
+                var include = idx.IncludeColumns.Count > 0
+                    ? $" INCLUDE ({string.Join(", ", idx.IncludeColumns.Select(c => $"[{c}]"))})"
+                    : string.Empty;
+                var filter = string.IsNullOrEmpty(idx.FilterDefinition) ? string.Empty : $" WHERE {idx.FilterDefinition}";
+                sb.Append($"CREATE {unique}{clustered}INDEX [{idx.Name}] ON [{schema}].[{tableName}] ({cols}){include}{filter};");
+            }
+
+            return sb.ToString();
         }
 
         return string.Empty;

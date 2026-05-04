@@ -133,7 +133,8 @@ public class SqlScriptGenerator : ISqlScriptGenerator
         if (diff.DifferenceType != DifferenceType.Added)
             return string.Empty;
 
-        var (schema, tableName) = ParseTwoParts(diff.ObjectName);
+        var (_, tableName) = ParseTwoParts(diff.ObjectName);
+        var schema = diff.Schema;
         var table = baseSchema.GetTable(schema, tableName);
         if (table == null) return $"-- 無法找到表格定義：{diff.ObjectName}";
 
@@ -159,7 +160,8 @@ public class SqlScriptGenerator : ISqlScriptGenerator
 
     private static string GenerateColumnSql(SchemaDifference diff, DatabaseSchema baseSchema)
     {
-        var (schema, tableName, columnName) = ParseThreeParts(diff.ObjectName);
+        var (_, tableName, columnName) = ParseThreeParts(diff.ObjectName);
+        var schema = diff.Schema;
         var table = baseSchema.GetTable(schema, tableName);
 
         if (diff.DifferenceType == DifferenceType.Added)
@@ -191,7 +193,8 @@ public class SqlScriptGenerator : ISqlScriptGenerator
         if (diff.DifferenceType != DifferenceType.Added)
             return string.Empty;
 
-        var (schema, tableName, indexName) = ParseThreeParts(diff.ObjectName);
+        var (_, tableName, indexName) = ParseThreeParts(diff.ObjectName);
+        var schema = diff.Schema;
         var table = baseSchema.GetTable(schema, tableName);
         var index = table?.Indexes.FirstOrDefault(i =>
             i.Name.Equals(indexName, StringComparison.OrdinalIgnoreCase));
@@ -214,7 +217,8 @@ public class SqlScriptGenerator : ISqlScriptGenerator
         if (diff.DifferenceType != DifferenceType.Added)
             return string.Empty;
 
-        var (schema, tableName, constraintName) = ParseThreeParts(diff.ObjectName);
+        var (_, tableName, constraintName) = ParseThreeParts(diff.ObjectName);
+        var schema = diff.Schema;
         var table = baseSchema.GetTable(schema, tableName);
         var constraint = table?.Constraints.FirstOrDefault(c =>
             c.Name.Equals(constraintName, StringComparison.OrdinalIgnoreCase));
@@ -235,7 +239,8 @@ public class SqlScriptGenerator : ISqlScriptGenerator
         SchemaDifference diff,
         Dictionary<(string, string, SchemaObjectType), SchemaProgramObject> lookup)
     {
-        var (schema, objName) = ParseTwoParts(diff.ObjectName);
+        var (_, objName) = ParseTwoParts(diff.ObjectName);
+        var schema = diff.Schema;
 
         if (!lookup.TryGetValue((schema, objName, diff.ObjectType), out var obj) || obj.Definition == null)
             return $"-- 無法找到物件定義：{diff.ObjectName}";

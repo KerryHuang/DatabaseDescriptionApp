@@ -1,0 +1,91 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Specurai.Desktop.ViewModels"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="500"
+             x:Class="Specurai.Desktop.Views.RecoveryModelDocumentView"
+             x:DataType="vm:RecoveryModelDocumentViewModel">
+
+    <Design.DataContext>
+        <vm:RecoveryModelDocumentViewModel/>
+    </Design.DataContext>
+
+    <Grid RowDefinitions="Auto,*,Auto">
+
+        <!-- 工具列 -->
+        <Border Grid.Row="0"
+                Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}"
+                Padding="10,8">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+                <Button Command="{Binding LoadCommand}">
+                    <StackPanel Orientation="Horizontal" Spacing="5">
+                        <TextBlock Text="🔄" FontSize="14"/>
+                        <TextBlock Text="重新整理"/>
+                    </StackPanel>
+                </Button>
+                <Separator/>
+                <TextBlock VerticalAlignment="Center" IsVisible="{Binding HasChanges}">
+                    <Run Text="已變更 "/>
+                    <Run Text="{Binding DirtyCount}"/>
+                    <Run Text=" 筆"/>
+                </TextBlock>
+                <Button Command="{Binding SaveCommand}"
+                        IsEnabled="{Binding HasChanges}">
+                    <StackPanel Orientation="Horizontal" Spacing="5">
+                        <TextBlock Text="💾" FontSize="14"/>
+                        <TextBlock Text="儲存變更"/>
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+        </Border>
+
+        <!-- DataGrid -->
+        <DataGrid Grid.Row="1"
+                  x:Name="RecoveryModelGrid"
+                  ItemsSource="{Binding Rows}"
+                  AutoGenerateColumns="False"
+                  CanUserReorderColumns="False"
+                  CanUserResizeColumns="True"
+                  IsReadOnly="False"
+                  LoadingRow="RecoveryModelGrid_LoadingRow">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="資料庫名稱"
+                                    Binding="{Binding DatabaseName}"
+                                    IsReadOnly="True"
+                                    Width="*"/>
+                <DataGridTemplateColumn Header="Recovery Model" Width="200">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate x:DataType="vm:RecoveryModelRowViewModel">
+                            <ComboBox SelectedItem="{Binding SelectedRecoveryModel}"
+                                      HorizontalAlignment="Stretch"
+                                      Margin="4,2">
+                                <ComboBox.Items>
+                                    <x:String>SIMPLE</x:String>
+                                    <x:String>FULL</x:String>
+                                </ComboBox.Items>
+                            </ComboBox>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <!-- 狀態列 -->
+        <Border Grid.Row="2"
+                Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}"
+                Padding="10,4">
+            <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Grid.Column="0"
+                           Text="{Binding StatusMessage}"
+                           VerticalAlignment="Center"
+                           FontSize="12"
+                           Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"/>
+                <ProgressBar Grid.Column="1"
+                             IsIndeterminate="True"
+                             IsVisible="{Binding IsLoading}"
+                             Width="100" Height="4"/>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>

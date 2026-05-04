@@ -40,6 +40,9 @@ ORDER BY name;";
         if (string.IsNullOrEmpty(connectionString))
             return;
 
+        if (recoveryModel is not "SIMPLE" and not "FULL")
+            throw new ArgumentException($"不支援的 Recovery Model：{recoveryModel}", nameof(recoveryModel));
+
         // databaseName 僅來自 sys.databases 查詢結果，不接受使用者直接輸入
         var sql = recoveryModel == "SIMPLE"
             ? $"ALTER DATABASE [{databaseName}] SET RECOVERY SIMPLE;"

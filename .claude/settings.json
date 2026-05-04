@@ -1,18 +1,4 @@
 {
-  "hooks": {
-    "PostToolUse": [
-      {
-        "matcher": "Edit|Write",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "command -v dotnet >/dev/null 2>&1 || exit 0; case \"${CLAUDE_TOOL_INPUT_FILE_PATH:-}\" in *.cs|*.csproj|*.sln) ;; *) exit 0 ;; esac; set -o pipefail; dotnet build \"$CLAUDE_PROJECT_DIR\" --no-restore --nologo -clp:ErrorsOnly 2>&1 | head -20; exit ${PIPESTATUS[0]:-$?}",
-            "timeout": 60
-          }
-        ]
-      }
-    ]
-  },
   "permissions": {
     "allow": [
       "Bash(dotnet build:*)",
@@ -56,5 +42,23 @@
       "WebFetch(domain:github.com)",
       "WebFetch(domain:api.github.com)"
     ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "command -v dotnet >/dev/null 2>&1 || exit 0; case \"${CLAUDE_TOOL_INPUT_FILE_PATH:-}\" in *.cs|*.csproj|*.sln) ;; *) exit 0 ;; esac; set -o pipefail; dotnet build \"$CLAUDE_PROJECT_DIR\" --no-restore --nologo -clp:ErrorsOnly 2>&1 | head -20; exit ${PIPESTATUS[0]:-$?}",
+            "timeout": 60
+          }
+        ]
+      }
+    ]
+  },
+  "enabledPlugins": {
+    "superpowers@superpowers-marketplace": true,
+    "rcc@Reflexive-Claude-Code": false
   }
 }

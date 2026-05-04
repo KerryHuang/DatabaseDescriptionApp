@@ -105,6 +105,9 @@ public partial class MaintenancePlanDocumentViewModel : DocumentViewModel
     /// <summary>路徑是否為自訂</summary>
     public bool IsPathCustom => SelectedPlatform == "其他";
 
+    /// <summary>資料庫名稱是否可編輯（平台為「其他」時允許手動輸入）</summary>
+    public bool IsDatabaseNameEditable => SelectedPlatform == "其他";
+
     /// <summary>平台選項清單</summary>
     public IReadOnlyList<string> PlatformOptions { get; } = ["Windows", "Linux", "其他"];
 
@@ -122,6 +125,7 @@ public partial class MaintenancePlanDocumentViewModel : DocumentViewModel
                 break;
         }
         OnPropertyChanged(nameof(IsPathCustom));
+        OnPropertyChanged(nameof(IsDatabaseNameEditable));
     }
 
     [ObservableProperty]

@@ -191,7 +191,7 @@
                         <Grid ColumnDefinitions="*,16,Auto">
                             <StackPanel Grid.Column="0" Spacing="4">
                                 <TextBlock Text="資料庫名稱"/>
-                                <TextBox Text="{Binding DatabaseName}" IsReadOnly="True"
+                                <TextBox Text="{Binding DatabaseName}" IsReadOnly="{Binding !IsDatabaseNameEditable}"
                                          Watermark="自動從目前連線取得"/>
                             </StackPanel>
                             <StackPanel Grid.Column="2" Spacing="4">

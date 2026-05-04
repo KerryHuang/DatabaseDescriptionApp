@@ -6,6 +6,7 @@ using Specurai.Application.Services;
 using Specurai.Desktop.ViewModels;
 using Specurai.Domain.Interfaces;
 using Specurai.Infrastructure;
+using Specurai.Infrastructure.Repositories;
 using Specurai.Infrastructure.Services;
 using Velopack;
 
@@ -60,6 +61,17 @@ sealed class Program
         // Infrastructure - External Source
         services.AddSingleton<IExternalSourceSettings, ExternalSourceSettings>();
         services.AddSingleton<IExternalConnectionSource, InventoryConnectionSource>();
+
+        // Recovery Model
+        services.AddSingleton<IDatabaseRecoveryModelRepository>(sp =>
+            new DatabaseRecoveryModelRepository(
+                () => sp.GetRequiredService<IConnectionManager>().GetCurrentConnectionString()));
+        services.AddSingleton<IDatabaseRecoveryModelService>(sp =>
+            new DatabaseRecoveryModelService(
+                sp.GetRequiredService<IDatabaseRecoveryModelRepository>()));
+        services.AddTransient<RecoveryModelDocumentViewModel>(sp =>
+            new RecoveryModelDocumentViewModel(
+                sp.GetRequiredService<IDatabaseRecoveryModelService>()));
 
         // ViewModels
         services.AddTransient<MaintenancePlanDocumentViewModel>(sp =>

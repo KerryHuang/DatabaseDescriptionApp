@@ -69,6 +69,7 @@ public class SchemaCompareService : ISchemaCompareService
                 {
                     ObjectType = SchemaObjectType.Table,
                     ObjectName = baseTable.FullName,
+                    Schema = baseTable.Schema,
                     DifferenceType = DifferenceType.Added,
                     RiskLevel = RiskLevel.Low,
                     Description = $"表格 {baseTable.FullName} 不存在於目標環境，需要新增"
@@ -97,6 +98,7 @@ public class SchemaCompareService : ISchemaCompareService
                 {
                     ObjectType = SchemaObjectType.Table,
                     ObjectName = targetTable.FullName,
+                    Schema = targetTable.Schema,
                     DifferenceType = DifferenceType.Added,
                     RiskLevel = RiskLevel.Low,
                     Description = $"表格 {targetTable.FullName} 不存在於基準環境，基準需要新增"
@@ -122,6 +124,7 @@ public class SchemaCompareService : ISchemaCompareService
                 {
                     ObjectType = SchemaObjectType.Column,
                     ObjectName = $"{baseTable.FullName}.[{baseColumn.Name}]",
+                    Schema = baseTable.Schema,
                     DifferenceType = DifferenceType.Added,
                     RiskLevel = riskLevel,
                     SourceValue = baseColumn.GetFullDataType(),
@@ -146,6 +149,7 @@ public class SchemaCompareService : ISchemaCompareService
                 {
                     ObjectType = SchemaObjectType.Column,
                     ObjectName = $"{baseTable.FullName}.[{targetColumn.Name}]",
+                    Schema = baseTable.Schema,
                     DifferenceType = DifferenceType.Added,
                     RiskLevel = riskLevel,
                     SourceValue = targetColumn.GetFullDataType(),
@@ -168,6 +172,7 @@ public class SchemaCompareService : ISchemaCompareService
             {
                 ObjectType = SchemaObjectType.Column,
                 ObjectName = $"{table.FullName}.[{baseColumn.Name}]",
+                Schema = table.Schema,
                 DifferenceType = DifferenceType.Modified,
                 PropertyName = "DataType",
                 SourceValue = baseColumn.DataType,
@@ -186,6 +191,7 @@ public class SchemaCompareService : ISchemaCompareService
             {
                 ObjectType = SchemaObjectType.Column,
                 ObjectName = $"{table.FullName}.[{baseColumn.Name}]",
+                Schema = table.Schema,
                 DifferenceType = DifferenceType.Modified,
                 PropertyName = "MaxLength",
                 SourceValue = baseColumn.MaxLength?.ToString() ?? "NULL",
@@ -203,6 +209,7 @@ public class SchemaCompareService : ISchemaCompareService
             {
                 ObjectType = SchemaObjectType.Column,
                 ObjectName = $"{table.FullName}.[{baseColumn.Name}]",
+                Schema = table.Schema,
                 DifferenceType = DifferenceType.Modified,
                 PropertyName = "IsNullable",
                 SourceValue = baseColumn.IsNullable.ToString(),
@@ -219,6 +226,7 @@ public class SchemaCompareService : ISchemaCompareService
             {
                 ObjectType = SchemaObjectType.Column,
                 ObjectName = $"{table.FullName}.[{baseColumn.Name}]",
+                Schema = table.Schema,
                 DifferenceType = DifferenceType.Modified,
                 PropertyName = "DefaultValue",
                 SourceValue = baseColumn.DefaultValue ?? "NULL",
@@ -235,6 +243,7 @@ public class SchemaCompareService : ISchemaCompareService
             {
                 ObjectType = SchemaObjectType.Column,
                 ObjectName = $"{table.FullName}.[{baseColumn.Name}]",
+                Schema = table.Schema,
                 DifferenceType = DifferenceType.Modified,
                 PropertyName = "IsIdentity",
                 SourceValue = baseColumn.IsIdentity.ToString(),
@@ -251,6 +260,7 @@ public class SchemaCompareService : ISchemaCompareService
             {
                 ObjectType = SchemaObjectType.Column,
                 ObjectName = $"{table.FullName}.[{baseColumn.Name}]",
+                Schema = table.Schema,
                 DifferenceType = DifferenceType.Modified,
                 PropertyName = "Collation",
                 SourceValue = baseColumn.Collation ?? "NULL",
@@ -279,6 +289,7 @@ public class SchemaCompareService : ISchemaCompareService
                 {
                     ObjectType = SchemaObjectType.Index,
                     ObjectName = $"{baseTable.FullName}.[{baseIndex.Name}]",
+                    Schema = baseTable.Schema,
                     DifferenceType = DifferenceType.Added,
                     RiskLevel = RiskLevel.Low, // 新增索引是低風險
                     Description = $"索引 {baseIndex.Name} 不存在於目標環境"
@@ -303,6 +314,7 @@ public class SchemaCompareService : ISchemaCompareService
                 {
                     ObjectType = SchemaObjectType.Index,
                     ObjectName = $"{baseTable.FullName}.[{targetIndex.Name}]",
+                    Schema = baseTable.Schema,
                     DifferenceType = DifferenceType.Added,
                     RiskLevel = RiskLevel.Low,
                     Description = $"索引 {targetIndex.Name} 不存在於基準環境，基準需要新增"
@@ -325,6 +337,7 @@ public class SchemaCompareService : ISchemaCompareService
             {
                 ObjectType = SchemaObjectType.Index,
                 ObjectName = $"{table.FullName}.[{baseIndex.Name}]",
+                Schema = table.Schema,
                 DifferenceType = DifferenceType.Modified,
                 PropertyName = "IndexType",
                 SourceValue = baseIndex.GetIndexType(),
@@ -343,6 +356,7 @@ public class SchemaCompareService : ISchemaCompareService
             {
                 ObjectType = SchemaObjectType.Index,
                 ObjectName = $"{table.FullName}.[{baseIndex.Name}]",
+                Schema = table.Schema,
                 DifferenceType = DifferenceType.Modified,
                 PropertyName = "Columns",
                 SourceValue = baseSignature,
@@ -372,6 +386,7 @@ public class SchemaCompareService : ISchemaCompareService
                 {
                     ObjectType = SchemaObjectType.Constraint,
                     ObjectName = $"{baseTable.FullName}.[{baseConstraint.Name}]",
+                    Schema = baseTable.Schema,
                     DifferenceType = DifferenceType.Added,
                     RiskLevel = riskLevel,
                     Description = $"約束 {baseConstraint.Name} 不存在於目標環境"
@@ -392,6 +407,7 @@ public class SchemaCompareService : ISchemaCompareService
                 {
                     ObjectType = SchemaObjectType.Constraint,
                     ObjectName = $"{baseTable.FullName}.[{targetConstraint.Name}]",
+                    Schema = baseTable.Schema,
                     DifferenceType = DifferenceType.Added,
                     RiskLevel = riskLevel,
                     Description = $"約束 {targetConstraint.Name} 不存在於基準環境，基準需要新增"
@@ -459,6 +475,7 @@ public class SchemaCompareService : ISchemaCompareService
                 {
                     ObjectType = objectType,
                     ObjectName = baseObj.FullName,
+                    Schema = baseObj.Schema,
                     DifferenceType = DifferenceType.Added,
                     RiskLevel = RiskLevel.Low,
                     Description = $"{objectType} {baseObj.FullName} 不存在於目標環境"
@@ -476,6 +493,7 @@ public class SchemaCompareService : ISchemaCompareService
                     {
                         ObjectType = objectType,
                         ObjectName = baseObj.FullName,
+                        Schema = baseObj.Schema,
                         DifferenceType = DifferenceType.Modified,
                         PropertyName = "Definition",
                         RiskLevel = RiskLevel.Low,
@@ -498,6 +516,7 @@ public class SchemaCompareService : ISchemaCompareService
                 {
                     ObjectType = objectType,
                     ObjectName = targetObj.FullName,
+                    Schema = targetObj.Schema,
                     DifferenceType = DifferenceType.Added,
                     RiskLevel = RiskLevel.Low,
                     Description = $"{objectType} {targetObj.FullName} 不存在於基準環境，基準需要新增"

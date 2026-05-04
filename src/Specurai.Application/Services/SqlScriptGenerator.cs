@@ -248,20 +248,22 @@ public class SqlScriptGenerator : ISqlScriptGenerator
         if (!lookup.TryGetValue((schema, objName, diff.ObjectType), out var obj) || obj.Definition == null)
             return $"-- 無法找到物件定義：{diff.ObjectName}";
 
+        // CREATE/ALTER VIEW、PROCEDURE、FUNCTION、TRIGGER 不能直接放在 BEGIN TRY 區塊內，
+        // 需以 EXEC(N'...') 動態執行
         if (diff.DifferenceType == DifferenceType.Added)
         {
-            var def = obj.Definition.Trim();
+            var def = obj.Definition.Trim().TrimEnd(';');
             if (def.StartsWith("ALTER ", StringComparison.OrdinalIgnoreCase))
                 def = "CREATE " + def[6..];
-            return def + ";";
+            return $"EXEC(N'{def.Replace("'", "''")}');";
         }
 
         if (diff.DifferenceType == DifferenceType.Modified)
         {
-            var def = obj.Definition.Trim();
+            var def = obj.Definition.Trim().TrimEnd(';');
             if (def.StartsWith("CREATE ", StringComparison.OrdinalIgnoreCase))
                 def = "ALTER " + def[7..];
-            return def + ";";
+            return $"EXEC(N'{def.Replace("'", "''")}');";
         }
 
         return string.Empty;

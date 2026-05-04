@@ -172,6 +172,11 @@ public class SqlScriptGenerator : ISqlScriptGenerator
             var col = table?.GetColumn(columnName);
             if (col == null) return $"-- 無法找到欄位定義：{diff.ObjectName}";
 
+            // timestamp/rowversion 不能手動 ADD，且每資料表只能有一個
+            if (col.DataType.Equals("timestamp", StringComparison.OrdinalIgnoreCase) ||
+                col.DataType.Equals("rowversion", StringComparison.OrdinalIgnoreCase))
+                return $"-- [略過] {diff.ObjectName}：timestamp/rowversion 欄位需手動新增";
+
             var nullable = col.IsNullable ? "NULL" : "NOT NULL";
             var defaultVal = string.IsNullOrEmpty(col.DefaultValue) ? string.Empty : $" DEFAULT {col.DefaultValue}";
             return $"ALTER TABLE [{schema}].[{tableName}] ADD [{col.Name}] {col.GetFullDataType()} {nullable}{defaultVal};";
@@ -181,6 +186,11 @@ public class SqlScriptGenerator : ISqlScriptGenerator
         {
             var col = table?.GetColumn(columnName);
             if (col == null) return $"-- 無法找到欄位定義：{diff.ObjectName}";
+
+            // timestamp/rowversion 由 SQL Server 自動管理，不可用 ALTER COLUMN 修改
+            if (col.DataType.Equals("timestamp", StringComparison.OrdinalIgnoreCase) ||
+                col.DataType.Equals("rowversion", StringComparison.OrdinalIgnoreCase))
+                return $"-- [略過] {diff.ObjectName}：timestamp/rowversion 欄位不支援 ALTER COLUMN";
 
             var newLength = int.TryParse(diff.SourceValue, out var len) ? len : col.MaxLength;
             var dataType = newLength.HasValue ? $"{col.DataType}({newLength})" : col.DataType;

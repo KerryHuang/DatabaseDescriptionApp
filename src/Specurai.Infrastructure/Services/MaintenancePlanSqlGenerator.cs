@@ -355,7 +355,7 @@ public class MaintenancePlanSqlGenerator : IMaintenancePlanSqlGenerator
     {
         var sb = new StringBuilder();
         var dbName = EscapeSingleQuote(config.DatabaseName);
-        var jobName = $"{config.DatabaseName}_FullBackup";
+        var jobName = $"{config.DatabaseName}_{config.RecoveryModel}Backup";
         var escapedJobName = EscapeSingleQuote(jobName);
         var backupPath = EscapeSingleQuote(config.BackupPath);
 
@@ -423,7 +423,7 @@ public class MaintenancePlanSqlGenerator : IMaintenancePlanSqlGenerator
         sb.AppendLine($"-- 建立排程: 每日 {config.BackupTime / 10000:D2}:{config.BackupTime % 10000 / 100:D2} 執行");
         sb.AppendLine($"EXEC dbo.sp_add_jobschedule");
         sb.AppendLine($"    @job_name          = N'{escapedJobName}',");
-        sb.AppendLine($"    @name              = N'Nightly Full Backup Schedule',");
+        sb.AppendLine($"    @name              = N'{EscapeSingleQuote(jobName)}_Schedule',");
         sb.AppendLine($"    @freq_type         = 4,");
         sb.AppendLine($"    @freq_interval     = 1,");
         sb.AppendLine($"    @active_start_time = {config.BackupTime};");
@@ -512,7 +512,7 @@ public class MaintenancePlanSqlGenerator : IMaintenancePlanSqlGenerator
         sb.AppendLine($"-- 建立排程: 每日 {config.RestoreTime / 10000:D2}:{config.RestoreTime % 10000 / 100:D2} 執行");
         sb.AppendLine($"EXEC dbo.sp_add_jobschedule");
         sb.AppendLine($"    @job_name          = N'{escapedJobName}',");
-        sb.AppendLine($"    @name              = N'Nightly Full Restore Schedule',");
+        sb.AppendLine($"    @name              = N'{EscapeSingleQuote(jobName)}_Schedule',");
         sb.AppendLine($"    @freq_type         = 4,");
         sb.AppendLine($"    @freq_interval     = 1,");
         sb.AppendLine($"    @active_start_time = {config.RestoreTime};");
@@ -574,6 +574,9 @@ public class MaintenancePlanSqlGenerator : IMaintenancePlanSqlGenerator
         sb.AppendLine();
         sb.AppendLine("-- 每日還原排程時間（HHMMSS 格式，例如 30000 = 03:00:00）");
         sb.AppendLine($"DECLARE @RestoreTime INT = {config.RestoreTime};");
+        sb.AppendLine();
+        sb.AppendLine("-- 資料庫復原模式（用於備份 Job 命名）");
+        sb.AppendLine($"DECLARE @RecoveryModel NVARCHAR(20) = N'{EscapeSingleQuote(config.RecoveryModel)}';");
         sb.AppendLine();
 
         int stepNumber = 0;
@@ -841,7 +844,7 @@ public class MaintenancePlanSqlGenerator : IMaintenancePlanSqlGenerator
             sb.AppendLine("BEGIN TRY");
             sb.AppendLine("    USE [msdb];");
             sb.AppendLine();
-            sb.AppendLine("    DECLARE @jobName NVARCHAR(256) = @DatabaseName + N'_FullBackup';");
+            sb.AppendLine("    DECLARE @jobName NVARCHAR(256) = @DatabaseName + N'_' + @RecoveryModel + N'Backup';");
             sb.AppendLine();
 
             if (isRecreate)

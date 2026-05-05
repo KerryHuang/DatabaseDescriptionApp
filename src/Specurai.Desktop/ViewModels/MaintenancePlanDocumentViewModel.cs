@@ -178,6 +178,8 @@ public partial class MaintenancePlanDocumentViewModel : DocumentViewModel
     [ObservableProperty]
     private string _step2CheckStatus = string.Empty;
 
+    private string _currentRecoveryModel = "FULL";
+
     [ObservableProperty]
     private string _compatibilityLevelStatus = string.Empty;
 
@@ -511,6 +513,7 @@ public partial class MaintenancePlanDocumentViewModel : DocumentViewModel
             };
 
             var results = await _planService.CheckStepsAsync(allStepsConfig);
+            _currentRecoveryModel = await _planService.GetRecoveryModelAsync(DatabaseName);
 
             foreach (var r in results)
             {
@@ -654,6 +657,7 @@ public partial class MaintenancePlanDocumentViewModel : DocumentViewModel
             BackupTime = (int)BackupTime.TotalHours,
             RestoreTime = (int)RestoreTime.TotalHours,
             RetentionDays = RetentionDays,
+            RecoveryModel = _currentRecoveryModel,
             SelectedSteps = GetSelectedSteps()
         };
     }

@@ -298,4 +298,174 @@ public class SqlScriptGeneratorTests
         alterPos.Should().BeGreaterThan(dropPos);   // DROP 在 ALTER 前
         createPos.Should().BeGreaterThan(alterPos); // ALTER 在 RECREATE 前
     }
+
+    [Fact]
+    public void Generate_差異清單包含View與Table_腳本應先建Table再建View()
+    {
+        // Arrange
+        var baseSchema = new DatabaseSchema { ConnectionName = "基準環境" };
+        baseSchema.Tables.Add(new SchemaTable { Schema = "dbo", Name = "Orders",
+            Columns = { new SchemaColumn { Name = "Id", DataType = "INT", IsNullable = false } } });
+        baseSchema.Views.Add(new SchemaProgramObject
+        {
+            Schema = "dbo", Name = "vw_Orders", ObjectType = ProgramObjectType.View,
+            Definition = "CREATE VIEW [dbo].[vw_Orders] AS SELECT Id FROM [dbo].[Orders]"
+        });
+
+        // 差異清單刻意先放 View 再放 Table
+        var diffs = new List<SchemaDifference>
+        {
+            new() { ObjectType = SchemaObjectType.View,  ObjectName = "[dbo].[vw_Orders]", Schema = "dbo",
+                    DifferenceType = DifferenceType.Added, RiskLevel = RiskLevel.Low },
+            new() { ObjectType = SchemaObjectType.Table, ObjectName = "[dbo].[Orders]",    Schema = "dbo",
+                    DifferenceType = DifferenceType.Added, RiskLevel = RiskLevel.Low }
+        };
+
+        // Act
+        var script = _generator.Generate(diffs, baseSchema, "基準", "目標");
+
+        // Assert — Table 的 CREATE TABLE 應出現在 View 的 CREATE VIEW 前
+        var apply = script.ApplyScript;
+        var tablePos = apply.IndexOf("CREATE TABLE [dbo].[Orders]", StringComparison.Ordinal);
+        var viewPos  = apply.IndexOf("EXEC(N'CREATE VIEW", StringComparison.Ordinal);
+
+        tablePos.Should().BeGreaterThan(0);
+        viewPos.Should().BeGreaterThan(tablePos, "Table 必須在 View 之前建立");
+    }
+
+    [Fact]
+    public void Generate_View依賴另一個View_應先建立被依賴的View()
+    {
+        // Arrange
+        var baseSchema = new DatabaseSchema { ConnectionName = "基準環境" };
+        baseSchema.Views.Add(new SchemaProgramObject
+        {
+            Schema = "dbo", Name = "vw_Base", ObjectType = ProgramObjectType.View,
+            Definition = "CREATE VIEW [dbo].[vw_Base] AS SELECT 1 AS Id"
+        });
+        baseSchema.Views.Add(new SchemaProgramObject
+        {
+            Schema = "dbo", Name = "vw_Dependent", ObjectType = ProgramObjectType.View,
+            Definition = "CREATE VIEW [dbo].[vw_Dependent] AS SELECT Id FROM dbo.vw_Base"
+        });
+
+        // 差異清單刻意先放依賴方再放被依賴方
+        var diffs = new List<SchemaDifference>
+        {
+            new() { ObjectType = SchemaObjectType.View, ObjectName = "[dbo].[vw_Dependent]", Schema = "dbo",
+                    DifferenceType = DifferenceType.Added, RiskLevel = RiskLevel.Low },
+            new() { ObjectType = SchemaObjectType.View, ObjectName = "[dbo].[vw_Base]",      Schema = "dbo",
+                    DifferenceType = DifferenceType.Added, RiskLevel = RiskLevel.Low }
+        };
+
+        // Act
+        var script = _generator.Generate(diffs, baseSchema, "基準", "目標");
+
+        // Assert — vw_Base 必須在 vw_Dependent 之前出現
+        var apply = script.ApplyScript;
+        var basePos      = apply.IndexOf("vw_Base", StringComparison.Ordinal);
+        var dependentPos = apply.IndexOf("vw_Dependent", StringComparison.Ordinal);
+
+        basePos.Should().BeGreaterThan(0);
+        dependentPos.Should().BeGreaterThan(basePos, "被依賴的 vw_Base 必須先建立");
+    }
+
+    [Fact]
+    public void Generate_欄位改為NOT_NULL_應先UPDATE清除NULL值再ALTER()
+    {
+        // Arrange
+        var baseSchema = new DatabaseSchema { ConnectionName = "基準環境" };
+        var table = new SchemaTable { Schema = "dbo", Name = "Products" };
+        table.Columns.Add(new SchemaColumn { Name = "AMT1", DataType = "INT", IsNullable = false });
+        baseSchema.Tables.Add(table);
+
+        var diff = new SchemaDifference
+        {
+            ObjectType = SchemaObjectType.Column,
+            ObjectName = "[dbo].[Products].[AMT1]",
+            Schema = "dbo",
+            DifferenceType = DifferenceType.Modified,
+            PropertyName = "IsNullable",
+            SourceValue = "False",
+            RiskLevel = RiskLevel.Medium
+        };
+
+        // Act
+        var script = _generator.Generate([diff], baseSchema, "基準", "目標");
+
+        // Assert
+        var apply = script.ApplyScript;
+        var updatePos = apply.IndexOf("UPDATE [dbo].[Products] SET [AMT1] = 0 WHERE [AMT1] IS NULL", StringComparison.Ordinal);
+        var alterPos = apply.IndexOf("ALTER TABLE [dbo].[Products] ALTER COLUMN [AMT1]", StringComparison.Ordinal);
+
+        updatePos.Should().BeGreaterThan(0, "必須先 UPDATE 清除 NULL 值");
+        alterPos.Should().BeGreaterThan(updatePos, "UPDATE 必須在 ALTER COLUMN 之前");
+    }
+
+    [Fact]
+    public void Generate_欄位只改長度而非Nullable_不應產生UPDATE語句()
+    {
+        // Arrange
+        var baseSchema = CreateBaseSchema();
+
+        var diff = new SchemaDifference
+        {
+            ObjectType = SchemaObjectType.Column,
+            ObjectName = "[dbo].[Products].[Name]",
+            Schema = "dbo",
+            DifferenceType = DifferenceType.Modified,
+            PropertyName = "MaxLength",
+            SourceValue = "500",
+            RiskLevel = RiskLevel.Medium
+        };
+
+        // Act
+        var script = _generator.Generate([diff], baseSchema, "基準", "目標");
+
+        // Assert — 只改長度不應有 UPDATE
+        script.ApplyScript.Should().NotContain("UPDATE [dbo].[Products] SET [Name]");
+        script.ApplyScript.Should().Contain("ALTER TABLE [dbo].[Products] ALTER COLUMN [Name] NVARCHAR(500)");
+    }
+
+    [Fact]
+    public void Generate_欄位改為NOT_NULL且有索引_應先UPDATE再DROP再ALTER再RECREATE()
+    {
+        // Arrange
+        var baseSchema = new DatabaseSchema { ConnectionName = "基準環境" };
+        var table = new SchemaTable { Schema = "dbo", Name = "Orders" };
+        table.Columns.Add(new SchemaColumn { Name = "STATUS", DataType = "INT", IsNullable = false });
+        table.Indexes.Add(new SchemaIndex
+        {
+            Name = "IX_STATUS",
+            IsClustered = false,
+            IsUnique = false,
+            Columns = ["STATUS"]
+        });
+        baseSchema.Tables.Add(table);
+
+        var diff = new SchemaDifference
+        {
+            ObjectType = SchemaObjectType.Column,
+            ObjectName = "[dbo].[Orders].[STATUS]",
+            Schema = "dbo",
+            DifferenceType = DifferenceType.Modified,
+            PropertyName = "IsNullable",
+            RiskLevel = RiskLevel.Medium
+        };
+
+        // Act
+        var script = _generator.Generate([diff], baseSchema, "基準", "目標");
+
+        // Assert
+        var apply = script.ApplyScript;
+        var updatePos = apply.IndexOf("UPDATE [dbo].[Orders] SET [STATUS] = 0 WHERE [STATUS] IS NULL", StringComparison.Ordinal);
+        var dropPos = apply.IndexOf("DROP INDEX [IX_STATUS]", StringComparison.Ordinal);
+        var alterPos = apply.IndexOf("ALTER TABLE [dbo].[Orders] ALTER COLUMN [STATUS]", StringComparison.Ordinal);
+        var createPos = apply.IndexOf("CREATE NONCLUSTERED INDEX [IX_STATUS]", StringComparison.Ordinal);
+
+        updatePos.Should().BeGreaterThan(0);
+        dropPos.Should().BeGreaterThan(updatePos);  // UPDATE 在 DROP 前
+        alterPos.Should().BeGreaterThan(dropPos);   // DROP 在 ALTER 前
+        createPos.Should().BeGreaterThan(alterPos); // ALTER 在 RECREATE 前
+    }
 }

@@ -175,7 +175,8 @@ public class MaintenancePlanServiceTests
     {
         // Arrange
         var config = CreateConfig([MaintenancePlanStep.CreateBackupJob]);
-        _dbInfoRepo.AgentJobExistsAsync("TestDB_FullBackup", Arg.Any<CancellationToken>()).Returns(true);
+        _dbInfoRepo.GetRecoveryModelAsync("TestDB", Arg.Any<CancellationToken>()).Returns("FULL");
+        _dbInfoRepo.AgentJobExistsAsync("TestDB_FULLBackup", Arg.Any<CancellationToken>()).Returns(true);
 
         // Act
         var results = await _sut.CheckStepsAsync(config);

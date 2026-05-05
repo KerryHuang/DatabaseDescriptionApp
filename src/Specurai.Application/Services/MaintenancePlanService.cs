@@ -43,20 +43,28 @@ public class MaintenancePlanService : IMaintenancePlanService
     }
 
     /// <inheritdoc />
+    public Task<string> GetRecoveryModelAsync(string databaseName, CancellationToken ct = default)
+        => _dbInfoRepo.GetRecoveryModelAsync(databaseName, ct);
+
+    /// <inheritdoc />
     public async Task<IReadOnlyList<StepCheckResult>> CheckStepsAsync(MaintenancePlanConfig config, CancellationToken ct = default)
     {
         var results = new List<StepCheckResult>();
+        string? recoveryModel = null;
+
+        async Task<string> GetRecoveryModel() =>
+            recoveryModel ??= await _dbInfoRepo.GetRecoveryModelAsync(config.DatabaseName, ct);
 
         foreach (var step in config.SelectedSteps)
         {
             var result = step switch
             {
                 MaintenancePlanStep.SetCompatibilityLevel => await CheckCompatibilityLevelAsync(config, ct),
-                MaintenancePlanStep.SetRecoveryModel => await CheckRecoveryModelAsync(config, ct),
+                MaintenancePlanStep.SetRecoveryModel => await CheckRecoveryModelAsync(config, await GetRecoveryModel()),
                 MaintenancePlanStep.RenameLogicalFiles => await CheckLogicalFilesAsync(config, ct),
                 MaintenancePlanStep.CreateLoginAndUser => await CheckLoginAndUserAsync(config, ct),
                 MaintenancePlanStep.AddToDbOwner => await CheckDbOwnerAsync(config, ct),
-                MaintenancePlanStep.CreateBackupJob => await CheckJobAsync(config, MaintenancePlanStep.CreateBackupJob, $"{config.DatabaseName}_FullBackup", ct),
+                MaintenancePlanStep.CreateBackupJob => await CheckJobAsync(config, MaintenancePlanStep.CreateBackupJob, $"{config.DatabaseName}_{await GetRecoveryModel()}Backup", ct),
                 MaintenancePlanStep.CreateRestoreJob => await CheckJobAsync(config, MaintenancePlanStep.CreateRestoreJob, $"{config.DatabaseName}_FullRestore", ct),
                 _ => throw new ArgumentOutOfRangeException(nameof(step), step, "未知的維護計劃步驟")
             };
@@ -147,17 +155,16 @@ public class MaintenancePlanService : IMaintenancePlanService
         };
     }
 
-    private async Task<StepCheckResult> CheckRecoveryModelAsync(MaintenancePlanConfig config, CancellationToken ct)
+    private static Task<StepCheckResult> CheckRecoveryModelAsync(MaintenancePlanConfig config, string model)
     {
-        var model = await _dbInfoRepo.GetRecoveryModelAsync(config.DatabaseName, ct);
         var alreadySimple = model == "SIMPLE";
-        return new StepCheckResult
+        return Task.FromResult(new StepCheckResult
         {
             Step = MaintenancePlanStep.SetRecoveryModel,
             AlreadyExists = alreadySimple,
             CurrentStatus = $"目前復原模式：{model}",
             AvailableActions = alreadySimple ? ["跳過"] : ["執行", "跳過"]
-        };
+        });
     }
 
     private async Task<StepCheckResult> CheckLogicalFilesAsync(MaintenancePlanConfig config, CancellationToken ct)

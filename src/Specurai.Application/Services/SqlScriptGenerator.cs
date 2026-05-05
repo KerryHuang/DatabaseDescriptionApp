@@ -78,7 +78,8 @@ public class SqlScriptGenerator : ISqlScriptGenerator
         DatabaseSchema baseSchema,
         Dictionary<(string Schema, string Name, SchemaObjectType Type), SchemaProgramObject> programObjectLookup)
     {
-        foreach (var diff in diffs)
+        var ordered = OrderDiffs(diffs, programObjectLookup);
+        foreach (var diff in ordered)
         {
             var sql = GenerateSqlForDifference(diff, baseSchema, programObjectLookup);
             if (!string.IsNullOrWhiteSpace(sql))
@@ -88,6 +89,83 @@ public class SqlScriptGenerator : ISqlScriptGenerator
                 sb.AppendLine();
             }
         }
+    }
+
+    /// <summary>
+    /// 依物件類型與依賴關係排序差異清單：
+    /// 資料表 → 欄位/索引/約束 → View（拓撲排序）→ StoredProcedure/Function/Trigger
+    /// </summary>
+    private static IEnumerable<SchemaDifference> OrderDiffs(
+        IList<SchemaDifference> diffs,
+        Dictionary<(string, string, SchemaObjectType), SchemaProgramObject> programObjectLookup)
+    {
+        // 階段 1：資料表
+        var tables = diffs.Where(d => d.ObjectType == SchemaObjectType.Table);
+        // 階段 2a：新增欄位（必須在 ALTER COLUMN 之前，避免 RECREATE INDEX 時參考尚未存在的欄位）
+        var columnsAdded    = diffs.Where(d => d.ObjectType == SchemaObjectType.Column && d.DifferenceType == DifferenceType.Added);
+        // 階段 2b：修改欄位（含 DROP/ALTER/RECREATE INDEX，此時新欄位已存在）
+        var columnsModified = diffs.Where(d => d.ObjectType == SchemaObjectType.Column && d.DifferenceType != DifferenceType.Added);
+        var indexes         = diffs.Where(d => d.ObjectType == SchemaObjectType.Index);
+        var constraints     = diffs.Where(d => d.ObjectType == SchemaObjectType.Constraint);
+        var tableChildren   = columnsAdded.Concat(columnsModified).Concat(indexes).Concat(constraints);
+        // 階段 3：View（需拓撲排序）
+        var views = TopologicalSortViews(
+            diffs.Where(d => d.ObjectType == SchemaObjectType.View).ToList(),
+            programObjectLookup);
+        // 階段 4：其餘程式物件
+        var others = diffs.Where(d =>
+            d.ObjectType is SchemaObjectType.StoredProcedure or SchemaObjectType.Function or SchemaObjectType.Trigger);
+
+        return tables.Concat(tableChildren).Concat(views).Concat(others);
+    }
+
+    /// <summary>
+    /// 對 View 差異清單做拓撲排序，確保被依賴的 View 先建立
+    /// </summary>
+    private static IEnumerable<SchemaDifference> TopologicalSortViews(
+        IList<SchemaDifference> viewDiffs,
+        Dictionary<(string, string, SchemaObjectType), SchemaProgramObject> programObjectLookup)
+    {
+        if (viewDiffs.Count == 0) return viewDiffs;
+
+        // 建立 objectName → diff 的快速查找（去除括號，大小寫不分）
+        var byName = viewDiffs.ToDictionary(
+            d => d.ObjectName.Replace("[", "").Replace("]", "").ToUpperInvariant(),
+            d => d);
+
+        var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var result = new List<SchemaDifference>();
+
+        void Visit(SchemaDifference diff)
+        {
+            var key = diff.ObjectName.Replace("[", "").Replace("]", "").ToUpperInvariant();
+            if (!visited.Add(key)) return;
+
+            // 找出此 View 的 definition，掃描其中引用了哪些同批次的 View
+            if (programObjectLookup.TryGetValue((diff.Schema, ParseTwoParts(diff.ObjectName).name, SchemaObjectType.View), out var obj)
+                && obj.Definition != null)
+            {
+                foreach (var dep in byName.Keys)
+                {
+                    if (dep == key) continue;
+                    // 以 dot-notation 檢查 definition 是否包含依賴 View 名稱
+                    var depParts = dep.Split('.');
+                    if (depParts.Length >= 2)
+                    {
+                        var searchPattern = depParts[^2] + "." + depParts[^1];
+                        if (obj.Definition.Contains(searchPattern, StringComparison.OrdinalIgnoreCase))
+                            Visit(byName[dep]);
+                    }
+                }
+            }
+
+            result.Add(diff);
+        }
+
+        foreach (var diff in viewDiffs)
+            Visit(diff);
+
+        return result;
     }
 
     private static Dictionary<(string, string, SchemaObjectType), SchemaProgramObject> BuildProgramObjectLookup(
@@ -200,8 +278,12 @@ public class SqlScriptGenerator : ISqlScriptGenerator
                 col.DataType.Equals("rowversion", StringComparison.OrdinalIgnoreCase))
                 return $"-- [略過] {diff.ObjectName}：timestamp/rowversion 欄位不支援 ALTER COLUMN";
 
+            // DefaultValue 變更不用 ALTER COLUMN，改用 DROP CONSTRAINT + ADD DEFAULT
+            if ("DefaultValue".Equals(diff.PropertyName, StringComparison.OrdinalIgnoreCase))
+                return GenerateDefaultValueChangeSql(schema, tableName, columnName, col.DefaultValue);
+
             var newLength = int.TryParse(diff.SourceValue, out var len) ? len : col.MaxLength;
-            var dataType = newLength.HasValue ? $"{col.DataType}({newLength})" : col.DataType;
+            var dataType = newLength.HasValue ? $"{col.DataType}({newLength})" : col.GetFullDataType();
             var nullable = col.IsNullable ? "NULL" : "NOT NULL";
 
             // 若欄位有相依索引，需先 DROP 再 ALTER COLUMN 再 RECREATE
@@ -210,12 +292,26 @@ public class SqlScriptGenerator : ISqlScriptGenerator
                               idx.IncludeColumns.Any(c => c.Equals(columnName, StringComparison.OrdinalIgnoreCase)))
                 .ToList() ?? [];
 
-            if (dependentIndexes.Count == 0)
-                return $"ALTER TABLE [{schema}].[{tableName}] ALTER COLUMN [{columnName}] {dataType} {nullable};";
-
             var sb = new StringBuilder();
+
+            // 僅在 IsNullable 屬性變更為 NOT NULL 時才需要先清除 NULL 值
+            // 若只是改長度（PropertyName = "MaxLength"），欄位本就不允許 NULL，不需要 UPDATE
+            if (!col.IsNullable && "IsNullable".Equals(diff.PropertyName, StringComparison.OrdinalIgnoreCase))
+            {
+                var fillValue = GetNotNullFillValue(col.DataType);
+                // 用 EXEC() 延遲編譯，避免 SQL Server 在欄位尚未存在時就拋出編譯期錯誤
+                // COL_LENGTH 不使用括號以確保正確解析資料表名稱
+                var updateSql = $"UPDATE [{schema}].[{tableName}] SET [{columnName}] = {fillValue} WHERE [{columnName}] IS NULL"
+                    .Replace("'", "''");
+                sb.AppendLine($"IF COL_LENGTH(N'{schema}.{tableName}', N'{columnName}') IS NOT NULL");
+                sb.AppendLine($"    EXEC(N'{updateSql}');");
+            }
+
             foreach (var idx in dependentIndexes)
-                sb.AppendLine($"DROP INDEX [{idx.Name}] ON [{schema}].[{tableName}];");
+            {
+                sb.AppendLine($"IF EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'{idx.Name}' AND object_id = OBJECT_ID(N'[{schema}].[{tableName}]'))");
+                sb.AppendLine($"    DROP INDEX [{idx.Name}] ON [{schema}].[{tableName}];");
+            }
 
             sb.AppendLine($"ALTER TABLE [{schema}].[{tableName}] ALTER COLUMN [{columnName}] {dataType} {nullable};");
 
@@ -228,7 +324,14 @@ public class SqlScriptGenerator : ISqlScriptGenerator
                     ? $" INCLUDE ({string.Join(", ", idx.IncludeColumns.Select(c => $"[{c}]"))})"
                     : string.Empty;
                 var filter = string.IsNullOrEmpty(idx.FilterDefinition) ? string.Empty : $" WHERE {idx.FilterDefinition}";
-                sb.Append($"CREATE {unique}{clustered}INDEX [{idx.Name}] ON [{schema}].[{tableName}] ({cols}){include}{filter};");
+                // 若索引欄位（或 INCLUDE 欄位）在目標資料庫尚未存在（例如未選取該欄位差異），跳過重建以防止執行錯誤
+                var allIdxCols = idx.Columns.Concat(idx.IncludeColumns)
+                    .Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+                var colChecks = string.Join($"{Environment.NewLine}       AND ",
+                    allIdxCols.Select(c => $"COL_LENGTH(N'{schema}.{tableName}', N'{c}') IS NOT NULL"));
+                sb.AppendLine($"IF {colChecks}");
+                sb.AppendLine($"   AND NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'{idx.Name}' AND object_id = OBJECT_ID(N'[{schema}].[{tableName}]'))");
+                sb.Append($"    CREATE {unique}{clustered}INDEX [{idx.Name}] ON [{schema}].[{tableName}] ({cols}){include}{filter};");
             }
 
             return sb.ToString();
@@ -314,6 +417,44 @@ public class SqlScriptGenerator : ISqlScriptGenerator
 
         return string.Empty;
     }
+
+    /// <summary>
+    /// 產生修改預設值的 T-SQL：先動態 DROP 現有 DEFAULT 約束，再 ADD DEFAULT
+    /// </summary>
+    private static string GenerateDefaultValueChangeSql(
+        string schema, string tableName, string columnName, string? newDefault)
+    {
+        // 整段包在 EXEC() 內以形成獨立變數作用域，避免多欄位同名時 DECLARE 重複衝突
+        var innerSql = $"DECLARE @dc NVARCHAR(200); " +
+                       $"SELECT @dc = name FROM sys.default_constraints " +
+                       $"WHERE parent_object_id = OBJECT_ID(N''[{schema}].[{tableName}]'') " +
+                       $"  AND parent_column_id = COLUMNPROPERTY(OBJECT_ID(N''[{schema}].[{tableName}]''), N''{columnName}'', ''ColumnId''); " +
+                       $"IF @dc IS NOT NULL " +
+                       $"    EXEC(N''ALTER TABLE [{schema}].[{tableName}] DROP CONSTRAINT ['' + @dc + '']'');";
+
+        var sb = new StringBuilder();
+        sb.AppendLine($"EXEC(N'{innerSql}');");
+
+        if (!string.IsNullOrEmpty(newDefault))
+            sb.Append($"ALTER TABLE [{schema}].[{tableName}] ADD DEFAULT {newDefault} FOR [{columnName}];");
+
+        return sb.ToString().TrimEnd();
+    }
+
+    private static string GetNotNullFillValue(string dataType) => dataType.ToUpperInvariant() switch
+    {
+        "TINYINT" or "SMALLINT" or "INT" or "BIGINT"
+            or "DECIMAL" or "NUMERIC" or "MONEY" or "SMALLMONEY"
+            or "FLOAT" or "REAL" or "BIT" => "0",
+        "NVARCHAR" or "VARCHAR" or "CHAR" or "NCHAR"
+            or "TEXT" or "NTEXT" => "N''",
+        "DATETIME" or "DATETIME2" or "SMALLDATETIME" or "DATE" or "TIME"
+            or "DATETIMEOFFSET" => "'19000101'",
+        "UNIQUEIDENTIFIER" => "'00000000-0000-0000-0000-000000000000'",
+        "BINARY" or "VARBINARY" or "IMAGE" => "0x00",
+        // xml、geography、geometry 等複雜型別無法自動填充，需人工處理
+        _ => "NULL /* TODO: 請手動指定此型別的預設填充值 */"
+    };
 
     private static (string schema, string name) ParseTwoParts(string objectName)
     {

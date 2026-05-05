@@ -31,6 +31,13 @@ public interface IMaintenancePlanService
     Task ExecutePlanAsync(MaintenancePlanConfig config, IReadOnlyList<StepCheckResult> checkResults, IProgress<string>? progress = null, CancellationToken ct = default);
 
     /// <summary>
+    /// 取得資料庫的復原模式
+    /// </summary>
+    /// <param name="databaseName">資料庫名稱</param>
+    /// <param name="ct">取消權杖</param>
+    Task<string> GetRecoveryModelAsync(string databaseName, CancellationToken ct = default);
+
+    /// <summary>
     /// 產生預覽 SQL
     /// </summary>
     /// <param name="config">維護計劃設定</param>

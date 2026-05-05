@@ -497,6 +497,7 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
                     MigrationLogStatus.Failed => "❌",
                     MigrationLogStatus.Skipped => "⏭️",
                     MigrationLogStatus.HighRisk => "⚠️",
+                    MigrationLogStatus.RolledBack => "↩️",
                     _ => "?"
                 };
                 await writer.WriteLineAsync(

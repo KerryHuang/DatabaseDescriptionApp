@@ -23,5 +23,10 @@ public enum MigrationLogStatus
     /// <summary>
     /// 高風險，不執行
     /// </summary>
-    HighRisk = 3
+    HighRisk = 3,
+
+    /// <summary>
+    /// 因前一條語句失敗而自動回滾，本身未執行
+    /// </summary>
+    RolledBack = 4
 }

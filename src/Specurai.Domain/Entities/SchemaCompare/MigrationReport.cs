@@ -53,6 +53,11 @@ public class MigrationReport
     public bool IsDryRun { get; set; }
 
     /// <summary>
+    /// 失敗時：實際造成錯誤的 SQL 語句（從腳本行號提取）
+    /// </summary>
+    public string? FailedStatement { get; set; }
+
+    /// <summary>
     /// 成功執行的筆數
     /// </summary>
     public int SuccessCount => Entries.Count(e => e.Status == MigrationLogStatus.Success);

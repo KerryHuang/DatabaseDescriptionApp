@@ -62,6 +62,46 @@ public class SchemaMigrationDocumentViewModelTests
     }
 
     [Fact]
+    public void Constructor_有IsDefault連線_ConnectionProfiles應包含IsDefault連線()
+    {
+        // Arrange
+        var defaultProfile = new ConnectionProfile { Name = "正式環境", Server = "prod", Database = "ProdDb", IsDefault = true };
+        var profiles = new List<ConnectionProfile>
+        {
+            new() { Name = "Anchiao-Staging", Server = "other", Database = "OtherDb", IsDefault = false },
+            defaultProfile
+        };
+        _connectionManager.GetAllProfiles().Returns(profiles);
+
+        // Act
+        var vm = new SchemaMigrationDocumentViewModel(
+            _migrationService, _scriptGenerator, _executor, _connectionManager);
+
+        // Assert — SelectedBaseProfile 由 Dispatcher.UIThread.Post 設定，此處驗證連線清單正確載入
+        vm.ConnectionProfiles.Should().HaveCount(2);
+        vm.ConnectionProfiles.Should().Contain(p => p.IsDefault);
+    }
+
+    [Fact]
+    public void Constructor_無IsDefault連線_ConnectionProfiles應正確載入()
+    {
+        // Arrange
+        var profiles = new List<ConnectionProfile>
+        {
+            new() { Name = "開發環境", Server = "localhost", Database = "DevDb", IsDefault = false },
+            new() { Name = "其他環境", Server = "other", Database = "OtherDb", IsDefault = false }
+        };
+        _connectionManager.GetAllProfiles().Returns(profiles);
+
+        // Act
+        var vm = new SchemaMigrationDocumentViewModel(
+            _migrationService, _scriptGenerator, _executor, _connectionManager);
+
+        // Assert
+        vm.ConnectionProfiles.Should().HaveCount(2);
+    }
+
+    [Fact]
     public void ExecuteMigrationCommand_無選取差異_應無法執行()
     {
         // Arrange

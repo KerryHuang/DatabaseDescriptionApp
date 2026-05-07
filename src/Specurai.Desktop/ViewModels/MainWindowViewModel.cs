@@ -154,12 +154,14 @@ public partial class MainWindowViewModel : ViewModelBase
 
         RefreshFilteredProfiles();
 
-        // 選擇目前的連線
-        var currentProfile = _connectionManager?.GetCurrentProfile();
-        if (currentProfile != null)
+        // 預設選取：優先使用標記為預設（IsDefault）的連線，
+        // 若無則退回使用上次使用的連線（GetCurrentProfile）
+        var defaultProfile = ConnectionProfiles.FirstOrDefault(p => p.IsDefault)
+                           ?? _connectionManager?.GetCurrentProfile();
+        if (defaultProfile != null)
         {
-            SelectedProfile = FilteredConnectionProfiles.FirstOrDefault(p => p.Id == currentProfile.Id)
-                           ?? ConnectionProfiles.FirstOrDefault(p => p.Id == currentProfile.Id);
+            SelectedProfile = FilteredConnectionProfiles.FirstOrDefault(p => p.Id == defaultProfile.Id)
+                           ?? ConnectionProfiles.FirstOrDefault(p => p.Id == defaultProfile.Id);
             IsConnected = true;
         }
         else

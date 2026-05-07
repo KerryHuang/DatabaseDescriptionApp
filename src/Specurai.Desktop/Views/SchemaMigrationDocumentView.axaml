@@ -12,7 +12,7 @@
         <vm:SchemaMigrationDocumentViewModel/>
     </Design.DataContext>
 
-    <Grid RowDefinitions="Auto,Auto,Auto,*,Auto,Auto">
+    <Grid RowDefinitions="Auto,Auto,Auto,*,Auto,Auto,Auto">
 
         <!-- 工具列：連線選擇 + 操作按鈕 -->
         <Border Grid.Row="0"
@@ -201,7 +201,7 @@
         <!-- 分析建議報告 -->
         <Expander Grid.Row="2"
                   Header="📋 分析建議報告"
-                  IsExpanded="True"
+                  IsExpanded="False"
                   IsVisible="{Binding AnalysisReport, Converter={x:Static ObjectConverters.IsNotNull}}"
                   MaxHeight="220">
             <Grid RowDefinitions="Auto,*">
@@ -330,8 +330,33 @@
             </Grid>
         </Border>
 
-        <!-- 狀態列 -->
+        <!-- 錯誤詳情面板（執行失敗時顯示，可捲動、可複製）-->
         <Border Grid.Row="5"
+                IsVisible="{Binding IsErrorVisible}"
+                BorderBrush="#CC3333"
+                BorderThickness="0,1,0,0"
+                Background="#1A330000">
+            <Grid RowDefinitions="Auto,*">
+                <Border Grid.Row="0" Padding="10,4"
+                        Background="#33660000">
+                    <TextBlock Text="❌ 錯誤詳情（可選取複製）"
+                               FontWeight="Bold"
+                               Foreground="#FF6666"
+                               FontSize="12"/>
+                </Border>
+                <ScrollViewer Grid.Row="1" MaxHeight="160" HorizontalScrollBarVisibility="Auto">
+                    <SelectableTextBlock Text="{Binding ErrorDetail}"
+                                         Padding="10,6"
+                                         FontFamily="Consolas,Menlo,monospace"
+                                         FontSize="12"
+                                         Foreground="#FFAAAA"
+                                         TextWrapping="Wrap"/>
+                </ScrollViewer>
+            </Grid>
+        </Border>
+
+        <!-- 狀態列 -->
+        <Border Grid.Row="6"
                 Padding="10,5"
                 Background="{DynamicResource SystemControlBackgroundChromeLowBrush}">
             <StackPanel Orientation="Horizontal" Spacing="10">
@@ -341,7 +366,13 @@
                 <ProgressBar IsIndeterminate="True"
                              IsVisible="{Binding IsExecuting}"
                              Width="100" Height="8"/>
-                <SelectableTextBlock Text="{Binding StatusMessage}" VerticalAlignment="Center" FontSize="12"/>
+                <SelectableTextBlock Text="{Binding ExecutionProgress}"
+                                     IsVisible="{Binding IsExecuting}"
+                                     VerticalAlignment="Center" FontSize="12"
+                                     FontWeight="SemiBold"/>
+                <SelectableTextBlock Text="{Binding StatusMessage}"
+                                     IsVisible="{Binding !IsExecuting}"
+                                     VerticalAlignment="Center" FontSize="12"/>
             </StackPanel>
         </Border>
 

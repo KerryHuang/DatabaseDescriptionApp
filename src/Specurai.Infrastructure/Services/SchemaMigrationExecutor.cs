@@ -46,7 +46,7 @@ public class SchemaMigrationExecutor : ISchemaMigrationExecutor
             // Dry Run 使用 DryRunScript（腳本內部強制 ROLLBACK），不需外層包 ADO.NET transaction
             // 避免巢狀 transaction 造成 @@TRANCOUNT 計數混亂
             await using var command = new SqlCommand(sqlToRun, connection);
-            command.CommandTimeout = 300;
+            command.CommandTimeout = 600;
             await command.ExecuteNonQueryAsync(ct);
 
             sw.Stop();
@@ -66,11 +66,10 @@ public class SchemaMigrationExecutor : ISchemaMigrationExecutor
             report.IsSuccess = false;
             report.ErrorMessage = ex.Message;
 
-            // 從 SqlException 行號提取失敗語句，幫助診斷根因
+            // 從 SqlException 行號提取失敗語句，幫助診斷根因（分開儲存，避免重複顯示）
             if (ex is SqlException sqlEx && sqlEx.LineNumber > 0)
             {
-                report.FailedStatement = ExtractFailingStatement(sqlToRun, sqlEx.LineNumber);
-                report.ErrorMessage = $"{sqlEx.Message}\n\n▶ 失敗語句（第 {sqlEx.LineNumber} 行）：\n{report.FailedStatement}";
+                report.FailedStatement = $"第 {sqlEx.LineNumber} 行附近：\n{ExtractFailingStatement(sqlToRun, sqlEx.LineNumber)}";
             }
 
             var pending = report.Entries.Where(e => e.Status == MigrationLogStatus.Success).ToList();

@@ -46,6 +46,13 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
     private bool _isExecuting;
 
     [ObservableProperty]
+    private string _executionProgress = string.Empty;
+
+    private System.Threading.Timer? _elapsedTimer;
+    private System.Diagnostics.Stopwatch? _executionStopwatch;
+    private int _executionTotalCount;
+
+    [ObservableProperty]
     private string _statusMessage = "請選擇基準資料庫與目標資料庫";
 
     [ObservableProperty]
@@ -110,7 +117,16 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
         ConnectionProfiles.Clear();
         foreach (var profile in _connectionManager?.GetAllProfiles() ?? [])
             ConnectionProfiles.Add(profile);
+
+        // 預設選取主頁目前的連線；若無則使用標記為預設的連線
+        var currentProfile = _connectionManager?.GetCurrentProfile();
+        SelectedBaseProfile = (currentProfile != null
+            ? ConnectionProfiles.FirstOrDefault(p => p.Id == currentProfile.Id)
+            : null)
+            ?? ConnectionProfiles.FirstOrDefault(p => p.IsDefault)
+            ?? ConnectionProfiles.FirstOrDefault();
     }
+
 
     [RelayCommand(CanExecute = nameof(CanAnalyze))]
     private async Task AnalyzeAsync()
@@ -157,6 +173,7 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
             AnalysisReport = _currentAnalysis.GenerateReport();
             RebuildDifferenceTypeFilters();
             RebuildSchemaFilters();
+            ApplyDefaultObjectTypeFilter();
             ApplyFilter();
 
             var total = DifferenceRows.Count;
@@ -205,6 +222,37 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
             f.SelectionChanged += _ => ApplyFilter();
     }
 
+    private void StartElapsedTimer(int totalCount, string label)
+    {
+        _executionTotalCount = totalCount;
+        _executionStopwatch = System.Diagnostics.Stopwatch.StartNew();
+        _elapsedTimer = new System.Threading.Timer(_ =>
+        {
+            var elapsed = _executionStopwatch?.Elapsed ?? TimeSpan.Zero;
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                ExecutionProgress = $"{label}：共 {_executionTotalCount} 項｜已等待 {elapsed.TotalSeconds:F0} 秒");
+        }, null, 0, 500);
+    }
+
+    private void StopElapsedTimer()
+    {
+        _elapsedTimer?.Dispose();
+        _elapsedTimer = null;
+        _executionStopwatch?.Stop();
+        _executionStopwatch = null;
+        ExecutionProgress = string.Empty;
+    }
+
+    private static readonly HashSet<string> DefaultDiffTypeSelection = ["新增", "MaxLength"];
+    private static readonly HashSet<string> DefaultObjectTypeSelection = ["欄位"];
+
+    private void ApplyDefaultObjectTypeFilter()
+    {
+        // 分析完成後重設物件類型篩選為「欄位」，讓使用者聚焦在最常見的差異
+        foreach (var f in ObjectTypeFilters)
+            f.IsSelected = DefaultObjectTypeSelection.Contains(f.Label);
+    }
+
     private void RebuildDifferenceTypeFilters()
     {
         var labels = DifferenceRows
@@ -214,8 +262,12 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
             .ToArray();
         DifferenceTypeFilters = CreateFilters(labels);
         foreach (var f in DifferenceTypeFilters)
+        {
+            f.IsSelected = DefaultDiffTypeSelection.Contains(f.Label);
             f.SelectionChanged += _ => ApplyFilter();
-        DifferenceTypeFilterLabel = "差異類型 ▾";
+        }
+        var count = DifferenceTypeFilters.Count(f => f.IsSelected);
+        DifferenceTypeFilterLabel = count == 0 ? "差異類型 ▾" : $"差異類型（{count}）▾";
     }
 
     private void RebuildSchemaFilters()
@@ -289,7 +341,27 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
     }
 
     partial void OnLastReportChanged(MigrationReport? value)
-        => OnPropertyChanged(nameof(ReportTitle));
+    {
+        OnPropertyChanged(nameof(ReportTitle));
+        OnPropertyChanged(nameof(ErrorDetail));
+        OnPropertyChanged(nameof(IsErrorVisible));
+    }
+
+    public string? ErrorDetail
+    {
+        get
+        {
+            if (LastReport == null || LastReport.IsSuccess) return null;
+            var parts = new List<string>();
+            if (!string.IsNullOrEmpty(LastReport.ErrorMessage))
+                parts.Add(LastReport.ErrorMessage);
+            if (!string.IsNullOrEmpty(LastReport.FailedStatement))
+                parts.Add($"▶ 失敗語句：\n{LastReport.FailedStatement}");
+            return parts.Count > 0 ? string.Join("\n\n", parts) : null;
+        }
+    }
+
+    public bool IsErrorVisible => !string.IsNullOrEmpty(ErrorDetail);
 
     partial void OnAnalysisReportChanged(string? value)
         => DownloadAnalysisReportCommand.NotifyCanExecuteChanged();
@@ -320,7 +392,8 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
         }
 
         IsExecuting = true;
-        StatusMessage = $"正在 Dry Run（共 {selected.Count} 項，不會實際提交）...";
+        StatusMessage = "正在 Dry Run（不會實際提交）...";
+        StartElapsedTimer(selected.Count, "Dry Run 中");
 
         try
         {
@@ -335,14 +408,15 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
 
             StatusMessage = LastReport.IsSuccess
                 ? $"Dry Run 通過：腳本語法正確，共 {LastReport.SuccessCount} 項（已自動回滾，無實際變更）"
-                : $"Dry Run 失敗：{LastReport.ErrorMessage}";
+                : $"Dry Run 失敗：{FirstLine(LastReport.ErrorMessage)}";
         }
         catch (Exception ex)
         {
-            StatusMessage = $"Dry Run 失敗：{ex.Message}";
+            StatusMessage = $"Dry Run 失敗：{FirstLine(ex.Message)}";
         }
         finally
         {
+            StopElapsedTimer();
             IsExecuting = false;
             DownloadReportCommand.NotifyCanExecuteChanged();
         }
@@ -368,7 +442,8 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
         }
 
         IsExecuting = true;
-        StatusMessage = $"正在執行 Migration（共 {selected.Count} 項）...";
+        StatusMessage = "正在執行 Migration...";
+        StartElapsedTimer(selected.Count, "Migration 中");
 
         try
         {
@@ -383,14 +458,15 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
 
             StatusMessage = LastReport.IsSuccess
                 ? $"Migration 完成：{LastReport.SuccessCount} 項成功，{LastReport.SkippedCount} 項略過"
-                : $"Migration 失敗（已自動回滾）：{LastReport.ErrorMessage}";
+                : $"Migration 失敗（已自動回滾）：{FirstLine(LastReport.ErrorMessage)}";
         }
         catch (Exception ex)
         {
-            StatusMessage = $"執行失敗：{ex.Message}";
+            StatusMessage = $"執行失敗：{FirstLine(ex.Message)}";
         }
         finally
         {
+            StopElapsedTimer();
             IsExecuting = false;
             DownloadReportCommand.NotifyCanExecuteChanged();
         }
@@ -539,6 +615,9 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
     }
 
     private bool CanDownloadAnalysisReport() => AnalysisReport != null;
+
+    private static string FirstLine(string? message) =>
+        string.IsNullOrEmpty(message) ? string.Empty : message.Split('\n')[0].Trim();
 
     public string ReportTitle => LastReport?.IsDryRun == true
         ? "🧪 Dry Run 報告（未實際提交）"

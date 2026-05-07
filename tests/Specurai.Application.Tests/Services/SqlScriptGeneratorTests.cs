@@ -288,9 +288,9 @@ public class SqlScriptGeneratorTests
         // Act
         var script = _generator.Generate([diff], baseSchema, "基準", "目標");
 
-        // Assert
+        // Assert：動態 DROP 索引現在包在 EXEC(N'... DROP INDEX ...') 內
         var apply = script.ApplyScript;
-        var dropPos = apply.IndexOf("DROP INDEX [IX_CAL_NAME]", StringComparison.Ordinal);
+        var dropPos = apply.IndexOf("DROP INDEX", StringComparison.Ordinal);   // 動態 EXEC 裡的 DROP INDEX
         var alterPos = apply.IndexOf("ALTER TABLE [dbo].[Orders] ALTER COLUMN", StringComparison.Ordinal);
         var createPos = apply.IndexOf("CREATE NONCLUSTERED INDEX [IX_CAL_NAME]", StringComparison.Ordinal);
 
@@ -395,7 +395,9 @@ public class SqlScriptGeneratorTests
 
         // Assert
         var apply = script.ApplyScript;
+        // UPDATE 現在包在 EXEC(N'...') 內以延遲編譯，避免欄位不存在時的編譯期錯誤
         var updatePos = apply.IndexOf("UPDATE [dbo].[Products] SET [AMT1] = 0 WHERE [AMT1] IS NULL", StringComparison.Ordinal);
+        // ALTER COLUMN 現在用動態 SQL 讀取目標型別，搜尋 EXEC 內的關鍵片段
         var alterPos = apply.IndexOf("ALTER TABLE [dbo].[Products] ALTER COLUMN [AMT1]", StringComparison.Ordinal);
 
         updatePos.Should().BeGreaterThan(0, "必須先 UPDATE 清除 NULL 值");
@@ -459,7 +461,7 @@ public class SqlScriptGeneratorTests
         // Assert
         var apply = script.ApplyScript;
         var updatePos = apply.IndexOf("UPDATE [dbo].[Orders] SET [STATUS] = 0 WHERE [STATUS] IS NULL", StringComparison.Ordinal);
-        var dropPos = apply.IndexOf("DROP INDEX [IX_STATUS]", StringComparison.Ordinal);
+        var dropPos   = apply.IndexOf("DROP INDEX", StringComparison.Ordinal);  // 動態 EXEC 裡的 DROP INDEX
         var alterPos = apply.IndexOf("ALTER TABLE [dbo].[Orders] ALTER COLUMN [STATUS]", StringComparison.Ordinal);
         var createPos = apply.IndexOf("CREATE NONCLUSTERED INDEX [IX_STATUS]", StringComparison.Ordinal);
 

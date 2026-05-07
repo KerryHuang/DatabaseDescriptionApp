@@ -282,38 +282,33 @@ public class SqlScriptGenerator : ISqlScriptGenerator
             if ("DefaultValue".Equals(diff.PropertyName, StringComparison.OrdinalIgnoreCase))
                 return GenerateDefaultValueChangeSql(schema, tableName, columnName, col.DefaultValue);
 
-            var newLength = int.TryParse(diff.SourceValue, out var len) ? len : col.MaxLength;
-            var dataType = newLength.HasValue ? $"{col.DataType}({newLength})" : col.GetFullDataType();
-            var nullable = col.IsNullable ? "NULL" : "NOT NULL";
-
             // 若欄位有相依索引，需先 DROP 再 ALTER COLUMN 再 RECREATE
             var dependentIndexes = table?.Indexes
                 .Where(idx => idx.Columns.Any(c => c.Equals(columnName, StringComparison.OrdinalIgnoreCase)) ||
                               idx.IncludeColumns.Any(c => c.Equals(columnName, StringComparison.OrdinalIgnoreCase)))
                 .ToList() ?? [];
 
+            // IsNullable 變更：用動態 SQL 讀取目標資料庫的現有型別，避免因基準/目標精度不同導致溢位
+            if ("IsNullable".Equals(diff.PropertyName, StringComparison.OrdinalIgnoreCase))
+                // col.IsNullable = false 代表目標狀態為 NOT NULL；取反後傳入 targetIsNotNull
+                return GenerateNullabilityChangeSql(schema, tableName, columnName, !col.IsNullable, col.DataType, dependentIndexes);
+
+            var newLength = int.TryParse(diff.SourceValue, out var len) ? len : col.MaxLength;
+            var dataType = newLength.HasValue ? $"{col.DataType}({newLength})" : col.GetFullDataType();
+
             var sb = new StringBuilder();
 
-            // 僅在 IsNullable 屬性變更為 NOT NULL 時才需要先清除 NULL 值
-            // 若只是改長度（PropertyName = "MaxLength"），欄位本就不允許 NULL，不需要 UPDATE
-            if (!col.IsNullable && "IsNullable".Equals(diff.PropertyName, StringComparison.OrdinalIgnoreCase))
-            {
-                var fillValue = GetNotNullFillValue(col.DataType);
-                // 用 EXEC() 延遲編譯，避免 SQL Server 在欄位尚未存在時就拋出編譯期錯誤
-                // COL_LENGTH 不使用括號以確保正確解析資料表名稱
-                var updateSql = $"UPDATE [{schema}].[{tableName}] SET [{columnName}] = {fillValue} WHERE [{columnName}] IS NULL"
-                    .Replace("'", "''");
-                sb.AppendLine($"IF COL_LENGTH(N'{schema}.{tableName}', N'{columnName}') IS NOT NULL");
-                sb.AppendLine($"    EXEC(N'{updateSql}');");
-            }
+            // 動態 DROP 目標 DB 上所有依賴此欄位的索引（包括基準未記載的索引）
+            sb.AppendLine(GenerateDynamicDropDependentIndexesSql(schema, tableName, columnName));
 
-            foreach (var idx in dependentIndexes)
+            // 動態讀取目標欄位的 nullable，避免基準/目標 nullability 不同導致 UPDATE fails 或資料截斷
             {
-                sb.AppendLine($"IF EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'{idx.Name}' AND object_id = OBJECT_ID(N'[{schema}].[{tableName}]'))");
-                sb.AppendLine($"    DROP INDEX [{idx.Name}] ON [{schema}].[{tableName}];");
+                var innerSql = $"DECLARE @nl NCHAR(8); " +
+                               $"SELECT @nl = CASE WHEN is_nullable = 1 THEN N''NULL'' ELSE N''NOT NULL'' END " +
+                               $"FROM sys.columns WHERE object_id = OBJECT_ID(N''[{schema}].[{tableName}]'') AND name = N''{columnName}''; " +
+                               $"IF @nl IS NOT NULL EXEC(N''ALTER TABLE [{schema}].[{tableName}] ALTER COLUMN [{columnName}] {dataType} '' + @nl);";
+                sb.AppendLine($"EXEC(N'{innerSql}');");
             }
-
-            sb.AppendLine($"ALTER TABLE [{schema}].[{tableName}] ALTER COLUMN [{columnName}] {dataType} {nullable};");
 
             foreach (var idx in dependentIndexes)
             {
@@ -421,6 +416,70 @@ public class SqlScriptGenerator : ISqlScriptGenerator
     /// <summary>
     /// 產生修改預設值的 T-SQL：先動態 DROP 現有 DEFAULT 約束，再 ADD DEFAULT
     /// </summary>
+    /// <summary>
+    /// 產生修改 Nullable 的 T-SQL：用動態 SQL 讀取目標資料庫現有欄位型別，避免因基準/目標精度差異造成溢位
+    /// </summary>
+    private static string GenerateNullabilityChangeSql(
+        string schema, string tableName, string columnName, bool targetNotNull,
+        string colDataType, List<SchemaIndex> dependentIndexes)
+    {
+        var nullKeyword = targetNotNull ? "NOT NULL" : "NULL";
+        var sb = new StringBuilder();
+
+        // NOT NULL 時先清除 NULL 值
+        if (targetNotNull)
+        {
+            var fillValue = GetNotNullFillValue(colDataType);
+            var updateSql = $"UPDATE [{schema}].[{tableName}] SET [{columnName}] = {fillValue} WHERE [{columnName}] IS NULL"
+                .Replace("'", "''");
+            sb.AppendLine($"IF COL_LENGTH(N'{schema}.{tableName}', N'{columnName}') IS NOT NULL");
+            sb.AppendLine($"    EXEC(N'{updateSql}');");
+        }
+
+        // 動態 DROP 目標 DB 上所有依賴此欄位的索引（包括基準未記載的索引，例如目標 DB 獨有）
+        sb.AppendLine(GenerateDynamicDropDependentIndexesSql(schema, tableName, columnName));
+
+        // 動態 SQL：讀取目標現有型別，保持原有精度，只改 NULL/NOT NULL
+        var alterInner =
+            $"DECLARE @t NVARCHAR(200), @dt NVARCHAR(400);" +
+            $"SELECT @t = tp.name, @dt = " +
+            $"  CASE " +
+            $"    WHEN tp.name IN (''nvarchar'',''varchar'',''char'',''nchar'',''binary'',''varbinary'') " +
+            $"      THEN tp.name + ''('' + CASE WHEN c.max_length = -1 THEN ''MAX'' ELSE CAST(c.max_length / CASE WHEN tp.name LIKE ''n%'' THEN 2 ELSE 1 END AS NVARCHAR) END + '')'' " +
+            $"    WHEN tp.name IN (''decimal'',''numeric'') " +
+            $"      THEN tp.name + ''('' + CAST(c.precision AS NVARCHAR) + '','' + CAST(c.scale AS NVARCHAR) + '')'' " +
+            $"    WHEN tp.name IN (''datetime2'',''time'',''datetimeoffset'') " +
+            $"      THEN tp.name + ''('' + CAST(c.scale AS NVARCHAR) + '')'' " +
+            $"    ELSE tp.name " +
+            $"  END " +
+            $"FROM sys.columns c JOIN sys.types tp ON c.user_type_id = tp.user_type_id " +
+            $"WHERE c.object_id = OBJECT_ID(N''[{schema}].[{tableName}]'') AND c.name = N''{columnName}''; " +
+            $"IF @t IS NOT NULL " +
+            $"  EXEC(N''ALTER TABLE [{schema}].[{tableName}] ALTER COLUMN [{columnName}] '' + @dt + '' {nullKeyword}'');";
+
+        sb.AppendLine($"EXEC(N'{alterInner}');");
+
+        // RECREATE 相依索引（加欄位存在性檢查）
+        foreach (var idx in dependentIndexes)
+        {
+            var unique = idx.IsUnique ? "UNIQUE " : string.Empty;
+            var clustered = idx.IsClustered ? "CLUSTERED " : "NONCLUSTERED ";
+            var cols = string.Join(", ", idx.Columns.Select(c => $"[{c}]"));
+            var include = idx.IncludeColumns.Count > 0
+                ? $" INCLUDE ({string.Join(", ", idx.IncludeColumns.Select(c => $"[{c}]"))})"
+                : string.Empty;
+            var filter = string.IsNullOrEmpty(idx.FilterDefinition) ? string.Empty : $" WHERE {idx.FilterDefinition}";
+            var allIdxCols = idx.Columns.Concat(idx.IncludeColumns).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+            var colChecks = string.Join($"{Environment.NewLine}       AND ",
+                allIdxCols.Select(c => $"COL_LENGTH(N'{schema}.{tableName}', N'{c}') IS NOT NULL"));
+            sb.AppendLine($"IF {colChecks}");
+            sb.AppendLine($"   AND NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'{idx.Name}' AND object_id = OBJECT_ID(N'[{schema}].[{tableName}]'))");
+            sb.Append($"    CREATE {unique}{clustered}INDEX [{idx.Name}] ON [{schema}].[{tableName}] ({cols}){include}{filter};");
+        }
+
+        return sb.ToString().TrimEnd();
+    }
+
     private static string GenerateDefaultValueChangeSql(
         string schema, string tableName, string columnName, string? newDefault)
     {
@@ -439,6 +498,27 @@ public class SqlScriptGenerator : ISqlScriptGenerator
             sb.Append($"ALTER TABLE [{schema}].[{tableName}] ADD DEFAULT {newDefault} FOR [{columnName}];");
 
         return sb.ToString().TrimEnd();
+    }
+
+    /// <summary>
+    /// 產生動態 DROP 所有依賴指定欄位的非 PK 索引（含目標 DB 中基準未記載的索引）
+    /// </summary>
+    private static string GenerateDynamicDropDependentIndexesSql(string schema, string tableName, string columnName)
+    {
+        // 用 EXEC 包裝以形成獨立變數作用域，避免多欄位 DECLARE @s 衝突
+        var inner =
+            $"DECLARE @s NVARCHAR(MAX) = N''''; " +
+            $"SELECT @s += N''DROP INDEX ['' + i.name + N''] ON [{schema}].[{tableName}];'' " +
+            $"FROM sys.indexes i " +
+            $"JOIN sys.index_columns ic ON i.object_id = ic.object_id AND i.index_id = ic.index_id " +
+            $"JOIN sys.columns c ON ic.object_id = c.object_id AND ic.column_id = c.column_id " +
+            $"WHERE i.object_id = OBJECT_ID(N''[{schema}].[{tableName}]'') " +
+            $"  AND c.name = N''{columnName}'' " +
+            $"  AND i.is_primary_key = 0 " +
+            $"  AND i.is_unique_constraint = 0 " +
+            $"  AND i.type > 0; " +
+            $"IF LEN(@s) > 0 EXEC(@s);";
+        return $"EXEC(N'{inner}');";
     }
 
     private static string GetNotNullFillValue(string dataType) => dataType.ToUpperInvariant() switch

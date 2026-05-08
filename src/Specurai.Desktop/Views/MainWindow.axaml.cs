@@ -1,5 +1,9 @@
 using System.Threading.Tasks;
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.Interactivity;
+using Avalonia.VisualTree;
 using Microsoft.Extensions.DependencyInjection;
 using Specurai.Application.Services;
 using Specurai.Desktop.ViewModels;
@@ -13,6 +17,10 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
 
+        // 註冊已處理的 PointerPressed 事件，攔截 TreeView 右鍵
+        ObjectTreeView.AddHandler(InputElement.PointerPressedEvent,
+            OnTreeViewPointerPressed, RoutingStrategies.Tunnel, handledEventsToo: true);
+
         // 設定確認儲存的回調 + 自動更新對話框開啟事件
         DataContextChanged += (_, _) =>
         {
@@ -20,6 +28,11 @@ public partial class MainWindow : Window
             {
                 vm.ConfirmSaveCallback = ShowConfirmSaveDialogAsync;
                 vm.OpenUpdateDialogRequested += OnOpenUpdateDialogRequested;
+                vm.ClearTreeSelectionRequested += () =>
+                {
+                    _suppressNextSelectionChanged = true;
+                    ObjectTreeView.SelectedItem = null;
+                };
             }
         };
 
@@ -31,14 +44,48 @@ public partial class MainWindow : Window
         };
     }
 
+    private bool _suppressNextSelectionChanged;
+
     private void OnTreeViewSelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
+        if (_suppressNextSelectionChanged)
+        {
+            _suppressNextSelectionChanged = false;
+            return;
+        }
+
         if (e.AddedItems.Count > 0 && e.AddedItems[0] is ObjectItemViewModel item)
         {
             if (DataContext is MainWindowViewModel vm)
             {
                 vm.ObjectTree?.SelectObjectCommand.Execute(item);
             }
+        }
+    }
+
+    private void OnTreeViewPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (!e.GetCurrentPoint(sender as Control).Properties.IsRightButtonPressed)
+            return;
+
+        if (e.Source is not Visual source)
+            return;
+
+        // 沿視覺樹尋找 DataContext 為 ObjectItemViewModel 的元素
+        var current = source;
+        while (current is not null)
+        {
+            if (current is StyledElement styled && styled.DataContext is ObjectItemViewModel item)
+            {
+                if (DataContext is MainWindowViewModel vm)
+                {
+                    _suppressNextSelectionChanged = true;
+                    vm.OpenSqlQueryForTable(item.Table);
+                    e.Handled = true;
+                }
+                return;
+            }
+            current = current.GetVisualParent();
         }
     }
 

@@ -62,6 +62,11 @@ public partial class MainWindowViewModel : ViewModelBase
     /// </summary>
     public event Action<UpdateCheckResult?>? OpenUpdateDialogRequested;
 
+    /// <summary>
+    /// 要求 View 清除 TreeView 視覺選取狀態（例如關閉資料表結構分頁後）。
+    /// </summary>
+    public event Action? ClearTreeSelectionRequested;
+
     [ObservableProperty]
     private string _profileFilterText = string.Empty;
 
@@ -383,6 +388,30 @@ public partial class MainWindowViewModel : ViewModelBase
         SelectedDocument = doc;
     }
 
+    /// <summary>
+    /// 為指定資料表/檢視表開啟新的 SQL 查詢分頁，並自動執行 SELECT TOP 200。
+    /// </summary>
+    public void OpenSqlQueryForTable(TableInfo table)
+    {
+        if (_sqlQueryRepository == null || _connectionManager == null) return;
+        if (table.Type != "BASE TABLE" && table.Type != "VIEW") return;
+
+        var sql = $"SELECT TOP 200 * FROM [{table.Schema}].[{table.Name}]";
+        var doc = new SqlQueryDocumentViewModel(_sqlQueryRepository, _connectionManager);
+        doc.CloseRequested += OnDocumentCloseRequested;
+        Documents.Add(doc);
+        SelectedDocument = doc;
+
+        // 延後設定 SqlText，等待 View 載入完成後再寫入並執行，
+        // 以避免 QueryHistory ComboBox 的 OneWayToSource 綁定在初始化時把 SqlText 推回 null。
+        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        {
+            doc.SqlText = sql;
+            if (doc.ExecuteQueryCommand.CanExecute(null))
+                doc.ExecuteQueryCommand.Execute(null);
+        }, Avalonia.Threading.DispatcherPriority.Background);
+    }
+
     [RelayCommand]
     private void OpenColumnSearch()
     {
@@ -699,6 +728,14 @@ public partial class MainWindowViewModel : ViewModelBase
         if (SelectedDocument == doc)
         {
             SelectedDocument = Documents.LastOrDefault();
+        }
+
+        // 若關閉的是 TableDetail，清除 ObjectTree 的選取狀態，
+        // 讓使用者再次點選同一資料表時能重新觸發 SelectionChanged。
+        if (doc is TableDetailDocumentViewModel && ObjectTree != null)
+        {
+            ObjectTree.SelectedTable = null;
+            ClearTreeSelectionRequested?.Invoke();
         }
     }
 

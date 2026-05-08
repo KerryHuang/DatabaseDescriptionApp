@@ -1,5 +1,5 @@
 ---
-description: 執行桌面應用程式
+description: 執行桌面應用程式。Use when 使用者說「執行」「啟動」「跑」「run」「launch」「啟動應用程式」「打開桌面 App」「dotnet run」或要求啟動 Specurai 桌面程式。
 ---
 
 # 執行應用程式

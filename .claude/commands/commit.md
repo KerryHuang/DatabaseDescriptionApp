@@ -1,5 +1,5 @@
 ---
-description: 建立 Git commit（繁體中文訊息）
+description: 建立 Git commit（繁體中文訊息）。Use when 使用者說「commit」「提交」「建立 commit」「git commit」「幫我提交」或要求把變更存成一個 commit。
 arguments:
   - name: message
     description: 可選的 commit 訊息，未提供時自動產生

@@ -1,5 +1,5 @@
 ---
-description: 推送程式碼並建立版本 tag
+description: 推送程式碼並建立版本 tag。Use when 使用者說「push」「推送」「git push」「發版」「打 tag」「建立 release」或要求把 commit 上傳遠端並標記版本號。
 arguments:
   - name: version
     description: 可選的版本號（如 v1.0.5），未提供時自動遞增

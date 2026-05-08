@@ -1,5 +1,5 @@
 ---
-description: 執行測試
+description: 執行測試。Use when 使用者說「測試」「跑測試」「test」「run tests」「dotnet test」或要求驗證單元測試是否通過、執行特定測試篩選。
 ---
 
 # 執行測試

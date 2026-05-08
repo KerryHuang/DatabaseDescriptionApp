@@ -1,5 +1,5 @@
 ---
-description: 發布單一執行檔（跨平台）
+description: 發布單一執行檔（跨平台）。Use when 使用者說「發布」「publish」「打包」「產生執行檔」「single file」「self-contained」或要求建立 Windows/macOS/Linux 平台可執行檔。
 ---
 
 # 發布應用程式

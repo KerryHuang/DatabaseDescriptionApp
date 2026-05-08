@@ -1,5 +1,5 @@
 ---
-description: 建置整個解決方案
+description: 建置整個解決方案。Use when 使用者說「建置」「build」「編譯」「compile」「dotnet build」或要求檢查能否建置成功。
 ---
 
 # 建置專案

@@ -92,6 +92,36 @@ public class MaintenancePlanService : IMaintenancePlanService
 
         ct.ThrowIfCancellationRequested();
 
+        // 檔案調校：autogrowth + 預擴（兩者都用 ALTER DATABASE，不能放在交易內）
+        var autoGrowthStep = checkResults.FirstOrDefault(r => r.Step == MaintenancePlanStep.AdjustAutoGrowth && r.SelectedAction != "跳過");
+        var preExpandStep = checkResults.FirstOrDefault(r => r.Step == MaintenancePlanStep.PreExpandDataFile && r.SelectedAction != "跳過");
+
+        if (autoGrowthStep is not null || preExpandStep is not null)
+        {
+            var files = await _dbInfoRepo.GetDatabaseFilesAsync(config.DatabaseName, ct);
+
+            if (autoGrowthStep is not null)
+            {
+                progress?.Report("正在調整檔案自動成長設定...");
+                var sql = _sqlGenerator.GenerateAdjustAutoGrowthSql(config, files);
+                await _dbInfoRepo.ExecuteSqlAsync(sql, ct);
+                progress?.Report("自動成長設定調整完成。");
+            }
+
+            ct.ThrowIfCancellationRequested();
+
+            if (preExpandStep is not null)
+            {
+                progress?.Report("正在預擴資料檔（可能需數分鐘）...");
+                var dataFiles = files.Where(f => f.FileType == DatabaseFileType.Data).ToList();
+                var sql = _sqlGenerator.GeneratePreExpandDataFileSql(config, dataFiles);
+                await _dbInfoRepo.ExecuteSqlAsync(sql, ct);
+                progress?.Report("預擴資料檔完成。");
+            }
+
+            ct.ThrowIfCancellationRequested();
+        }
+
         // 交易群組：資料庫設定步驟
         var dbSteps = checkResults.Where(r =>
             r.Step is MaintenancePlanStep.SetRecoveryModel
@@ -122,6 +152,18 @@ public class MaintenancePlanService : IMaintenancePlanService
 
         ct.ThrowIfCancellationRequested();
 
+        // 交易群組：CheckDB Job
+        var checkDbStep = checkResults.FirstOrDefault(r => r.Step == MaintenancePlanStep.CreateCheckDbJob && r.SelectedAction != "跳過");
+        if (checkDbStep != null)
+        {
+            progress?.Report("正在建立完整性檢查排程...");
+            var sql = _sqlGenerator.GenerateStepSql(MaintenancePlanStep.CreateCheckDbJob, config, checkDbStep.SelectedAction);
+            await _dbInfoRepo.ExecuteSqlAsync(sql, ct);
+            progress?.Report("完整性檢查排程建立完成。");
+        }
+
+        ct.ThrowIfCancellationRequested();
+
         // 交易群組 3：還原 Job
         var restoreStep = checkResults.FirstOrDefault(r => r.Step == MaintenancePlanStep.CreateRestoreJob && r.SelectedAction != "跳過");
         if (restoreStep != null)
@@ -136,10 +178,43 @@ public class MaintenancePlanService : IMaintenancePlanService
     }
 
     /// <inheritdoc />
-    public Task<string> GeneratePreviewSqlAsync(MaintenancePlanConfig config, IReadOnlyList<StepCheckResult> checkResults)
+    public async Task<string> GeneratePreviewSqlAsync(MaintenancePlanConfig config, IReadOnlyList<StepCheckResult> checkResults)
     {
-        var sql = _sqlGenerator.GenerateFullSql(config, checkResults);
-        return Task.FromResult(sql);
+        var baseSql = _sqlGenerator.GenerateFullSql(config, checkResults);
+
+        var autoGrowthActive = checkResults.Any(r => r.Step == MaintenancePlanStep.AdjustAutoGrowth && r.SelectedAction != "跳過");
+        var preExpandActive = checkResults.Any(r => r.Step == MaintenancePlanStep.PreExpandDataFile && r.SelectedAction != "跳過");
+
+        if (!autoGrowthActive && !preExpandActive)
+            return baseSql;
+
+        var files = await _dbInfoRepo.GetDatabaseFilesAsync(config.DatabaseName);
+        var sb = new System.Text.StringBuilder();
+
+        if (autoGrowthActive)
+        {
+            sb.AppendLine("PRINT N'===== 調整 autogrowth (開始) =====';");
+            sb.AppendLine("BEGIN TRY");
+            sb.AppendLine(_sqlGenerator.GenerateAdjustAutoGrowthSql(config, files));
+            sb.AppendLine("PRINT N'===== 調整 autogrowth (完成) =====';");
+            sb.AppendLine("END TRY BEGIN CATCH PRINT ERROR_MESSAGE(); END CATCH;");
+            sb.AppendLine("GO");
+            sb.AppendLine();
+        }
+
+        if (preExpandActive)
+        {
+            var dataFiles = files.Where(f => f.FileType == DatabaseFileType.Data).ToList();
+            sb.AppendLine("PRINT N'===== 預擴資料檔 (開始) =====';");
+            sb.AppendLine("BEGIN TRY");
+            sb.AppendLine(_sqlGenerator.GeneratePreExpandDataFileSql(config, dataFiles));
+            sb.AppendLine("PRINT N'===== 預擴資料檔 (完成) =====';");
+            sb.AppendLine("END TRY BEGIN CATCH PRINT ERROR_MESSAGE(); END CATCH;");
+            sb.AppendLine("GO");
+            sb.AppendLine();
+        }
+
+        return sb.ToString() + baseSql;
     }
 
     private async Task<StepCheckResult> CheckCompatibilityLevelAsync(MaintenancePlanConfig config, CancellationToken ct)

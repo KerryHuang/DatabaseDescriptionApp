@@ -4,17 +4,11 @@
 
 ---
 
-## 效能診斷擴充：實例健康快照
+## ~~效能診斷擴充：實例健康快照~~ ✅ 已開 spec(進行中)
 
-- **所屬功能**：效能診斷（`PerformanceDiagnosticsDocumentView`）
-- **動機**：補齊 SQL Server 實例層級的一次性健康檢查，現有功能聚焦於查詢/索引/wait stats，缺少實例組態面。
-- **範圍**：新增單一報表分頁「實例健康快照」，包含：
-  - **VLF 數量**：查 `sys.dm_db_log_info`，每個 DB 的 VLF 數量 + 健康判斷（>1000 紅、500-1000 黃、<500 綠）
-  - **TempDB 配置**：檔案數是否 = CPU 核心數（或 8，取小者）、各檔大小是否一致、TF1117/1118 狀態（2016+ 自動內建）
-  - **Max Server Memory**：目前設定 vs OS 總記憶體 vs 建議值（總記憶體 - max(2GB, 10%)）
-  - **各 DB 最後 CHECKDB 時間**：解析 `DBCC DBINFO` 的 `dbi_dbccLastKnownGood`，距今天數
-- **不在範圍**：不主動修改任何設定，純檢查回報。
-- **參考來源**：2026-05-15 對話「優先度表」P1 項目歸屬討論。
+- **狀態**:2026-05-15 開 spec — `2026-05-15-performance-diagnostics-instance-health-design.md`
+- **已完成項目(v1.14.0)**:各 DB 最後 CHECKDB 時間 → 已在「完整性檢查」分頁
+- **本次 spec 涵蓋**:VLF 數量 / TempDB 配置 / Max Server Memory(三項剩餘)
 
 ---
 

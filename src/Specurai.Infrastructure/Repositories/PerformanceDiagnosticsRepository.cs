@@ -615,6 +615,52 @@ ORDER BY last_update_date DESC;";
     }
 
     /// <inheritdoc/>
-    public Task<IReadOnlyList<CheckDbJobHistory>> GetCheckDbJobHistoryAsync(int top = 50, CancellationToken ct = default)
-        => throw new NotImplementedException();
+    public async Task<IReadOnlyList<CheckDbJobHistory>> GetCheckDbJobHistoryAsync(int top = 50, CancellationToken ct = default)
+    {
+        var connStr = _connectionStringProvider() ?? throw new InvalidOperationException("未設定連線字串");
+        await using var conn = new SqlConnection(connStr);
+        await conn.OpenAsync(ct);
+
+        var sql = $@"
+SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+SELECT TOP ({top})
+    j.name                                          AS JobName,
+    msdb.dbo.agent_datetime(h.run_date, h.run_time) AS RunAt,
+    h.run_duration                                  AS DurationRaw,
+    h.run_status                                    AS RunStatus,
+    h.message                                       AS Message
+FROM msdb.dbo.sysjobhistory h
+JOIN msdb.dbo.sysjobs j ON h.job_id = j.job_id
+WHERE j.name LIKE '%CheckDb%'
+  AND h.step_id = 0
+ORDER BY h.run_date DESC, h.run_time DESC;";
+
+        var rows = await conn.QueryAsync<CheckDbJobHistoryRow>(new CommandDefinition(sql, cancellationToken: ct));
+        return rows.Select(r => new CheckDbJobHistory
+        {
+            JobName = r.JobName,
+            RunAt = r.RunAt,
+            Duration = ParseSqlAgentDuration(r.DurationRaw),
+            RunStatus = r.RunStatus,
+            Message = r.Message ?? string.Empty
+        }).ToList();
+    }
+
+    /// <summary>SQL Agent 的 run_duration 為 HHMMSS 整數(例 215 = 0:02:15)</summary>
+    private static TimeSpan ParseSqlAgentDuration(int hhmmss)
+    {
+        var h = hhmmss / 10000;
+        var m = (hhmmss / 100) % 100;
+        var s = hhmmss % 100;
+        return new TimeSpan(h, m, s);
+    }
+
+    private sealed class CheckDbJobHistoryRow
+    {
+        public string JobName { get; set; } = string.Empty;
+        public DateTime RunAt { get; set; }
+        public int DurationRaw { get; set; }
+        public int RunStatus { get; set; }
+        public string? Message { get; set; }
+    }
 }

@@ -171,6 +171,59 @@ public class MaintenancePlanSqlGeneratorTests
         }).ToList();
     }
 
+    #region GeneratePreExpandDataFileSql
+
+    [Fact]
+    public void GeneratePreExpandDataFileSql_應湊整GB且只擴資料檔()
+    {
+        var gen = new MaintenancePlanSqlGenerator();
+        var config = new MaintenancePlanConfig
+        {
+            DatabaseName = "DB", BackupPath = @"D:\B\", RestorePath = @"D:\R\",
+            TestDatabaseName = "DB-test", LoginName = "u", LoginPassword = "p",
+            BackupTime = 2, RestoreTime = 3, SelectedSteps = [],
+            PreExpandBufferGB = 5
+        };
+        // 25600 MB (25 GB) + 5 GB = 30 GB = 30720 MB
+        var dataFiles = new List<DatabaseFileInfo>
+        {
+            new() { LogicalName = "DB", PhysicalName = "x", FileType = DatabaseFileType.Data,
+                    SizeMB = 25600, FreeMB = 0, IsPercentGrowth = false, GrowthMB = 256,
+                    VolumeMountPoint = "D", VolumeFreeGB = 100 }
+        };
+
+        var sql = gen.GeneratePreExpandDataFileSql(config, dataFiles);
+
+        sql.Should().Contain("ALTER DATABASE [DB]");
+        sql.Should().Contain("NAME = N'DB'").And.Contain("SIZE = 30720MB");
+        sql.Should().NotContain("_log");
+    }
+
+    [Fact]
+    public void GeneratePreExpandDataFileSql_當目前大小非整GB_應向上湊整再加緩衝()
+    {
+        var gen = new MaintenancePlanSqlGenerator();
+        var config = new MaintenancePlanConfig
+        {
+            DatabaseName = "DB", BackupPath = @"D:\", RestorePath = @"D:\",
+            TestDatabaseName = "DB-test", LoginName = "u", LoginPassword = "p",
+            BackupTime = 2, RestoreTime = 3, SelectedSteps = [],
+            PreExpandBufferGB = 5
+        };
+        // 25700 MB ≈ 25.1 GB → 湊整 26 GB → +5 = 31 GB = 31744 MB
+        var files = new List<DatabaseFileInfo>
+        {
+            new() { LogicalName = "DB", PhysicalName = "x", FileType = DatabaseFileType.Data,
+                    SizeMB = 25700, FreeMB = 0, IsPercentGrowth = false, GrowthMB = 256,
+                    VolumeMountPoint = "D", VolumeFreeGB = 100 }
+        };
+
+        var sql = gen.GeneratePreExpandDataFileSql(config, files);
+        sql.Should().Contain("SIZE = 31744MB");
+    }
+
+    #endregion
+
     #region GenerateAdjustAutoGrowthSql
 
     [Fact]

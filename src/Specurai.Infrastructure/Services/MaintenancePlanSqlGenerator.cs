@@ -1038,4 +1038,27 @@ public class MaintenancePlanSqlGenerator : IMaintenancePlanSqlGenerator
         MaintenancePlanStep.CreateRestoreJob => "建立還原排程",
         _ => step.ToString()
     };
+
+    /// <inheritdoc/>
+    public string GenerateAdjustAutoGrowthSql(MaintenancePlanConfig config, IReadOnlyList<DatabaseFileInfo> files)
+    {
+        var sb = new StringBuilder();
+        var db = QuoteName(config.DatabaseName);
+        sb.AppendLine($"-- 調整 {db} 的檔案 autogrowth");
+        foreach (var f in files)
+        {
+            var growMB = f.FileType == DatabaseFileType.Data ? config.AutoGrowthDataMB : config.AutoGrowthLogMB;
+            var name = EscapeSingleQuote(f.LogicalName);
+            sb.AppendLine($"ALTER DATABASE {db} MODIFY FILE (NAME = N'{name}', FILEGROWTH = {growMB}MB);");
+        }
+        return sb.ToString();
+    }
+
+    /// <inheritdoc/>
+    public string GeneratePreExpandDataFileSql(MaintenancePlanConfig config, IReadOnlyList<DatabaseFileInfo> dataFiles)
+        => throw new NotImplementedException();
+
+    /// <inheritdoc/>
+    public string GenerateCreateCheckDbJobSql(MaintenancePlanConfig config, string? action = null)
+        => throw new NotImplementedException();
 }

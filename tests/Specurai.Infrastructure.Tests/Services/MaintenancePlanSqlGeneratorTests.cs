@@ -170,4 +170,31 @@ public class MaintenancePlanSqlGeneratorTests
             SelectedAction = action
         }).ToList();
     }
+
+    #region GenerateAdjustAutoGrowthSql
+
+    [Fact]
+    public void GenerateAdjustAutoGrowthSql_應產出每檔的MODIFY_FILE_語句()
+    {
+        var gen = new MaintenancePlanSqlGenerator();
+        var config = new MaintenancePlanConfig
+        {
+            DatabaseName = "DB", BackupPath = @"D:\B\", RestorePath = @"D:\R\",
+            TestDatabaseName = "DB-test", LoginName = "u", LoginPassword = "p",
+            BackupTime = 2, RestoreTime = 3, SelectedSteps = []
+        };
+        var files = new List<DatabaseFileInfo>
+        {
+            new() { LogicalName = "DB", PhysicalName = "x", FileType = DatabaseFileType.Data, SizeMB = 1, FreeMB = 0, IsPercentGrowth = false, GrowthMB = 1, VolumeMountPoint = "D", VolumeFreeGB = null },
+            new() { LogicalName = "DB_log", PhysicalName = "x", FileType = DatabaseFileType.Log, SizeMB = 1, FreeMB = 0, IsPercentGrowth = false, GrowthMB = 1, VolumeMountPoint = "D", VolumeFreeGB = null }
+        };
+
+        var sql = gen.GenerateAdjustAutoGrowthSql(config, files);
+
+        sql.Should().Contain("ALTER DATABASE [DB]");
+        sql.Should().Contain("NAME = N'DB'").And.Contain("FILEGROWTH = 256MB");
+        sql.Should().Contain("NAME = N'DB_log'").And.Contain("FILEGROWTH = 128MB");
+    }
+
+    #endregion
 }

@@ -58,4 +58,39 @@ public class PerformanceDiagnosticsService : IPerformanceDiagnosticsService
     /// <inheritdoc/>
     public Task ExecuteDropIndexAsync(string dropIndexStatement, string databaseName, CancellationToken ct = default)
         => _repository.ExecuteDropIndexAsync(dropIndexStatement, databaseName, ct);
+
+    /// <inheritdoc/>
+    public async Task<IReadOnlyList<IntegrityCheckStatus>> GetIntegrityCheckStatusAsync(IProgress<string>? progress = null, CancellationToken ct = default)
+    {
+        var rows = await _repository.GetLastCheckDbAsync(progress, ct);
+        return rows.Select(r =>
+        {
+            int? days = r.LastKnownGood.HasValue
+                ? Math.Max(0, (int)(DateTime.UtcNow.Date - r.LastKnownGood.Value.Date).TotalDays)
+                : (int?)null;
+            return new IntegrityCheckStatus
+            {
+                DatabaseName = r.DatabaseName,
+                LastKnownGood = r.LastKnownGood,
+                DaysSince = days,
+                Health = ClassifyHealth(days)
+            };
+        }).ToList();
+    }
+
+    /// <inheritdoc/>
+    public Task<IReadOnlyList<SuspectPage>> GetSuspectPagesAsync(CancellationToken ct = default)
+        => _repository.GetSuspectPagesAsync(ct);
+
+    /// <inheritdoc/>
+    public Task<IReadOnlyList<CheckDbJobHistory>> GetCheckDbJobHistoryAsync(int top = 50, CancellationToken ct = default)
+        => _repository.GetCheckDbJobHistoryAsync(top, ct);
+
+    private static IntegrityHealth ClassifyHealth(int? days) => days switch
+    {
+        null => IntegrityHealth.Critical,
+        < 14 => IntegrityHealth.Healthy,
+        < 30 => IntegrityHealth.Warning,
+        _ => IntegrityHealth.Critical
+    };
 }

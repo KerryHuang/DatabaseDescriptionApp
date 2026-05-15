@@ -1080,7 +1080,7 @@ public class MaintenancePlanSqlGenerator : IMaintenancePlanSqlGenerator
         var sb = new StringBuilder();
         var db = QuoteName(config.DatabaseName);
         sb.AppendLine($"-- 預擴 {db} 的資料檔");
-        foreach (var f in dataFiles.Where(x => x.FileType == DatabaseFileType.Data))
+        foreach (var f in dataFiles)
         {
             // 目前大小向上湊整到 GB，再加緩衝 GB
             var currentGB = (int)Math.Ceiling(f.SizeMB / 1024.0);
@@ -1111,7 +1111,7 @@ public class MaintenancePlanSqlGenerator : IMaintenancePlanSqlGenerator
             DayOfWeek.Saturday => 64,
             _ => 1
         };
-        var startTime = config.CheckDbTime * 10000;
+        var startTime = config.CheckDbHour * 10000;
 
         sb.AppendLine("USE [msdb];");
         sb.AppendLine();
@@ -1153,7 +1153,7 @@ public class MaintenancePlanSqlGenerator : IMaintenancePlanSqlGenerator
         sb.AppendLine($"';");
         sb.AppendLine();
 
-        sb.AppendLine($"-- 建立排程: 每週 {config.CheckDbDayOfWeek} {config.CheckDbTime:D2}:00 執行");
+        sb.AppendLine($"-- 建立排程: 每週 {config.CheckDbDayOfWeek} {config.CheckDbHour:D2}:00 執行");
         sb.AppendLine($"EXEC dbo.sp_add_jobschedule");
         sb.AppendLine($"    @job_name          = N'{escapedJobName}',");
         sb.AppendLine($"    @name              = N'{escapedJobName}_Schedule',");

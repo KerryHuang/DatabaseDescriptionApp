@@ -262,7 +262,7 @@ public class MaintenancePlanSqlGeneratorTests
             DatabaseName = "DB", BackupPath = @"D:\", RestorePath = @"D:\",
             TestDatabaseName = "DB-test", LoginName = "u", LoginPassword = "p",
             BackupTime = 2, RestoreTime = 3, SelectedSteps = [],
-            CheckDbTime = 3, CheckDbDayOfWeek = DayOfWeek.Sunday
+            CheckDbHour = 3, CheckDbDayOfWeek = DayOfWeek.Sunday
         };
 
         var sql = gen.GenerateCreateCheckDbJobSql(config);

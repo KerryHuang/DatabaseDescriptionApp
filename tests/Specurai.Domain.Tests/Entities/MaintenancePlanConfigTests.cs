@@ -65,7 +65,7 @@ public class MaintenancePlanConfigTests
         config.AutoGrowthDataMB.Should().Be(256);
         config.AutoGrowthLogMB.Should().Be(128);
         config.PreExpandBufferGB.Should().Be(5);
-        config.CheckDbTime.Should().Be(3);
+        config.CheckDbHour.Should().Be(3);
         config.CheckDbDayOfWeek.Should().Be(DayOfWeek.Sunday);
     }
 }

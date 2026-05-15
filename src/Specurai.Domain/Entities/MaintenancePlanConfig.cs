@@ -25,8 +25,8 @@ public class MaintenancePlanConfig
     public int AutoGrowthLogMB { get; init; } = 128;
     /// <summary>預擴資料檔的緩衝 GB（目前大小 + 此值，再湊整到 GB）</summary>
     public int PreExpandBufferGB { get; init; } = 5;
-    /// <summary>CheckDB 排程小時（0-23）</summary>
-    public int CheckDbTime { get; init; } = 3;
+    /// <summary>CheckDB 排程小時（0-23 整點）</summary>
+    public int CheckDbHour { get; init; } = 3;
     /// <summary>CheckDB 排程星期</summary>
     public DayOfWeek CheckDbDayOfWeek { get; init; } = DayOfWeek.Sunday;
 

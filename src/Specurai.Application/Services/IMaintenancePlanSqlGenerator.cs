@@ -30,4 +30,13 @@ public interface IMaintenancePlanSqlGenerator
     /// <param name="config">維護計劃設定</param>
     /// <param name="checkResults">步驟檢查結果清單</param>
     string GenerateExportSql(MaintenancePlanConfig config, IReadOnlyList<StepCheckResult> checkResults);
+
+    /// <summary>產生 AdjustAutoGrowth 的 SQL（對所有檔案套用 MODIFY FILE FILEGROWTH）</summary>
+    string GenerateAdjustAutoGrowthSql(MaintenancePlanConfig config, IReadOnlyList<DatabaseFileInfo> files);
+
+    /// <summary>產生 PreExpandDataFile 的 SQL（對每個資料檔擴到「目前大小+bufferGB」湊整 GB）</summary>
+    string GeneratePreExpandDataFileSql(MaintenancePlanConfig config, IReadOnlyList<DatabaseFileInfo> dataFiles);
+
+    /// <summary>產生 CreateCheckDbJob 的 SQL</summary>
+    string GenerateCreateCheckDbJobSql(MaintenancePlanConfig config, string? action = null);
 }

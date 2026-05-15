@@ -427,6 +427,40 @@ public class MaintenancePlanServiceTests
 
     #endregion
 
+    #region CheckSteps_CreateCheckDbJob
+
+    [Fact]
+    public async Task CheckSteps_CreateCheckDbJob_當Job存在_應標記已存在()
+    {
+        var dbRepo = Substitute.For<IDatabaseInfoRepository>();
+        dbRepo.AgentJobExistsAsync("DB_CheckDb", Arg.Any<CancellationToken>()).Returns(true);
+        dbRepo.GetRecoveryModelAsync("DB", Arg.Any<CancellationToken>()).Returns("SIMPLE");
+
+        var svc = new MaintenancePlanService(dbRepo, Substitute.For<IAgentJobRepository>(), Substitute.For<IMaintenancePlanSqlGenerator>());
+
+        var r = (await svc.CheckStepsAsync(MakeAutoGrowthTestConfig(MaintenancePlanStep.CreateCheckDbJob))).Single();
+
+        r.AlreadyExists.Should().BeTrue();
+        r.CurrentStatus.Should().Contain("DB_CheckDb").And.Contain("已存在");
+    }
+
+    [Fact]
+    public async Task CheckSteps_CreateCheckDbJob_當Job不存在_應允許建立()
+    {
+        var dbRepo = Substitute.For<IDatabaseInfoRepository>();
+        dbRepo.AgentJobExistsAsync("DB_CheckDb", Arg.Any<CancellationToken>()).Returns(false);
+        dbRepo.GetRecoveryModelAsync("DB", Arg.Any<CancellationToken>()).Returns("SIMPLE");
+
+        var svc = new MaintenancePlanService(dbRepo, Substitute.For<IAgentJobRepository>(), Substitute.For<IMaintenancePlanSqlGenerator>());
+
+        var r = (await svc.CheckStepsAsync(MakeAutoGrowthTestConfig(MaintenancePlanStep.CreateCheckDbJob))).Single();
+
+        r.AlreadyExists.Should().BeFalse();
+        r.AvailableActions.Should().Contain("建立");
+    }
+
+    #endregion
+
     #region GeneratePreviewSqlAsync
 
     [Fact]

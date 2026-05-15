@@ -539,4 +539,63 @@ ORDER BY ddius.user_updates DESC;";
         await using var connection = new SqlConnection(builder.ConnectionString);
         await connection.ExecuteAsync(dropIndexStatement, commandTimeout: 600);
     }
+
+    /// <inheritdoc/>
+    public async Task<IReadOnlyList<LastCheckDbRow>> GetLastCheckDbAsync(IProgress<string>? progress = null, CancellationToken ct = default)
+    {
+        var connStr = _connectionStringProvider() ?? throw new InvalidOperationException("未設定連線字串");
+        await using var conn = new SqlConnection(connStr);
+        await conn.OpenAsync(ct);
+
+        // 取得所有 ONLINE 的資料庫(排除 tempdb;保留 master/model/msdb 因 DBA 通常也想知道)
+        const string listDbSql = @"
+SELECT name FROM sys.databases
+WHERE state = 0 AND database_id <> 2
+ORDER BY database_id;";
+        var dbs = (await conn.QueryAsync<string>(new CommandDefinition(listDbSql, cancellationToken: ct))).ToList();
+
+        var results = new List<LastCheckDbRow>();
+        int idx = 0;
+        foreach (var db in dbs)
+        {
+            ct.ThrowIfCancellationRequested();
+            idx++;
+            progress?.Report($"檢查 ({idx}/{dbs.Count}): {db}");
+
+            DateTime? lastKnownGood = null;
+            try
+            {
+                // DBCC DBINFO 必須在目標 DB context 執行;用動態 SQL + temp table 收集
+                var sql = $@"
+SET NOCOUNT ON;
+DECLARE @v TABLE (ParentObject NVARCHAR(255), [Object] NVARCHAR(255), Field NVARCHAR(255), [Value] NVARCHAR(255));
+INSERT INTO @v EXEC ('USE [{db.Replace("]", "]]")}]; DBCC DBINFO WITH TABLERESULTS, NO_INFOMSGS');
+SELECT TOP 1 [Value] FROM @v WHERE Field = 'dbi_dbccLastKnownGood';";
+                var raw = await conn.ExecuteScalarAsync<string?>(new CommandDefinition(sql, cancellationToken: ct));
+                if (!string.IsNullOrEmpty(raw)
+                    && raw != "1900-01-01 00:00:00.000"
+                    && DateTime.TryParse(raw, out var parsed))
+                {
+                    lastKnownGood = parsed;
+                }
+            }
+            catch
+            {
+                // 忽略單一 DB 失敗(權限/離線/等),回傳 null
+                lastKnownGood = null;
+            }
+
+            results.Add(new LastCheckDbRow { DatabaseName = db, LastKnownGood = lastKnownGood });
+        }
+
+        return results;
+    }
+
+    /// <inheritdoc/>
+    public Task<IReadOnlyList<SuspectPage>> GetSuspectPagesAsync(CancellationToken ct = default)
+        => throw new NotImplementedException();
+
+    /// <inheritdoc/>
+    public Task<IReadOnlyList<CheckDbJobHistory>> GetCheckDbJobHistoryAsync(int top = 50, CancellationToken ct = default)
+        => throw new NotImplementedException();
 }

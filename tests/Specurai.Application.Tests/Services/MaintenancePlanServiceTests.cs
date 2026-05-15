@@ -364,6 +364,69 @@ public class MaintenancePlanServiceTests
 
     #endregion
 
+    #region CheckSteps_PreExpandDataFile
+
+    [Fact]
+    public async Task CheckSteps_PreExpand_當資料檔可用率小於20pct_應建議預擴()
+    {
+        var dbRepo = Substitute.For<IDatabaseInfoRepository>();
+        dbRepo.GetDatabaseFilesAsync("DB", Arg.Any<CancellationToken>()).Returns(new List<DatabaseFileInfo>
+        {
+            new() { LogicalName = "DB", PhysicalName = "x", FileType = DatabaseFileType.Data,
+                    SizeMB = 25600, FreeMB = 1024,
+                    IsPercentGrowth = false, GrowthMB = 256,
+                    VolumeMountPoint = @"D:\", VolumeFreeGB = 100 }
+        });
+        var svc = new MaintenancePlanService(dbRepo, Substitute.For<IAgentJobRepository>(), Substitute.For<IMaintenancePlanSqlGenerator>());
+
+        var r = (await svc.CheckStepsAsync(MakeAutoGrowthTestConfig(MaintenancePlanStep.PreExpandDataFile))).Single();
+
+        r.AlreadyExists.Should().BeFalse();
+        r.CurrentStatus.Should().Contain("建議預擴");
+    }
+
+    [Fact]
+    public async Task CheckSteps_PreExpand_當磁碟空間不足_應標記跳過且不可執行()
+    {
+        var dbRepo = Substitute.For<IDatabaseInfoRepository>();
+        // 預擴緩衝預設 5 GB；護欄為 5*1.5=7.5 GB；磁碟僅 4 GB
+        dbRepo.GetDatabaseFilesAsync("DB", Arg.Any<CancellationToken>()).Returns(new List<DatabaseFileInfo>
+        {
+            new() { LogicalName = "DB", PhysicalName = "x", FileType = DatabaseFileType.Data,
+                    SizeMB = 25600, FreeMB = 100,
+                    IsPercentGrowth = false, GrowthMB = 256,
+                    VolumeMountPoint = @"D:\", VolumeFreeGB = 4 }
+        });
+        var svc = new MaintenancePlanService(dbRepo, Substitute.For<IAgentJobRepository>(), Substitute.For<IMaintenancePlanSqlGenerator>());
+
+        var r = (await svc.CheckStepsAsync(MakeAutoGrowthTestConfig(MaintenancePlanStep.PreExpandDataFile))).Single();
+
+        r.AlreadyExists.Should().BeTrue();
+        r.CurrentStatus.Should().Contain("磁碟空間不足");
+        r.AvailableActions.Should().BeEquivalentTo(new[] { "跳過" });
+    }
+
+    [Fact]
+    public async Task CheckSteps_PreExpand_當可用率大於等於20pct_應標記空間充足()
+    {
+        var dbRepo = Substitute.For<IDatabaseInfoRepository>();
+        dbRepo.GetDatabaseFilesAsync("DB", Arg.Any<CancellationToken>()).Returns(new List<DatabaseFileInfo>
+        {
+            new() { LogicalName = "DB", PhysicalName = "x", FileType = DatabaseFileType.Data,
+                    SizeMB = 10240, FreeMB = 5120,
+                    IsPercentGrowth = false, GrowthMB = 256,
+                    VolumeMountPoint = @"D:\", VolumeFreeGB = 100 }
+        });
+        var svc = new MaintenancePlanService(dbRepo, Substitute.For<IAgentJobRepository>(), Substitute.For<IMaintenancePlanSqlGenerator>());
+
+        var r = (await svc.CheckStepsAsync(MakeAutoGrowthTestConfig(MaintenancePlanStep.PreExpandDataFile))).Single();
+
+        r.AlreadyExists.Should().BeTrue();
+        r.CurrentStatus.Should().Contain("空間充足");
+    }
+
+    #endregion
+
     #region GeneratePreviewSqlAsync
 
     [Fact]

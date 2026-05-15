@@ -67,6 +67,7 @@ public class MaintenancePlanService : IMaintenancePlanService
                 MaintenancePlanStep.CreateBackupJob => await CheckJobAsync(config, MaintenancePlanStep.CreateBackupJob, $"{config.DatabaseName}_{await GetRecoveryModel()}Backup", ct),
                 MaintenancePlanStep.CreateRestoreJob => await CheckJobAsync(config, MaintenancePlanStep.CreateRestoreJob, $"{config.DatabaseName}_FullRestore", ct),
                 MaintenancePlanStep.AdjustAutoGrowth => await CheckAutoGrowthAsync(config, ct),
+                MaintenancePlanStep.PreExpandDataFile => await CheckPreExpandAsync(config, ct),
                 _ => throw new ArgumentOutOfRangeException(nameof(step), step, "未知的維護計劃步驟")
             };
             results.Add(result);
@@ -244,6 +245,58 @@ public class MaintenancePlanService : IMaintenancePlanService
             AlreadyExists = exists,
             CurrentStatus = exists ? $"Job [{jobName}] 已存在" : $"Job [{jobName}] 不存在",
             AvailableActions = exists ? ["跳過", "重建"] : ["建立", "跳過"]
+        };
+    }
+
+    private async Task<StepCheckResult> CheckPreExpandAsync(MaintenancePlanConfig config, CancellationToken ct)
+    {
+        var files = await _dbInfoRepo.GetDatabaseFilesAsync(config.DatabaseName, ct);
+        var dataFiles = files.Where(f => f.FileType == DatabaseFileType.Data).ToList();
+
+        if (dataFiles.Count == 0)
+        {
+            return new StepCheckResult
+            {
+                Step = MaintenancePlanStep.PreExpandDataFile,
+                AlreadyExists = true,
+                CurrentStatus = "找不到資料檔",
+                AvailableActions = ["跳過"]
+            };
+        }
+
+        var bufferGB = config.PreExpandBufferGB;
+        var insufficient = dataFiles.FirstOrDefault(f =>
+            f.VolumeFreeGB.HasValue && f.VolumeFreeGB.Value < bufferGB * 1.5);
+        if (insufficient is not null)
+        {
+            return new StepCheckResult
+            {
+                Step = MaintenancePlanStep.PreExpandDataFile,
+                AlreadyExists = true,
+                CurrentStatus = $"磁碟空間不足，跳過（{insufficient.VolumeMountPoint} free {insufficient.VolumeFreeGB} GB < 需要 {bufferGB * 1.5} GB）",
+                AvailableActions = ["跳過"]
+            };
+        }
+
+        var lowSpace = dataFiles.FirstOrDefault(f => f.FreePercent < 20m);
+        if (lowSpace is not null)
+        {
+            return new StepCheckResult
+            {
+                Step = MaintenancePlanStep.PreExpandDataFile,
+                AlreadyExists = false,
+                CurrentStatus = $"建議預擴（{lowSpace.LogicalName} 可用 {lowSpace.FreePercent:0.0}%）",
+                AvailableActions = ["執行", "跳過"]
+            };
+        }
+
+        var minPct = dataFiles.Min(f => f.FreePercent);
+        return new StepCheckResult
+        {
+            Step = MaintenancePlanStep.PreExpandDataFile,
+            AlreadyExists = true,
+            CurrentStatus = $"資料檔可用空間充足（{minPct:0.0}%）",
+            AvailableActions = ["跳過"]
         };
     }
 }

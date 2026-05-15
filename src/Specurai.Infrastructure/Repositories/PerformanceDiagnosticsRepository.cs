@@ -592,8 +592,27 @@ SELECT TOP 1 [Value] FROM @v WHERE Field = 'dbi_dbccLastKnownGood';";
     }
 
     /// <inheritdoc/>
-    public Task<IReadOnlyList<SuspectPage>> GetSuspectPagesAsync(CancellationToken ct = default)
-        => throw new NotImplementedException();
+    public async Task<IReadOnlyList<SuspectPage>> GetSuspectPagesAsync(CancellationToken ct = default)
+    {
+        var connStr = _connectionStringProvider() ?? throw new InvalidOperationException("未設定連線字串");
+        await using var conn = new SqlConnection(connStr);
+        await conn.OpenAsync(ct);
+
+        const string sql = @"
+SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+SELECT
+    DB_NAME(database_id) AS DatabaseName,
+    file_id              AS FileId,
+    page_id              AS PageId,
+    event_type           AS EventTypeRaw,
+    error_count          AS ErrorCount,
+    last_update_date     AS LastUpdateDate
+FROM msdb.dbo.suspect_pages
+ORDER BY last_update_date DESC;";
+
+        var rows = await conn.QueryAsync<SuspectPage>(new CommandDefinition(sql, cancellationToken: ct));
+        return rows.ToList();
+    }
 
     /// <inheritdoc/>
     public Task<IReadOnlyList<CheckDbJobHistory>> GetCheckDbJobHistoryAsync(int top = 50, CancellationToken ct = default)

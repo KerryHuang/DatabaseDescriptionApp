@@ -301,6 +301,67 @@ public class MaintenancePlanServiceTests
         await _dbInfoRepo.DidNotReceive().ExecuteSqlAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
 
+    [Fact]
+    public async Task CheckSteps_AutoGrowth_當mdf小於64MB或ldf為百分比_應標記需調整()
+    {
+        var dbRepo = Substitute.For<IDatabaseInfoRepository>();
+        var jobRepo = Substitute.For<IAgentJobRepository>();
+        var sqlGen = Substitute.For<IMaintenancePlanSqlGenerator>();
+
+        dbRepo.GetDatabaseFilesAsync("DB", Arg.Any<CancellationToken>())
+            .Returns(new List<DatabaseFileInfo>
+            {
+                new() { LogicalName = "DB", PhysicalName = "x", FileType = DatabaseFileType.Data,
+                        SizeMB = 25600, FreeMB = 1280, IsPercentGrowth = false, GrowthMB = 1,
+                        VolumeMountPoint = @"D:\", VolumeFreeGB = 100 },
+                new() { LogicalName = "DB_log", PhysicalName = "x", FileType = DatabaseFileType.Log,
+                        SizeMB = 1024, FreeMB = 512, IsPercentGrowth = true, GrowthMB = 10,
+                        VolumeMountPoint = @"D:\", VolumeFreeGB = 100 }
+            });
+
+        var svc = new MaintenancePlanService(dbRepo, jobRepo, sqlGen);
+        var config = MakeAutoGrowthTestConfig(MaintenancePlanStep.AdjustAutoGrowth);
+        var results = await svc.CheckStepsAsync(config);
+
+        var r = results.Single();
+        r.Step.Should().Be(MaintenancePlanStep.AdjustAutoGrowth);
+        r.AlreadyExists.Should().BeFalse();
+        r.CurrentStatus.Should().Contain("需調整");
+    }
+
+    [Fact]
+    public async Task CheckSteps_AutoGrowth_當所有檔案皆為固定且至少64MB_應標記已最佳化()
+    {
+        var dbRepo = Substitute.For<IDatabaseInfoRepository>();
+        var jobRepo = Substitute.For<IAgentJobRepository>();
+        var sqlGen = Substitute.For<IMaintenancePlanSqlGenerator>();
+
+        dbRepo.GetDatabaseFilesAsync("DB", Arg.Any<CancellationToken>())
+            .Returns(new List<DatabaseFileInfo>
+            {
+                new() { LogicalName = "DB", PhysicalName = "x", FileType = DatabaseFileType.Data,
+                        SizeMB = 25600, FreeMB = 1280, IsPercentGrowth = false, GrowthMB = 256,
+                        VolumeMountPoint = @"D:\", VolumeFreeGB = 100 },
+                new() { LogicalName = "DB_log", PhysicalName = "x", FileType = DatabaseFileType.Log,
+                        SizeMB = 1024, FreeMB = 512, IsPercentGrowth = false, GrowthMB = 128,
+                        VolumeMountPoint = @"D:\", VolumeFreeGB = 100 }
+            });
+
+        var svc = new MaintenancePlanService(dbRepo, jobRepo, sqlGen);
+        var config = MakeAutoGrowthTestConfig(MaintenancePlanStep.AdjustAutoGrowth);
+        var results = await svc.CheckStepsAsync(config);
+
+        results.Single().AlreadyExists.Should().BeTrue();
+        results.Single().CurrentStatus.Should().Contain("已最佳化");
+    }
+
+    private static MaintenancePlanConfig MakeAutoGrowthTestConfig(params MaintenancePlanStep[] steps) => new()
+    {
+        DatabaseName = "DB", BackupPath = @"D:\B\", RestorePath = @"D:\R\",
+        TestDatabaseName = "DB-test", LoginName = "u", LoginPassword = "p",
+        BackupTime = 2, RestoreTime = 3, SelectedSteps = steps
+    };
+
     #endregion
 
     #region GeneratePreviewSqlAsync

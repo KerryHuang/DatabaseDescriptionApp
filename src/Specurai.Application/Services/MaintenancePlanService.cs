@@ -178,7 +178,7 @@ public class MaintenancePlanService : IMaintenancePlanService
     }
 
     /// <inheritdoc />
-    public async Task<string> GeneratePreviewSqlAsync(MaintenancePlanConfig config, IReadOnlyList<StepCheckResult> checkResults)
+    public async Task<string> GeneratePreviewSqlAsync(MaintenancePlanConfig config, IReadOnlyList<StepCheckResult> checkResults, CancellationToken ct = default)
     {
         var baseSql = _sqlGenerator.GenerateFullSql(config, checkResults);
 
@@ -188,7 +188,7 @@ public class MaintenancePlanService : IMaintenancePlanService
         if (!autoGrowthActive && !preExpandActive)
             return baseSql;
 
-        var files = await _dbInfoRepo.GetDatabaseFilesAsync(config.DatabaseName);
+        var files = await _dbInfoRepo.GetDatabaseFilesAsync(config.DatabaseName, ct);
         var sb = new System.Text.StringBuilder();
 
         if (autoGrowthActive)
@@ -340,16 +340,33 @@ public class MaintenancePlanService : IMaintenancePlanService
             };
         }
 
+        // 計算每個資料檔的實際擴增 MB（與 SqlGenerator 邏輯一致：目前大小向上湊整 GB + bufferGB）
         var bufferGB = config.PreExpandBufferGB;
-        var insufficient = dataFiles.FirstOrDefault(f =>
-            f.VolumeFreeGB.HasValue && f.VolumeFreeGB.Value < bufferGB * 1.5);
+        DatabaseFileInfo? insufficient = null;
+        foreach (var f in dataFiles)
+        {
+            if (!f.VolumeFreeGB.HasValue) continue;
+            var currentGB = (int)Math.Ceiling(f.SizeMB / 1024.0);
+            var targetMB = (currentGB + bufferGB) * 1024;
+            var growthMB = targetMB - f.SizeMB;
+            var requiredGB = growthMB * 1.5 / 1024.0;
+            if (f.VolumeFreeGB.Value < requiredGB)
+            {
+                insufficient = f;
+                break;
+            }
+        }
         if (insufficient is not null)
         {
+            var iCurrentGB = (int)Math.Ceiling(insufficient.SizeMB / 1024.0);
+            var iTargetMB = (iCurrentGB + bufferGB) * 1024;
+            var iGrowthMB = iTargetMB - insufficient.SizeMB;
+            var iRequired = Math.Round(iGrowthMB * 1.5 / 1024.0, 1);
             return new StepCheckResult
             {
                 Step = MaintenancePlanStep.PreExpandDataFile,
                 AlreadyExists = true,
-                CurrentStatus = $"磁碟空間不足，跳過（{insufficient.VolumeMountPoint} free {insufficient.VolumeFreeGB} GB < 需要 {bufferGB * 1.5} GB）",
+                CurrentStatus = $"磁碟空間不足，跳過（{insufficient.VolumeMountPoint} free {insufficient.VolumeFreeGB} GB < 需要 {iRequired} GB）",
                 AvailableActions = ["跳過"]
             };
         }

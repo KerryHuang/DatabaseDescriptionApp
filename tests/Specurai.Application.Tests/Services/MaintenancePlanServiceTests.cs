@@ -407,6 +407,27 @@ public class MaintenancePlanServiceTests
     }
 
     [Fact]
+    public async Task CheckSteps_PreExpand_當資料檔極小但緩衝大_應依實際擴增量判斷磁碟()
+    {
+        var dbRepo = Substitute.For<IDatabaseInfoRepository>();
+        // 目前 100 MB，湊整 1 GB + 5 GB = 6 GB，實際擴增 6144-100=6044 MB ≈ 5.9 GB；護欄 = 5.9 * 1.5 = 8.85 GB
+        // 磁碟僅剩 8 GB，應判定不足（舊公式 5*1.5=7.5GB 會誤判為足夠）
+        dbRepo.GetDatabaseFilesAsync("DB", Arg.Any<CancellationToken>()).Returns(new List<DatabaseFileInfo>
+        {
+            new() { LogicalName = "DB", PhysicalName = "x", FileType = DatabaseFileType.Data,
+                    SizeMB = 100, FreeMB = 50,
+                    IsPercentGrowth = false, GrowthMB = 256,
+                    VolumeMountPoint = @"D:\", VolumeFreeGB = 8 }
+        });
+        var svc = new MaintenancePlanService(dbRepo, Substitute.For<IAgentJobRepository>(), Substitute.For<IMaintenancePlanSqlGenerator>());
+
+        var r = (await svc.CheckStepsAsync(MakeAutoGrowthTestConfig(MaintenancePlanStep.PreExpandDataFile))).Single();
+
+        r.AlreadyExists.Should().BeTrue();
+        r.CurrentStatus.Should().Contain("磁碟空間不足");
+    }
+
+    [Fact]
     public async Task CheckSteps_PreExpand_當可用率大於等於20pct_應標記空間充足()
     {
         var dbRepo = Substitute.For<IDatabaseInfoRepository>();

@@ -42,5 +42,5 @@ public interface IMaintenancePlanService
     /// </summary>
     /// <param name="config">維護計劃設定</param>
     /// <param name="checkResults">步驟檢查結果清單</param>
-    Task<string> GeneratePreviewSqlAsync(MaintenancePlanConfig config, IReadOnlyList<StepCheckResult> checkResults);
+    Task<string> GeneratePreviewSqlAsync(MaintenancePlanConfig config, IReadOnlyList<StepCheckResult> checkResults, CancellationToken ct = default);
 }

@@ -122,10 +122,21 @@ public class MaintenancePlanService : IMaintenancePlanService
             ct.ThrowIfCancellationRequested();
         }
 
+        // 獨立步驟：重新命名邏輯檔名（ALTER DATABASE MODIFY FILE 不能在交易中執行）
+        var renameStep = checkResults.FirstOrDefault(r => r.Step == MaintenancePlanStep.RenameLogicalFiles && r.SelectedAction != "跳過");
+        if (renameStep is not null)
+        {
+            progress?.Report("正在重新命名邏輯檔名...");
+            var sql = _sqlGenerator.GenerateStepSql(MaintenancePlanStep.RenameLogicalFiles, config, renameStep.SelectedAction);
+            await _dbInfoRepo.ExecuteSqlAsync(sql, ct);
+            progress?.Report("邏輯檔名更新完成。");
+        }
+
+        ct.ThrowIfCancellationRequested();
+
         // 交易群組：資料庫設定步驟
         var dbSteps = checkResults.Where(r =>
             r.Step is MaintenancePlanStep.SetRecoveryModel
-                or MaintenancePlanStep.RenameLogicalFiles
                 or MaintenancePlanStep.CreateLoginAndUser
                 or MaintenancePlanStep.AddToDbOwner
             && r.SelectedAction != "跳過").ToList();

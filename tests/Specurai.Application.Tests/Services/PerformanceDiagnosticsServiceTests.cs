@@ -27,7 +27,7 @@ public class PerformanceDiagnosticsServiceTests
             new()
             {
                 DatabaseName = "DB",
-                LastKnownGood = days.HasValue ? DateTime.UtcNow.Date.AddDays(-days.Value) : null
+                LastKnownGood = days.HasValue ? DateTime.Now.Date.AddDays(-days.Value) : null
             }
         };
         repo.GetLastCheckDbAsync(Arg.Any<IProgress<string>?>(), Arg.Any<CancellationToken>()).Returns(rows);

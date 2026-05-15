@@ -692,7 +692,6 @@ public class MaintenancePlanSqlGenerator : IMaintenancePlanSqlGenerator
             sb.AppendLine("-- ============================================================");
             sb.AppendLine($"PRINT N'===== 步驟 {stepNumber}: 重新命名邏輯檔名 (開始) =====';");
             sb.AppendLine("BEGIN TRY");
-            sb.AppendLine("BEGIN TRANSACTION;");
             sb.AppendLine();
             sb.AppendLine("    DECLARE @renameSql NVARCHAR(MAX);");
             sb.AppendLine("    DECLARE @oldFileName SYSNAME, @newFileName SYSNAME;");
@@ -736,13 +735,11 @@ public class MaintenancePlanSqlGenerator : IMaintenancePlanSqlGenerator
             sb.AppendLine("    ELSE");
             sb.AppendLine("        PRINT N'  日誌檔已是正確名稱或不存在需更名的檔案';");
             sb.AppendLine();
-            sb.AppendLine("COMMIT TRANSACTION;");
             sb.AppendLine($"PRINT N'===== 步驟 {stepNumber}: 重新命名邏輯檔名 (完成) =====';");
             sb.AppendLine("END TRY");
             sb.AppendLine("BEGIN CATCH");
             sb.AppendLine($"    PRINT N'##### 步驟 {stepNumber} 發生錯誤 #####';");
             sb.AppendLine("    PRINT ERROR_MESSAGE();");
-            sb.AppendLine("    IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;");
             sb.AppendLine("    THROW;");
             sb.AppendLine("END CATCH;");
             sb.AppendLine("GO");

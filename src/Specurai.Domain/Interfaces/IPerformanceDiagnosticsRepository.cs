@@ -71,4 +71,22 @@ public interface IPerformanceDiagnosticsRepository
     /// <param name="databaseName">目標資料庫名稱</param>
     /// <param name="ct">取消權杖</param>
     Task ExecuteDropIndexAsync(string dropIndexStatement, string databaseName, CancellationToken ct = default);
+
+    /// <summary>
+    /// 取得各資料庫最後一次成功 CHECKDB 的時間(原始資料,Health 分級由 Service 計算)
+    /// </summary>
+    /// <param name="progress">進度回報(每處理一個 DB 回報一次)</param>
+    /// <param name="ct">取消權杖</param>
+    Task<IReadOnlyList<LastCheckDbRow>> GetLastCheckDbAsync(IProgress<string>? progress = null, CancellationToken ct = default);
+
+    /// <summary>
+    /// 取得 msdb.dbo.suspect_pages 內容(疑似損毀頁面)
+    /// </summary>
+    Task<IReadOnlyList<SuspectPage>> GetSuspectPagesAsync(CancellationToken ct = default);
+
+    /// <summary>
+    /// 取得 CHECKDB Job 的執行歷史(僅 step_id=0 整體結果)
+    /// </summary>
+    /// <param name="top">最近 N 筆(預設 50)</param>
+    Task<IReadOnlyList<CheckDbJobHistory>> GetCheckDbJobHistoryAsync(int top = 50, CancellationToken ct = default);
 }

@@ -1,5 +1,6 @@
 using Dapper;
 using Microsoft.Data.SqlClient;
+using Specurai.Domain.Entities;
 using Specurai.Domain.Interfaces;
 
 namespace Specurai.Infrastructure.Repositories;
@@ -186,5 +187,60 @@ WHERE r.name = 'db_owner' AND m.name = @UserName";
 
         await using var connection = new SqlConnection(connectionString);
         await connection.ExecuteAsync(new CommandDefinition(sql, cancellationToken: ct));
+    }
+
+    public async Task<IReadOnlyList<DatabaseFileInfo>> GetDatabaseFilesAsync(string databaseName, CancellationToken ct = default)
+    {
+        var connStr = _connectionStringProvider() ?? throw new InvalidOperationException("未設定連線字串");
+        await using var conn = new SqlConnection(connStr);
+        await conn.OpenAsync(ct);
+
+        // 切換到目標 DB 後查 sys.database_files + sys.dm_os_volume_stats
+        // 注意：FILEPROPERTY 必須在目標 DB 的 context 才能解析
+        var sql = $@"
+SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+USE [{databaseName.Replace("]", "]]")}];
+SELECT
+    f.name                                              AS LogicalName,
+    f.physical_name                                     AS PhysicalName,
+    f.type                                              AS FileTypeRaw,
+    CAST(f.size * 8 / 1024 AS INT)                      AS SizeMB,
+    CAST((f.size - FILEPROPERTY(f.name, 'SpaceUsed')) * 8 / 1024 AS INT) AS FreeMB,
+    f.is_percent_growth                                 AS IsPercentGrowth,
+    CASE WHEN f.is_percent_growth = 1
+         THEN f.growth
+         ELSE CAST(f.growth * 8 / 1024 AS INT) END     AS GrowthMB,
+    vs.volume_mount_point                               AS VolumeMountPoint,
+    CAST(vs.available_bytes / 1073741824 AS INT)        AS VolumeFreeGB
+FROM sys.database_files f
+OUTER APPLY sys.dm_os_volume_stats(DB_ID(), f.file_id) vs;
+";
+
+        var rows = await conn.QueryAsync<DatabaseFileRow>(new CommandDefinition(sql, cancellationToken: ct));
+        return rows.Select(r => new DatabaseFileInfo
+        {
+            LogicalName = r.LogicalName,
+            PhysicalName = r.PhysicalName,
+            FileType = r.FileTypeRaw == 1 ? DatabaseFileType.Log : DatabaseFileType.Data,
+            SizeMB = r.SizeMB,
+            FreeMB = r.FreeMB,
+            IsPercentGrowth = r.IsPercentGrowth,
+            GrowthMB = r.GrowthMB,
+            VolumeMountPoint = r.VolumeMountPoint ?? string.Empty,
+            VolumeFreeGB = r.VolumeFreeGB
+        }).ToList();
+    }
+
+    private sealed class DatabaseFileRow
+    {
+        public string LogicalName { get; set; } = string.Empty;
+        public string PhysicalName { get; set; } = string.Empty;
+        public byte FileTypeRaw { get; set; }
+        public int SizeMB { get; set; }
+        public int FreeMB { get; set; }
+        public bool IsPercentGrowth { get; set; }
+        public int GrowthMB { get; set; }
+        public string? VolumeMountPoint { get; set; }
+        public int? VolumeFreeGB { get; set; }
     }
 }

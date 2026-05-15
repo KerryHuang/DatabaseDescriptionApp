@@ -1000,4 +1000,65 @@ public partial class PerformanceDiagnosticsDocumentViewModel : DocumentViewModel
     }
 
     #endregion
+
+    #region 完整性檢查
+
+    public ObservableCollection<IntegrityCheckStatus> IntegrityChecks { get; } = [];
+    public ObservableCollection<SuspectPage> SuspectPages { get; } = [];
+    public ObservableCollection<CheckDbJobHistory> CheckDbJobHistories { get; } = [];
+
+    [ObservableProperty]
+    private bool _isLoadingIntegrity;
+
+    [ObservableProperty]
+    private string _integrityProgressMessage = string.Empty;
+
+    /// <summary>是否有疑似損毀頁面(供 UI 條件顯示)</summary>
+    public bool HasSuspectPages => SuspectPages.Count > 0;
+
+    [RelayCommand]
+    private async Task RunIntegrityCheckAnalysisAsync()
+    {
+        if (_service is null) return;
+
+        IsLoadingIntegrity = true;
+        IntegrityProgressMessage = "開始載入完整性資料...";
+        IntegrityChecks.Clear();
+        SuspectPages.Clear();
+        CheckDbJobHistories.Clear();
+        OnPropertyChanged(nameof(HasSuspectPages));
+
+        _cancellationTokenSource = new CancellationTokenSource();
+        try
+        {
+            var progress = new Progress<string>(m => IntegrityProgressMessage = m);
+
+            var lastCheckTask = _service.GetIntegrityCheckStatusAsync(progress, _cancellationTokenSource.Token);
+            var suspectTask = _service.GetSuspectPagesAsync(_cancellationTokenSource.Token);
+            var historyTask = _service.GetCheckDbJobHistoryAsync(50, _cancellationTokenSource.Token);
+
+            await Task.WhenAll(lastCheckTask, suspectTask, historyTask);
+
+            foreach (var s in await lastCheckTask) IntegrityChecks.Add(s);
+            foreach (var p in await suspectTask) SuspectPages.Add(p);
+            foreach (var h in await historyTask) CheckDbJobHistories.Add(h);
+
+            OnPropertyChanged(nameof(HasSuspectPages));
+            IntegrityProgressMessage = $"完成:{IntegrityChecks.Count} 個 DB / {SuspectPages.Count} 筆 Suspect Page / {CheckDbJobHistories.Count} 筆 Job 紀錄";
+        }
+        catch (OperationCanceledException)
+        {
+            IntegrityProgressMessage = "已取消";
+        }
+        catch (Exception ex)
+        {
+            IntegrityProgressMessage = $"載入失敗:{ex.Message}";
+        }
+        finally
+        {
+            IsLoadingIntegrity = false;
+        }
+    }
+
+    #endregion
 }

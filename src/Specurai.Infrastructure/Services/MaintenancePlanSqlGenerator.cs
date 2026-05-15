@@ -23,6 +23,9 @@ public class MaintenancePlanSqlGenerator : IMaintenancePlanSqlGenerator
             MaintenancePlanStep.AddToDbOwner => GenerateAddToDbOwner(config),
             MaintenancePlanStep.CreateBackupJob => GenerateCreateBackupJob(config, action),
             MaintenancePlanStep.CreateRestoreJob => GenerateCreateRestoreJob(config, action),
+            MaintenancePlanStep.AdjustAutoGrowth => string.Empty,
+            MaintenancePlanStep.PreExpandDataFile => string.Empty,
+            MaintenancePlanStep.CreateCheckDbJob => GenerateCreateCheckDbJobSql(config, action),
             _ => string.Empty
         };
     }
@@ -98,6 +101,23 @@ public class MaintenancePlanSqlGenerator : IMaintenancePlanSqlGenerator
             sb.AppendLine("END TRY");
             sb.AppendLine("BEGIN CATCH");
             sb.AppendLine("    PRINT N'##### 建立備份排程發生錯誤 #####';");
+            sb.AppendLine("    PRINT ERROR_MESSAGE();");
+            sb.AppendLine("END CATCH;");
+            sb.AppendLine("GO");
+            sb.AppendLine();
+        }
+
+        // 步驟：CheckDB 排程
+        var checkDbStep = activeResults.FirstOrDefault(r => r.Step == MaintenancePlanStep.CreateCheckDbJob);
+        if (checkDbStep is not null)
+        {
+            sb.AppendLine($"PRINT N'===== 建立完整性檢查排程 (開始) =====';");
+            sb.AppendLine("BEGIN TRY");
+            sb.AppendLine(GenerateStepSql(checkDbStep.Step, config, checkDbStep.SelectedAction));
+            sb.AppendLine($"    PRINT N'===== 建立完整性檢查排程 (完成) =====';");
+            sb.AppendLine("END TRY");
+            sb.AppendLine("BEGIN CATCH");
+            sb.AppendLine("    PRINT N'##### 建立完整性檢查排程發生錯誤 #####';");
             sb.AppendLine("    PRINT ERROR_MESSAGE();");
             sb.AppendLine("END CATCH;");
             sb.AppendLine("GO");

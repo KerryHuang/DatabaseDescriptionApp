@@ -1073,5 +1073,80 @@ public class MaintenancePlanSqlGenerator : IMaintenancePlanSqlGenerator
 
     /// <inheritdoc/>
     public string GenerateCreateCheckDbJobSql(MaintenancePlanConfig config, string? action = null)
-        => throw new NotImplementedException();
+    {
+        var sb = new StringBuilder();
+        var dbName = EscapeSingleQuote(config.DatabaseName);
+        var jobName = $"{config.DatabaseName}_CheckDb";
+        var escapedJobName = EscapeSingleQuote(jobName);
+
+        // SQL Agent weekly bitmask: Sun=1 Mon=2 Tue=4 Wed=8 Thu=16 Fri=32 Sat=64
+        var dayBitmask = config.CheckDbDayOfWeek switch
+        {
+            DayOfWeek.Sunday => 1,
+            DayOfWeek.Monday => 2,
+            DayOfWeek.Tuesday => 4,
+            DayOfWeek.Wednesday => 8,
+            DayOfWeek.Thursday => 16,
+            DayOfWeek.Friday => 32,
+            DayOfWeek.Saturday => 64,
+            _ => 1
+        };
+        var startTime = config.CheckDbTime * 10000;
+
+        sb.AppendLine("USE [msdb];");
+        sb.AppendLine();
+
+        if (action == "刪除重建")
+        {
+            sb.AppendLine($"-- 刪除現有的 Job: [{jobName}]");
+            sb.AppendLine($"IF EXISTS (SELECT 1 FROM msdb.dbo.sysjobs WHERE name = N'{escapedJobName}')");
+            sb.AppendLine($"    EXEC dbo.sp_delete_job");
+            sb.AppendLine($"        @job_name = N'{escapedJobName}',");
+            sb.AppendLine($"        @delete_unused_schedule = 1;");
+            sb.AppendLine();
+        }
+
+        sb.AppendLine($"-- 建立 Job: [{jobName}]");
+        sb.AppendLine($"EXEC dbo.sp_add_job");
+        sb.AppendLine($"    @job_name    = N'{escapedJobName}',");
+        sb.AppendLine($"    @enabled     = 1,");
+        sb.AppendLine($"    @description = N'[Specurai] 每週對 {dbName} 執行 DBCC CHECKDB（PHYSICAL_ONLY）';");
+        sb.AppendLine();
+
+        sb.AppendLine($"-- 新增 Step: CheckDB {dbName}");
+        sb.AppendLine($"EXEC dbo.sp_add_jobstep");
+        sb.AppendLine($"    @job_name       = N'{escapedJobName}',");
+        sb.AppendLine($"    @step_name      = N'CheckDB {dbName}',");
+        sb.AppendLine($"    @subsystem      = N'TSQL',");
+        sb.AppendLine($"    @on_success_action = 1,");
+        sb.AppendLine($"    @on_fail_action    = 2,");
+        sb.AppendLine($"    @command = N'");
+        sb.AppendLine($"BEGIN TRY");
+        sb.AppendLine($"    PRINT N''開始：DBCC CHECKDB {dbName} WITH PHYSICAL_ONLY...'';");
+        sb.AppendLine($"    DBCC CHECKDB(N''{dbName}'') WITH PHYSICAL_ONLY, NO_INFOMSGS, ALL_ERRORMSGS;");
+        sb.AppendLine($"    PRINT N''CheckDB 完成'';");
+        sb.AppendLine($"END TRY");
+        sb.AppendLine($"BEGIN CATCH");
+        sb.AppendLine($"    PRINT N''錯誤: '' + ERROR_MESSAGE();");
+        sb.AppendLine($"    THROW;");
+        sb.AppendLine($"END CATCH");
+        sb.AppendLine($"';");
+        sb.AppendLine();
+
+        sb.AppendLine($"-- 建立排程: 每週 {config.CheckDbDayOfWeek} {config.CheckDbTime:D2}:00 執行");
+        sb.AppendLine($"EXEC dbo.sp_add_jobschedule");
+        sb.AppendLine($"    @job_name          = N'{escapedJobName}',");
+        sb.AppendLine($"    @name              = N'{escapedJobName}_Schedule',");
+        sb.AppendLine($"    @freq_type         = 8,");
+        sb.AppendLine($"    @freq_interval     = {dayBitmask},");
+        sb.AppendLine($"    @freq_recurrence_factor = 1,");
+        sb.AppendLine($"    @active_start_time = {startTime};");
+        sb.AppendLine();
+
+        sb.AppendLine($"-- 指定 Job 在本機伺服器執行");
+        sb.AppendLine($"EXEC dbo.sp_add_jobserver");
+        sb.AppendLine($"    @job_name = N'{escapedJobName}';");
+
+        return sb.ToString();
+    }
 }

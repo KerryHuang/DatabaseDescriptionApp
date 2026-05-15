@@ -1056,7 +1056,20 @@ public class MaintenancePlanSqlGenerator : IMaintenancePlanSqlGenerator
 
     /// <inheritdoc/>
     public string GeneratePreExpandDataFileSql(MaintenancePlanConfig config, IReadOnlyList<DatabaseFileInfo> dataFiles)
-        => throw new NotImplementedException();
+    {
+        var sb = new StringBuilder();
+        var db = QuoteName(config.DatabaseName);
+        sb.AppendLine($"-- 預擴 {db} 的資料檔");
+        foreach (var f in dataFiles.Where(x => x.FileType == DatabaseFileType.Data))
+        {
+            // 目前大小向上湊整到 GB，再加緩衝 GB
+            var currentGB = (int)Math.Ceiling(f.SizeMB / 1024.0);
+            var targetMB = (currentGB + config.PreExpandBufferGB) * 1024;
+            var name = EscapeSingleQuote(f.LogicalName);
+            sb.AppendLine($"ALTER DATABASE {db} MODIFY FILE (NAME = N'{name}', SIZE = {targetMB}MB);");
+        }
+        return sb.ToString();
+    }
 
     /// <inheritdoc/>
     public string GenerateCreateCheckDbJobSql(MaintenancePlanConfig config, string? action = null)

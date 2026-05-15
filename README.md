@@ -78,9 +78,9 @@ specurai tables list
 | 結構比對 | 跨環境 Schema 差異偵測、同步腳本、HTML/Excel 報表 | Ctrl+M |
 | Schema Migration | 風險評估、多維度篩選、Dry Run、自動回滾、執行報告 | Ctrl+Shift+M |
 | 健康監控 | CPU / 記憶體 / 磁碟 / 連線數，自動告警、趨勢圖，SQL Agent 排程 | Ctrl+H |
-| 效能診斷 | 等候事件、耗時查詢、索引狀態、錯誤記錄 | Ctrl+P |
+| 效能診斷 | 等候事件、耗時查詢、索引狀態、錯誤記錄、完整性檢查（CHECKDB / Suspect Pages） | Ctrl+P |
 | 索引管理 | 缺少索引建議、未使用索引清理 | Ctrl+I / Ctrl+J |
-| 維護計劃 | 精靈式建立 SQL Agent Job：備份、Recovery Model、使用者權限、保留天數 | Ctrl+Shift+D |
+| 維護計劃 | 精靈式建立 SQL Agent Job：備份、還原、CHECKDB 排程、Recovery Model、使用者權限、autogrowth 調整、資料檔預擴 | Ctrl+Shift+D |
 | Excel 匯出 | 全庫規格一鍵匯出 | Ctrl+E |
 | MCP Server | 56 個 AI 工具，共用桌面連線設定，支援所有 MCP 客戶端 | — |
 | 自動更新 | 啟動時背景檢查 GitHub Release，新版本以右上角徽章通知；Windows/Linux 一鍵更新，macOS 以對話框提供下載連結與 `xattr` 指令 | — |

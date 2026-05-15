@@ -496,6 +496,80 @@
                                IsVisible="{Binding !HasErrorLogs}" Foreground="Gray"/>
                 </Grid>
             </TabItem>
+
+            <!-- 完整性檢查分頁 -->
+            <TabItem Header="完整性檢查">
+                <Grid RowDefinitions="Auto,Auto,*">
+                    <!-- 工具列 -->
+                    <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="10" Margin="10">
+                        <Button Content="重新整理"
+                                Command="{Binding RunIntegrityCheckAnalysisCommand}"
+                                IsEnabled="{Binding !IsLoadingIntegrity}"/>
+                        <TextBlock Text="{Binding IntegrityProgressMessage}"
+                                   VerticalAlignment="Center" Opacity="0.7"/>
+                    </StackPanel>
+
+                    <!-- 說明 -->
+                    <Expander Grid.Row="1" Header="完整性檢查說明（點擊展開）" Margin="10,0,10,5">
+                        <StackPanel Spacing="4" Margin="10">
+                            <TextBlock Text="本頁整合三項資料庫完整性資訊，協助 DBA 快速判斷健康狀態：" TextWrapping="Wrap"/>
+                            <TextBlock Text="• 最後 CHECKDB 時間：來自 DBCC DBINFO 的 dbi_dbccLastKnownGood，&lt;14 天為健康" TextWrapping="Wrap"/>
+                            <TextBlock Text="• Suspect Pages：msdb.dbo.suspect_pages，記錄已被 SQL Server 偵測到的損毀頁面" TextWrapping="Wrap"/>
+                            <TextBlock Text="• CHECKDB Job 紀錄：SQL Agent 中名稱含 CheckDb 的 Job 最近執行歷史" TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </Expander>
+
+                    <!-- 三段內容 -->
+                    <ScrollViewer Grid.Row="2" Margin="10,0,10,10">
+                        <StackPanel Spacing="10">
+                            <Expander Header="📋 各資料庫最後 CHECKDB 時間" IsExpanded="True">
+                                <DataGrid ItemsSource="{Binding IntegrityChecks}" AutoGenerateColumns="False"
+                                          IsReadOnly="True" CanUserResizeColumns="True" MaxHeight="320">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="Database" Binding="{Binding DatabaseName}" Width="200"/>
+                                        <DataGridTextColumn Header="最後成功時間" Binding="{Binding LastKnownGood, StringFormat='yyyy-MM-dd HH:mm'}" Width="160"/>
+                                        <DataGridTextColumn Header="距今天數" Binding="{Binding DaysSince}" Width="100"/>
+                                        <DataGridTextColumn Header="健康" Binding="{Binding Health}" Width="100"/>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </Expander>
+
+                            <Expander Header="⚠️ Suspect Pages（疑似損毀頁面）" IsExpanded="True">
+                                <Grid>
+                                    <DataGrid ItemsSource="{Binding SuspectPages}" AutoGenerateColumns="False"
+                                              IsReadOnly="True" CanUserResizeColumns="True" MaxHeight="240"
+                                              IsVisible="{Binding HasSuspectPages}">
+                                        <DataGrid.Columns>
+                                            <DataGridTextColumn Header="Database" Binding="{Binding DatabaseName}" Width="160"/>
+                                            <DataGridTextColumn Header="FileId" Binding="{Binding FileId}" Width="80"/>
+                                            <DataGridTextColumn Header="PageId" Binding="{Binding PageId}" Width="120"/>
+                                            <DataGridTextColumn Header="事件類型" Binding="{Binding EventTypeText}" Width="160"/>
+                                            <DataGridTextColumn Header="錯誤次數" Binding="{Binding ErrorCount}" Width="100"/>
+                                            <DataGridTextColumn Header="最後更新" Binding="{Binding LastUpdateDate, StringFormat='yyyy-MM-dd HH:mm'}" Width="160"/>
+                                        </DataGrid.Columns>
+                                    </DataGrid>
+                                    <TextBlock Text="✅ 目前無疑似損毀頁面" Foreground="Green" FontSize="14"
+                                               HorizontalAlignment="Center" Margin="0,20"
+                                               IsVisible="{Binding !HasSuspectPages}"/>
+                                </Grid>
+                            </Expander>
+
+                            <Expander Header="📜 最近 CHECKDB Job 執行紀錄" IsExpanded="True">
+                                <DataGrid ItemsSource="{Binding CheckDbJobHistories}" AutoGenerateColumns="False"
+                                          IsReadOnly="True" CanUserResizeColumns="True" MaxHeight="320">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="Job" Binding="{Binding JobName}" Width="200"/>
+                                        <DataGridTextColumn Header="執行時間" Binding="{Binding RunAt, StringFormat='yyyy-MM-dd HH:mm:ss'}" Width="160"/>
+                                        <DataGridTextColumn Header="時長" Binding="{Binding Duration, StringFormat='hh\:mm\:ss'}" Width="80"/>
+                                        <DataGridTextColumn Header="結果" Binding="{Binding StatusText}" Width="80"/>
+                                        <DataGridTextColumn Header="訊息" Binding="{Binding Message}" Width="*"/>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </Expander>
+                        </StackPanel>
+                    </ScrollViewer>
+                </Grid>
+            </TabItem>
         </TabControl>
 
         <!-- 狀態列 -->

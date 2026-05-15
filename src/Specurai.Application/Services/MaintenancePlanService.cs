@@ -66,6 +66,7 @@ public class MaintenancePlanService : IMaintenancePlanService
                 MaintenancePlanStep.AddToDbOwner => await CheckDbOwnerAsync(config, ct),
                 MaintenancePlanStep.CreateBackupJob => await CheckJobAsync(config, MaintenancePlanStep.CreateBackupJob, $"{config.DatabaseName}_{await GetRecoveryModel()}Backup", ct),
                 MaintenancePlanStep.CreateRestoreJob => await CheckJobAsync(config, MaintenancePlanStep.CreateRestoreJob, $"{config.DatabaseName}_FullRestore", ct),
+                MaintenancePlanStep.AdjustAutoGrowth => await CheckAutoGrowthAsync(config, ct),
                 _ => throw new ArgumentOutOfRangeException(nameof(step), step, "未知的維護計劃步驟")
             };
             results.Add(result);
@@ -209,6 +210,28 @@ public class MaintenancePlanService : IMaintenancePlanService
             AlreadyExists = isMember,
             CurrentStatus = isMember ? "已為 db_owner 成員" : "尚未加入 db_owner",
             AvailableActions = isMember ? ["跳過"] : ["執行", "跳過"]
+        };
+    }
+
+    private async Task<StepCheckResult> CheckAutoGrowthAsync(MaintenancePlanConfig config, CancellationToken ct)
+    {
+        var files = await _dbInfoRepo.GetDatabaseFilesAsync(config.DatabaseName, ct);
+        var problems = files.Where(f =>
+            f.IsPercentGrowth ||
+            f.GrowthMB < 64).ToList();
+        var optimal = problems.Count == 0 && files.Count > 0;
+
+        var dataFile = files.FirstOrDefault(f => f.FileType == DatabaseFileType.Data);
+        var logFile = files.FirstOrDefault(f => f.FileType == DatabaseFileType.Log);
+
+        return new StepCheckResult
+        {
+            Step = MaintenancePlanStep.AdjustAutoGrowth,
+            AlreadyExists = optimal,
+            CurrentStatus = optimal
+                ? $"自動成長設定已最佳化（資料檔 {dataFile?.GrowthMB} MB / 記錄檔 {logFile?.GrowthMB} MB）"
+                : $"自動成長設定需調整（{string.Join(", ", problems.Select(p => $"{p.LogicalName}: {(p.IsPercentGrowth ? p.GrowthMB + "%" : p.GrowthMB + " MB")}"))}）",
+            AvailableActions = optimal ? ["跳過"] : ["執行", "跳過"]
         };
     }
 

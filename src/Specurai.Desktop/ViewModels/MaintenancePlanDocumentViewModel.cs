@@ -174,6 +174,15 @@ public partial class MaintenancePlanDocumentViewModel : DocumentViewModel
     [ObservableProperty]
     private bool _isCreateRestoreJobSelected;
 
+    [ObservableProperty]
+    private bool _isAdjustAutoGrowthSelected = true;
+
+    [ObservableProperty]
+    private bool _isPreExpandDataFileSelected;
+
+    [ObservableProperty]
+    private bool _isCreateCheckDbJobSelected = true;
+
     /// <summary>步驟2的檢查狀態文字</summary>
     [ObservableProperty]
     private string _step2CheckStatus = string.Empty;
@@ -200,6 +209,15 @@ public partial class MaintenancePlanDocumentViewModel : DocumentViewModel
 
     [ObservableProperty]
     private string _restoreJobStatus = string.Empty;
+
+    [ObservableProperty]
+    private string _adjustAutoGrowthStatus = string.Empty;
+
+    [ObservableProperty]
+    private string _preExpandDataFileStatus = string.Empty;
+
+    [ObservableProperty]
+    private string _checkDbJobStatus = string.Empty;
 
     /// <summary>是否正在檢查步驟狀態</summary>
     [ObservableProperty]
@@ -548,6 +566,18 @@ public partial class MaintenancePlanDocumentViewModel : DocumentViewModel
                         // 還原排程預設不勾選，除非已存在需要重建
                         IsCreateRestoreJobSelected = false;
                         break;
+                    case MaintenancePlanStep.AdjustAutoGrowth:
+                        AdjustAutoGrowthStatus = r.CurrentStatus;
+                        IsAdjustAutoGrowthSelected = !r.AlreadyExists;
+                        break;
+                    case MaintenancePlanStep.PreExpandDataFile:
+                        PreExpandDataFileStatus = r.CurrentStatus;
+                        IsPreExpandDataFileSelected = !r.AlreadyExists;
+                        break;
+                    case MaintenancePlanStep.CreateCheckDbJob:
+                        CheckDbJobStatus = r.CurrentStatus;
+                        IsCreateCheckDbJobSelected = !r.AlreadyExists;
+                        break;
                 }
             }
 
@@ -668,10 +698,13 @@ public partial class MaintenancePlanDocumentViewModel : DocumentViewModel
         var steps = new List<MaintenancePlanStep>();
         if (IsSetCompatibilityLevelSelected) steps.Add(MaintenancePlanStep.SetCompatibilityLevel);
         if (IsSetRecoveryModelSelected) steps.Add(MaintenancePlanStep.SetRecoveryModel);
+        if (IsAdjustAutoGrowthSelected) steps.Add(MaintenancePlanStep.AdjustAutoGrowth);
+        if (IsPreExpandDataFileSelected) steps.Add(MaintenancePlanStep.PreExpandDataFile);
         if (IsRenameLogicalFilesSelected) steps.Add(MaintenancePlanStep.RenameLogicalFiles);
         if (IsCreateLoginAndUserSelected) steps.Add(MaintenancePlanStep.CreateLoginAndUser);
         if (IsAddToDbOwnerSelected) steps.Add(MaintenancePlanStep.AddToDbOwner);
         if (IsCreateBackupJobSelected) steps.Add(MaintenancePlanStep.CreateBackupJob);
+        if (IsCreateCheckDbJobSelected) steps.Add(MaintenancePlanStep.CreateCheckDbJob);
         if (IsCreateRestoreJobSelected) steps.Add(MaintenancePlanStep.CreateRestoreJob);
         return steps;
     }

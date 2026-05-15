@@ -250,4 +250,49 @@ public class MaintenancePlanSqlGeneratorTests
     }
 
     #endregion
+
+    #region GenerateCreateCheckDbJobSql
+
+    [Fact]
+    public void GenerateCreateCheckDbJobSql_應包含DBCC_CHECKDB與PHYSICAL_ONLY且每週執行()
+    {
+        var gen = new MaintenancePlanSqlGenerator();
+        var config = new MaintenancePlanConfig
+        {
+            DatabaseName = "DB", BackupPath = @"D:\", RestorePath = @"D:\",
+            TestDatabaseName = "DB-test", LoginName = "u", LoginPassword = "p",
+            BackupTime = 2, RestoreTime = 3, SelectedSteps = [],
+            CheckDbTime = 3, CheckDbDayOfWeek = DayOfWeek.Sunday
+        };
+
+        var sql = gen.GenerateCreateCheckDbJobSql(config);
+
+        sql.Should().Contain("DB_CheckDb");
+        sql.Should().Contain("DBCC CHECKDB");
+        sql.Should().Contain("PHYSICAL_ONLY");
+        sql.Should().Contain("@freq_type         = 8");
+        sql.Should().Contain("@freq_interval     = 1");
+        sql.Should().Contain("@active_start_time = 30000");
+        sql.Should().Contain("sp_add_job");
+        sql.Should().Contain("sp_add_jobschedule");
+    }
+
+    [Fact]
+    public void GenerateCreateCheckDbJobSql_當action為刪除重建_應先刪除再建立()
+    {
+        var gen = new MaintenancePlanSqlGenerator();
+        var config = new MaintenancePlanConfig
+        {
+            DatabaseName = "DB", BackupPath = @"D:\", RestorePath = @"D:\",
+            TestDatabaseName = "DB-test", LoginName = "u", LoginPassword = "p",
+            BackupTime = 2, RestoreTime = 3, SelectedSteps = []
+        };
+
+        var sql = gen.GenerateCreateCheckDbJobSql(config, "刪除重建");
+
+        sql.Should().Contain("sp_delete_job");
+        sql.Should().Contain("sp_add_job");
+    }
+
+    #endregion
 }

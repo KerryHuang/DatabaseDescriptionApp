@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -257,6 +258,7 @@ public partial class PerformanceDiagnosticsDocumentViewModel : DocumentViewModel
     {
         Title = "效能診斷";
         Icon = "⚡";
+        SuspectPages.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasSuspectPages));
     }
 
     /// <summary>
@@ -1026,7 +1028,6 @@ public partial class PerformanceDiagnosticsDocumentViewModel : DocumentViewModel
         IntegrityChecks.Clear();
         SuspectPages.Clear();
         CheckDbJobHistories.Clear();
-        OnPropertyChanged(nameof(HasSuspectPages));
 
         _cancellationTokenSource = new CancellationTokenSource();
         try
@@ -1043,7 +1044,6 @@ public partial class PerformanceDiagnosticsDocumentViewModel : DocumentViewModel
             foreach (var p in await suspectTask) SuspectPages.Add(p);
             foreach (var h in await historyTask) CheckDbJobHistories.Add(h);
 
-            OnPropertyChanged(nameof(HasSuspectPages));
             IntegrityProgressMessage = $"完成:{IntegrityChecks.Count} 個 DB / {SuspectPages.Count} 筆 Suspect Page / {CheckDbJobHistories.Count} 筆 Job 紀錄";
         }
         catch (OperationCanceledException)

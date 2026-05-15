@@ -65,8 +65,9 @@ public class PerformanceDiagnosticsService : IPerformanceDiagnosticsService
         var rows = await _repository.GetLastCheckDbAsync(progress, ct);
         return rows.Select(r =>
         {
+            // dbi_dbccLastKnownGood 為 SQL Server 本地時間，故使用 DateTime.Now（本地時間）比對，避免跨時區誤差
             int? days = r.LastKnownGood.HasValue
-                ? Math.Max(0, (int)(DateTime.UtcNow.Date - r.LastKnownGood.Value.Date).TotalDays)
+                ? Math.Max(0, (int)(DateTime.Now.Date - r.LastKnownGood.Value.Date).TotalDays)
                 : (int?)null;
             return new IntegrityCheckStatus
             {

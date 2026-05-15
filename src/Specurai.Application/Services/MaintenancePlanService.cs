@@ -68,6 +68,7 @@ public class MaintenancePlanService : IMaintenancePlanService
                 MaintenancePlanStep.CreateRestoreJob => await CheckJobAsync(config, MaintenancePlanStep.CreateRestoreJob, $"{config.DatabaseName}_FullRestore", ct),
                 MaintenancePlanStep.AdjustAutoGrowth => await CheckAutoGrowthAsync(config, ct),
                 MaintenancePlanStep.PreExpandDataFile => await CheckPreExpandAsync(config, ct),
+                MaintenancePlanStep.CreateCheckDbJob => await CheckJobAsync(config, MaintenancePlanStep.CreateCheckDbJob, $"{config.DatabaseName}_CheckDb", ct),
                 _ => throw new ArgumentOutOfRangeException(nameof(step), step, "未知的維護計劃步驟")
             };
             results.Add(result);

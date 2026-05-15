@@ -27,10 +27,13 @@ public class StepCheckResult
     {
         MaintenancePlanStep.SetCompatibilityLevel => "更新相容性層級",
         MaintenancePlanStep.SetRecoveryModel => "設定 Recovery Model",
+        MaintenancePlanStep.AdjustAutoGrowth => "調整檔案成長設定",
+        MaintenancePlanStep.PreExpandDataFile => "預擴資料檔",
         MaintenancePlanStep.RenameLogicalFiles => "重新命名邏輯檔名",
         MaintenancePlanStep.CreateLoginAndUser => "建立登入帳號與使用者",
         MaintenancePlanStep.AddToDbOwner => "加入 db_owner 角色",
         MaintenancePlanStep.CreateBackupJob => "建立備份排程",
+        MaintenancePlanStep.CreateCheckDbJob => "建立完整性檢查排程",
         MaintenancePlanStep.CreateRestoreJob => "建立還原排程",
         _ => Step.ToString()
     };

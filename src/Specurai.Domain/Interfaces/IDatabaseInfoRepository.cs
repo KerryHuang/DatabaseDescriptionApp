@@ -1,3 +1,5 @@
+using Specurai.Domain.Entities;
+
 namespace Specurai.Domain.Interfaces;
 
 /// <summary>
@@ -82,4 +84,9 @@ public interface IDatabaseInfoRepository
     /// <param name="sql">SQL 指令</param>
     /// <param name="ct">取消權杖</param>
     Task ExecuteSqlAsync(string sql, CancellationToken ct = default);
+
+    /// <summary>
+    /// 取得指定資料庫的所有檔案資訊（含所在磁碟可用空間）
+    /// </summary>
+    Task<IReadOnlyList<DatabaseFileInfo>> GetDatabaseFilesAsync(string databaseName, CancellationToken ct = default);
 }

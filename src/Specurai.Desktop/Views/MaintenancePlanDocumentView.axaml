@@ -276,6 +276,18 @@
                                            VerticalAlignment="Center" Opacity="0.6" FontSize="12"/>
                             </Grid>
                             <Grid ColumnDefinitions="*,*">
+                                <CheckBox Grid.Column="0" IsChecked="{Binding IsAdjustAutoGrowthSelected}"
+                                          Content="調整檔案自動成長設定"/>
+                                <TextBlock Grid.Column="1" Text="{Binding AdjustAutoGrowthStatus}"
+                                           VerticalAlignment="Center" Opacity="0.6" FontSize="12"/>
+                            </Grid>
+                            <Grid ColumnDefinitions="*,*">
+                                <CheckBox Grid.Column="0" IsChecked="{Binding IsPreExpandDataFileSelected}"
+                                          Content="預擴資料檔（保留成長緩衝）"/>
+                                <TextBlock Grid.Column="1" Text="{Binding PreExpandDataFileStatus}"
+                                           VerticalAlignment="Center" Opacity="0.6" FontSize="12"/>
+                            </Grid>
+                            <Grid ColumnDefinitions="*,*">
                                 <CheckBox Grid.Column="0" IsChecked="{Binding IsRenameLogicalFilesSelected}"
                                           Content="重新命名邏輯檔名"/>
                                 <TextBlock Grid.Column="1" Text="{Binding LogicalFilesStatus}"
@@ -297,6 +309,12 @@
                                 <CheckBox Grid.Column="0" IsChecked="{Binding IsCreateBackupJobSelected}"
                                           Content="建立每日全備份排程"/>
                                 <TextBlock Grid.Column="1" Text="{Binding BackupJobStatus}"
+                                           VerticalAlignment="Center" Opacity="0.6" FontSize="12"/>
+                            </Grid>
+                            <Grid ColumnDefinitions="*,*">
+                                <CheckBox Grid.Column="0" IsChecked="{Binding IsCreateCheckDbJobSelected}"
+                                          Content="建立每週完整性檢查排程"/>
+                                <TextBlock Grid.Column="1" Text="{Binding CheckDbJobStatus}"
                                            VerticalAlignment="Center" Opacity="0.6" FontSize="12"/>
                             </Grid>
                             <Grid ColumnDefinitions="*,*">

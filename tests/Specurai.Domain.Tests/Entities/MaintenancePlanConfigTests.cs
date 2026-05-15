@@ -1,3 +1,4 @@
+using System;
 using FluentAssertions;
 using Specurai.Domain.Entities;
 using Specurai.Domain.Enums;
@@ -54,5 +55,17 @@ public class MaintenancePlanConfigTests
     {
         var config = CreateConfig();
         config.RetentionDays.Should().Be(7);
+    }
+
+    [Fact]
+    public void 預設值_AutoGrowthDataMB為256()
+    {
+        var config = CreateConfig();
+
+        config.AutoGrowthDataMB.Should().Be(256);
+        config.AutoGrowthLogMB.Should().Be(128);
+        config.PreExpandBufferGB.Should().Be(5);
+        config.CheckDbTime.Should().Be(3);
+        config.CheckDbDayOfWeek.Should().Be(DayOfWeek.Sunday);
     }
 }

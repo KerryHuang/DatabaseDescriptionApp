@@ -35,7 +35,7 @@
                               MinWidth="180"/>
                 </StackPanel>
 
-                <Button Command="{Binding AnalyzeCommand}" Margin="0,0,8,0"
+                <Button Command="{Binding AnalyzeCommand}" Margin="0,0,4,0"
                         ToolTip.Tip="開始分析兩個資料庫的 Schema 差異">
                     <StackPanel Orientation="Horizontal" Spacing="5">
                         <TextBlock Text="🔍"/>
@@ -65,6 +65,17 @@
                     <StackPanel Orientation="Horizontal" Spacing="5">
                         <TextBlock Text="▶"/>
                         <TextBlock Text="執行 Migration"/>
+                    </StackPanel>
+                </Button>
+
+                <Button Command="{Binding CancelRunCommand}"
+                        IsVisible="{Binding IsRunning}"
+                        Margin="8,0,0,0"
+                        Background="#993333"
+                        ToolTip.Tip="中止目前正在進行的分析 / Dry Run / Migration">
+                    <StackPanel Orientation="Horizontal" Spacing="5">
+                        <TextBlock Text="⛔"/>
+                        <TextBlock Text="中止"/>
                     </StackPanel>
                 </Button>
             </WrapPanel>
@@ -168,6 +179,29 @@
                     </Popup>
                 </StackPanel>
 
+                <!-- 目標列數多選 -->
+                <StackPanel Orientation="Horizontal" Margin="0,0,4,0">
+                    <ToggleButton x:Name="RowCountFilterBtn"
+                                  Content="{Binding RowCountFilterLabel}"
+                                  FontSize="12" Padding="6,2"/>
+                    <Popup IsOpen="{Binding #RowCountFilterBtn.IsChecked}"
+                           PlacementTarget="{Binding #RowCountFilterBtn}"
+                           Placement="Bottom" IsLightDismissEnabled="True">
+                        <Border Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}"
+                                BorderBrush="{DynamicResource SystemControlForegroundBaseMediumBrush}"
+                                BorderThickness="1" Padding="4">
+                            <ItemsControl ItemsSource="{Binding RowCountBucketFilters}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:FilterOptionViewModel">
+                                        <CheckBox IsChecked="{Binding IsSelected}" Content="{Binding Label}"
+                                                  Padding="4,2" FontSize="12"/>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </Border>
+                    </Popup>
+                </StackPanel>
+
                 <!-- 結構描述多選 -->
                 <StackPanel Orientation="Horizontal" Margin="0,0,8,0">
                     <ToggleButton x:Name="SchemaFilterBtn"
@@ -234,7 +268,7 @@
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate x:DataType="vm:MigrationDifferenceRowViewModel">
                             <CheckBox IsChecked="{Binding IsSelected}"
-                                      IsEnabled="{Binding IsExecutable}"
+                                      ToolTip.Tip="{Binding SelectionTooltip}"
                                       HorizontalAlignment="Center"
                                       VerticalAlignment="Center"/>
                         </DataTemplate>
@@ -270,6 +304,22 @@
                                     Binding="{Binding Difference.ObjectName}"
                                     Width="220"
                                     IsReadOnly="True"/>
+
+                <!-- 目標列數（用於提示 Migration 耗時風險）-->
+                <DataGridTemplateColumn Header="目標列數" Width="120" IsReadOnly="True"
+                                        SortMemberPath="TargetRowCount">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate x:DataType="vm:MigrationDifferenceRowViewModel">
+                            <StackPanel Orientation="Horizontal" Spacing="4"
+                                        VerticalAlignment="Center"
+                                        ToolTip.Tip="{Binding RowCountTooltip}">
+                                <TextBlock Text="{Binding RowCountBadge}" VerticalAlignment="Center"/>
+                                <TextBlock Text="{Binding RowCountText}"
+                                           HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
 
                 <!-- 差異類型 -->
                 <DataGridTextColumn Header="差異類型"

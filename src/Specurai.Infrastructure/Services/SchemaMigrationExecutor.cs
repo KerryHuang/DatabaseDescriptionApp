@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Text;
+using System.Text.RegularExpressions;
 using Microsoft.Data.SqlClient;
 using Specurai.Application.Services;
 using Specurai.Domain.Entities.SchemaCompare;
@@ -37,57 +38,109 @@ public class SchemaMigrationExecutor : ISchemaMigrationExecutor
         }
 
         var sqlToRun = dryRun ? script.DryRunScript : script.ApplyScript;
+        var batches = SplitOnGo(sqlToRun);
         var sw = Stopwatch.StartNew();
+        Exception? failure = null;
+        string? failedBatch = null;
+
         try
         {
             await using var connection = new SqlConnection(targetConnectionString);
             await connection.OpenAsync(ct);
 
-            // Dry Run 使用 DryRunScript（腳本內部強制 ROLLBACK），不需外層包 ADO.NET transaction
-            // 避免巢狀 transaction 造成 @@TRANCOUNT 計數混亂
-            await using var command = new SqlCommand(sqlToRun, connection);
-            command.CommandTimeout = 600;
-            await command.ExecuteNonQueryAsync(ct);
+            foreach (var batch in batches)
+            {
+                if (string.IsNullOrWhiteSpace(batch)) continue;
+                try
+                {
+                    await using var command = new SqlCommand(batch, connection);
+                    command.CommandTimeout = 600;
+                    await command.ExecuteNonQueryAsync(ct);
+                }
+                catch (OperationCanceledException) { throw; }
+                catch (Exception ex)
+                {
+                    failure = ex;
+                    failedBatch = batch;
+                    break; // 失敗即停；idempotent 腳本可在修正後重跑
+                }
+            }
+        }
+        catch (OperationCanceledException) { throw; }
 
-            sw.Stop();
-            report.TotalDuration = sw.Elapsed;
+        sw.Stop();
+        report.TotalDuration = sw.Elapsed;
+
+        if (failure == null)
+        {
             report.IsSuccess = true;
-
-            var avgDuration = report.Entries.Count > 0
+            var avg = report.Entries.Count > 0
                 ? TimeSpan.FromTicks(sw.Elapsed.Ticks / report.Entries.Count)
                 : sw.Elapsed;
-            foreach (var entry in report.Entries)
-                entry.Duration = avgDuration;
+            foreach (var entry in report.Entries) entry.Duration = avg;
         }
-        catch (Exception ex)
+        else
         {
-            sw.Stop();
-            report.TotalDuration = sw.Elapsed;
             report.IsSuccess = false;
-            report.ErrorMessage = ex.Message;
+            report.ErrorMessage = failure.Message;
+            if (failure is SqlException sqlEx && sqlEx.LineNumber > 0 && failedBatch != null)
+                report.FailedStatement =
+                    $"第 {sqlEx.LineNumber} 行附近（失敗批次）：\n{ExtractFailingStatement(failedBatch, sqlEx.LineNumber)}";
+            else if (failedBatch != null)
+                report.FailedStatement = $"失敗批次：\n{TruncateForReport(failedBatch)}";
 
-            // 從 SqlException 行號提取失敗語句，幫助診斷根因（分開儲存，避免重複顯示）
-            if (ex is SqlException sqlEx && sqlEx.LineNumber > 0)
-            {
-                report.FailedStatement = $"第 {sqlEx.LineNumber} 行附近：\n{ExtractFailingStatement(sqlToRun, sqlEx.LineNumber)}";
-            }
-
+            // 已執行批次無外層 transaction → 已 commit；尚未跑到的標 Skipped
             var pending = report.Entries.Where(e => e.Status == MigrationLogStatus.Success).ToList();
             if (pending.Count > 0)
             {
-                // 第一個項目顯示實際錯誤，其餘標為「已回滾」（它們其實根本沒跑到，或被回滾）
                 pending[0].Status = MigrationLogStatus.Failed;
-                pending[0].ErrorMessage = ex.Message;
+                pending[0].ErrorMessage = failure.Message;
                 foreach (var entry in pending.Skip(1))
                 {
-                    entry.Status = MigrationLogStatus.RolledBack;
-                    entry.ErrorMessage = "因前一條語句失敗，整個事務已自動回滾";
+                    entry.Status = MigrationLogStatus.Skipped;
+                    entry.ErrorMessage = "因前一個批次失敗，後續批次未執行；修正錯誤後可重跑（腳本為 idempotent）";
                 }
             }
         }
 
         return report;
     }
+
+    /// <summary>
+    /// 將 T-SQL 腳本以 `GO`（獨立一行，前後可有空白）為界切成多個批次。
+    /// 與 SSMS 一致；GO 不是 T-SQL 語句，必須由執行端分離。
+    /// </summary>
+    private static IList<string> SplitOnGo(string script)
+    {
+        var batches = new List<string>();
+        var current = new StringBuilder();
+        var lines = script.Split('\n');
+        foreach (var raw in lines)
+        {
+            var line = raw.TrimEnd('\r');
+            if (GoLineRegex.IsMatch(line))
+            {
+                if (current.Length > 0)
+                {
+                    batches.Add(current.ToString());
+                    current.Clear();
+                }
+            }
+            else
+            {
+                current.AppendLine(line);
+            }
+        }
+        if (current.Length > 0) batches.Add(current.ToString());
+        return batches;
+    }
+
+    private static readonly Regex GoLineRegex = new(
+        @"^\s*GO\s*(?:--.*)?$",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+    private static string TruncateForReport(string s) =>
+        s.Length <= 2000 ? s : s.Substring(0, 2000) + "\n...（已截斷）";
 
     /// <summary>
     /// 從腳本中提取失敗行附近的 SQL 語句（前後各 3 行）

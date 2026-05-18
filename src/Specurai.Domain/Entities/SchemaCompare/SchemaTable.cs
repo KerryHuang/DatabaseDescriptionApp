@@ -31,6 +31,11 @@ public class SchemaTable
     public IList<SchemaConstraint> Constraints { get; set; } = new List<SchemaConstraint>();
 
     /// <summary>
+    /// 概估列數（來自 sys.dm_db_partition_stats，CREATE 用新表時為 0）
+    /// </summary>
+    public long RowCount { get; set; }
+
+    /// <summary>
     /// 取得完整表格名稱
     /// </summary>
     public string FullName => $"[{Schema}].[{Name}]";

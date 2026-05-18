@@ -72,6 +72,12 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
 
     private int _selectedExecutableCount;
 
+    /// <summary>LDF 調整目標大小（MB），預設 1024</summary>
+    [ObservableProperty] private int _logTargetSizeMb = 1024;
+
+    /// <summary>Migration 完成後自動將 LDF 調整為 LogTargetSizeMb</summary>
+    [ObservableProperty] private bool _autoResizeLogAfterMigration;
+
     // 篩選屬性
     [ObservableProperty] private string _filterTableName = string.Empty;
     [ObservableProperty] private string _filterColumnName = string.Empty;
@@ -425,7 +431,10 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
         => AnalyzeCommand.NotifyCanExecuteChanged();
 
     partial void OnSelectedTargetProfileChanged(ConnectionProfile? value)
-        => AnalyzeCommand.NotifyCanExecuteChanged();
+    {
+        AnalyzeCommand.NotifyCanExecuteChanged();
+        ResizeLogCommand.NotifyCanExecuteChanged();
+    }
 
     [RelayCommand(CanExecute = nameof(CanExecuteMigration))]
     private async Task DryRunAsync()
@@ -527,6 +536,15 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
             StatusMessage = LastReport.IsSuccess
                 ? $"Migration 完成：{LastReport.SuccessCount} 項成功，{LastReport.SkippedCount} 項略過"
                 : $"Migration 失敗（已自動回滾）：{FirstLine(LastReport.ErrorMessage)}";
+
+            // Migration 成功且使用者勾選「完成後自動調整 LDF」→ 立即 resize（縮小或預擴）
+            if (LastReport.IsSuccess && AutoResizeLogAfterMigration && _executor != null)
+            {
+                var rr = await _executor.ResizeLogAsync(targetConn ?? string.Empty, LogTargetSizeMb, _currentCts.Token);
+                StatusMessage += rr.IsSuccess
+                    ? $"；LDF {rr.Operation}：{rr.BeforeSizeMb:N0} → {rr.AfterSizeMb:N0} MB"
+                    : $"；LDF 調整失敗：{FirstLine(rr.ErrorMessage)}";
+            }
         }
         catch (OperationCanceledException)
         {
@@ -660,6 +678,51 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
             StatusMessage = "報告已儲存";
         }
     }
+
+    [RelayCommand(CanExecute = nameof(CanResizeLog))]
+    private async Task ResizeLogAsync()
+    {
+        if (_executor == null || _connectionManager == null || SelectedTargetProfile == null) return;
+        var targetConn = _connectionManager.GetConnectionString(SelectedTargetProfile.Id);
+        if (string.IsNullOrEmpty(targetConn))
+        {
+            StatusMessage = "目標連線未設定";
+            return;
+        }
+
+        IsExecuting = true;
+        StatusMessage = $"正在調整目標 LDF 至 {LogTargetSizeMb} MB...";
+        CancelRunCommand.NotifyCanExecuteChanged();
+        _currentCts?.Dispose();
+        _currentCts = new System.Threading.CancellationTokenSource();
+
+        try
+        {
+            var rr = await _executor.ResizeLogAsync(targetConn, LogTargetSizeMb, _currentCts.Token);
+            StatusMessage = rr.IsSuccess
+                ? $"LDF {rr.Operation}：{rr.BeforeSizeMb:N0} → {rr.AfterSizeMb:N0} MB（log_reuse_wait: {rr.LogReuseWait}）"
+                : $"LDF 調整失敗：{FirstLine(rr.ErrorMessage)}";
+        }
+        catch (OperationCanceledException)
+        {
+            StatusMessage = "LDF 調整已中止";
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"LDF 調整失敗：{FirstLine(ex.Message)}";
+        }
+        finally
+        {
+            IsExecuting = false;
+            CancelRunCommand.NotifyCanExecuteChanged();
+        }
+    }
+
+    private bool CanResizeLog() =>
+        !IsAnalyzing && !IsExecuting && SelectedTargetProfile != null && LogTargetSizeMb > 0;
+
+    partial void OnLogTargetSizeMbChanged(int value) =>
+        ResizeLogCommand.NotifyCanExecuteChanged();
 
     private bool CanGenerateScript() =>
         _currentAnalysis != null

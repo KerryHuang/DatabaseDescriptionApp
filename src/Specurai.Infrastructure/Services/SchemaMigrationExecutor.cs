@@ -139,6 +139,95 @@ public class SchemaMigrationExecutor : ISchemaMigrationExecutor
         @"^\s*GO\s*(?:--.*)?$",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
+    public async Task<ResizeLogResult> ResizeLogAsync(
+        string targetConnectionString, int targetSizeMb, CancellationToken ct = default)
+    {
+        try
+        {
+            await using var connection = new SqlConnection(targetConnectionString);
+            await connection.OpenAsync(ct);
+
+            // 取得 log 邏輯檔名、log_reuse_wait 與目前大小
+            string? logName = null;
+            string? logReuseWait = null;
+            double beforeMb = 0;
+            await using (var cmd = new SqlCommand(
+                @"SELECT f.name, d.log_reuse_wait_desc, f.size * 8.0 / 1024 AS size_mb
+                  FROM sys.database_files f
+                  CROSS APPLY sys.databases d
+                  WHERE f.type_desc = 'LOG' AND d.database_id = DB_ID()", connection))
+            await using (var rd = await cmd.ExecuteReaderAsync(ct))
+            {
+                if (await rd.ReadAsync(ct))
+                {
+                    logName = rd.GetString(0);
+                    logReuseWait = rd.GetString(1);
+                    beforeMb = rd.GetDouble(2);
+                }
+            }
+
+            if (logName == null)
+                return new ResizeLogResult { IsSuccess = false, ErrorMessage = "找不到 log 檔案" };
+
+            var safeLogName = logName.Replace("'", "''");
+            string operation;
+
+            if (Math.Abs(beforeMb - targetSizeMb) < 1)
+            {
+                operation = "NoChange";
+            }
+            else if (targetSizeMb > beforeMb)
+            {
+                // 預擴：ALTER DATABASE ... MODIFY FILE，避免大量 migration 時 autogrow 卡寫入
+                var dbName = connection.Database.Replace("]", "]]");
+                await using var cmd = new SqlCommand(
+                    $"ALTER DATABASE [{dbName}] MODIFY FILE (NAME = N'{safeLogName}', SIZE = {targetSizeMb}MB);", connection);
+                cmd.CommandTimeout = 600;
+                await cmd.ExecuteNonQueryAsync(ct);
+                operation = "Grow";
+            }
+            else
+            {
+                // 縮小：CHECKPOINT 釋放可重用 log → DBCC SHRINKFILE 回收物理空間
+                await using (var cmd = new SqlCommand("CHECKPOINT;", connection))
+                {
+                    cmd.CommandTimeout = 120;
+                    await cmd.ExecuteNonQueryAsync(ct);
+                }
+                await using (var cmd = new SqlCommand(
+                    $"DBCC SHRINKFILE(N'{safeLogName}', {targetSizeMb}) WITH NO_INFOMSGS;", connection))
+                {
+                    cmd.CommandTimeout = 600;
+                    await cmd.ExecuteNonQueryAsync(ct);
+                }
+                operation = "Shrink";
+            }
+
+            // 取得調整後大小
+            double afterMb = beforeMb;
+            await using (var cmd = new SqlCommand(
+                "SELECT size * 8.0 / 1024 FROM sys.database_files WHERE type_desc = 'LOG'", connection))
+            {
+                var v = await cmd.ExecuteScalarAsync(ct);
+                if (v != null && v != DBNull.Value) afterMb = Convert.ToDouble(v);
+            }
+
+            return new ResizeLogResult
+            {
+                IsSuccess = true,
+                BeforeSizeMb = beforeMb,
+                AfterSizeMb = afterMb,
+                Operation = operation,
+                LogReuseWait = logReuseWait
+            };
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            return new ResizeLogResult { IsSuccess = false, ErrorMessage = ex.Message };
+        }
+    }
+
     private static string TruncateForReport(string s) =>
         s.Length <= 2000 ? s : s.Substring(0, 2000) + "\n...（已截斷）";
 

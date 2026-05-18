@@ -63,6 +63,7 @@ public static class Program
         rootCommand.AddCommand(PerfCommand.Create());
         rootCommand.AddCommand(HealthCommand.Create());
         rootCommand.AddCommand(SchemaCommand.Create());
+        rootCommand.AddCommand(MigrationCommand.Create());
         rootCommand.AddCommand(UsageCommand.Create());
         rootCommand.AddCommand(JobsCommand.Create());
         rootCommand.AddCommand(MaintenanceCommand.Create());

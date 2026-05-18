@@ -14,9 +14,11 @@ public interface ISqlScriptGenerator
     /// <param name="baseSchema">基準 DatabaseSchema（用於查詢完整物件結構）</param>
     /// <param name="baseEnvName">基準環境名稱（用於腳本標頭）</param>
     /// <param name="targetEnvName">目標環境名稱（用於腳本標頭）</param>
+    /// <param name="targetSchema">目標 DatabaseSchema（用於判斷相依物件是否已存在於目標；提供時將自動補齊缺少的 Table/View 相依）</param>
     SyncScript Generate(
         IList<SchemaDifference> selectedDifferences,
         DatabaseSchema baseSchema,
         string baseEnvName,
-        string targetEnvName);
+        string targetEnvName,
+        DatabaseSchema? targetSchema = null);
 }

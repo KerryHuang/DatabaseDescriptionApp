@@ -104,6 +104,12 @@ public class SchemaDifference
     public SyncAction SyncAction { get; set; } = SyncAction.Skip;
 
     /// <summary>
+    /// 目標資料庫上此物件所屬資料表的概估列數（程式物件為 null）。
+    /// 用於估算 ALTER / ADD COLUMN / CREATE INDEX 的耗時與風險。
+    /// </summary>
+    public long? TargetTableRowCount { get; set; }
+
+    /// <summary>
     /// 是否可以直接執行
     /// </summary>
     public bool CanExecuteDirectly => RiskLevel == RiskLevel.Low || RiskLevel == RiskLevel.Medium;

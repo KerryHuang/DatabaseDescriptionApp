@@ -67,7 +67,8 @@ public class MigrationDifferenceRowViewModelTests
 
         // Assert
         vm.IsExecutable.Should().BeFalse();
-        vm.IsSelected.Should().BeFalse();
+        // 預設全勾（含高風險）：Dry Run/Migration 仍會依 IsExecutable 過濾跳過，但預覽/下載 SQL 會包含
+        vm.IsSelected.Should().BeTrue();
     }
 
     [Fact]

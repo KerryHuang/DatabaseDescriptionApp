@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.RegularExpressions;
 using Specurai.Domain.Entities.SchemaCompare;
 using Specurai.Domain.Enums;
 
@@ -13,81 +14,333 @@ public class SqlScriptGenerator : ISqlScriptGenerator
         IList<SchemaDifference> selectedDifferences,
         DatabaseSchema baseSchema,
         string baseEnvName,
-        string targetEnvName)
+        string targetEnvName,
+        DatabaseSchema? targetSchema = null)
     {
-        // 預先建立程式物件查找表，避免 O(n×m) 線性掃描
         var programObjectLookup = BuildProgramObjectLookup(baseSchema);
+        selectedDifferences = ExpandViewDependencies(selectedDifferences, baseSchema, targetSchema);
+        var ordered = OrderDiffs(selectedDifferences, programObjectLookup).ToList();
 
-        var sb = new StringBuilder();
-        AppendHeader(sb, baseEnvName, targetEnvName);
-        AppendDiffStatements(sb, selectedDifferences, baseSchema, programObjectLookup);
-
-        sb.AppendLine("    COMMIT TRANSACTION;");
-        sb.AppendLine("    PRINT N'Migration 成功完成';");
-        sb.AppendLine();
-        sb.AppendLine("END TRY");
-        sb.AppendLine("BEGIN CATCH");
-        sb.AppendLine("    ROLLBACK TRANSACTION;");
-        sb.AppendLine("    PRINT N'發生錯誤，已自動回滾：' + ERROR_MESSAGE();");
-        sb.AppendLine("    THROW;");
-        sb.AppendLine("END CATCH;");
-
-        var applyScript = sb.ToString();
-
-        // Dry Run 腳本：同樣結構但強制 ROLLBACK，不需外層包 ADO.NET transaction
-        var drySb = new StringBuilder();
-        AppendHeader(drySb, baseEnvName, targetEnvName);
-        AppendDiffStatements(drySb, selectedDifferences, baseSchema, programObjectLookup);
-        drySb.AppendLine("    ROLLBACK TRANSACTION;");
-        drySb.AppendLine("    PRINT N'[Dry Run] 腳本驗證通過，已強制回滾，資料庫無實際變更';");
-        drySb.AppendLine();
-        drySb.AppendLine("END TRY");
-        drySb.AppendLine("BEGIN CATCH");
-        drySb.AppendLine("    ROLLBACK TRANSACTION;");
-        drySb.AppendLine("    PRINT N'[Dry Run] 腳本驗證失敗：' + ERROR_MESSAGE();");
-        drySb.AppendLine("    THROW;");
-        drySb.AppendLine("END CATCH;");
+        var applyScript = BuildApplyScript(ordered, baseSchema, baseEnvName, targetEnvName, programObjectLookup);
+        var dryRunScript = BuildDryRunScript(ordered, baseSchema, baseEnvName, targetEnvName, programObjectLookup);
 
         return new SyncScript
         {
             TargetEnvironment = targetEnvName,
             GeneratedAt = DateTime.Now,
             ApplyScript = applyScript,
-            DryRunScript = drySb.ToString(),
+            DryRunScript = dryRunScript,
             Differences = selectedDifferences
         };
     }
 
-    private static void AppendHeader(StringBuilder sb, string baseEnvName, string targetEnvName)
+    /// <summary>
+    /// 拿掉外層大 transaction，每個批次以 GO 分隔，
+    /// 每張表結束後 CHECKPOINT 釋放 SIMPLE 模式 log，避免大量 ALTER 撐爆 transaction log。
+    /// 所有 DDL 加上 idempotent guard（IF NOT EXISTS / COL_LENGTH IS NULL），可安全重跑。
+    /// </summary>
+    private static string BuildApplyScript(
+        IList<SchemaDifference> ordered,
+        DatabaseSchema baseSchema,
+        string baseEnvName,
+        string targetEnvName,
+        Dictionary<(string, string, SchemaObjectType), SchemaProgramObject> programLookup)
+    {
+        var sb = new StringBuilder();
+        AppendHeader(sb, baseEnvName, targetEnvName, dryRun: false);
+        AppendSchemaCreation(sb, ordered, baseSchema, programLookup);
+
+        sb.AppendLine("PRINT N'======== Migration 開始 ========';");
+        sb.AppendLine("GO");
+        sb.AppendLine();
+
+        string? currentGroup = null;
+        for (int i = 0; i < ordered.Count; )
+        {
+            var diff = ordered[i];
+            var sql = GenerateSqlForDifference(diff, baseSchema, programLookup);
+            if (string.IsNullOrWhiteSpace(sql)) { i++; continue; }
+
+            var groupKey = GetTableGroupKey(diff);
+            if (!StringEq(groupKey, currentGroup))
+            {
+                if (currentGroup != null) AppendCheckpoint(sb);
+                sb.AppendLine($"-- ===== {groupKey ?? diff.ObjectName} =====");
+                sb.AppendLine($"PRINT N'>> {EscapeSqlString(diff.ObjectName)}';");
+                currentGroup = groupKey;
+            }
+
+            // 連續同表的 ADD COLUMN 合併成單一 ALTER TABLE ADD（單次 metadata 鎖、單次 log 寫入）
+            int batchEnd = TryFindAddColumnBatch(ordered, i, groupKey);
+            if (batchEnd - i >= 2)
+            {
+                EmitBatchedAddColumns(sb, ordered, i, batchEnd, baseSchema, wrapTransaction: false);
+                i = batchEnd;
+                continue;
+            }
+
+            sb.AppendLine($"-- [{RiskLevelText(diff.RiskLevel)}] {diff.Description ?? diff.ObjectName}");
+            sb.AppendLine(ApplyIdempotencyGuard(diff, sql));
+            sb.AppendLine("GO");
+            sb.AppendLine();
+            i++;
+        }
+
+        if (currentGroup != null)
+            AppendCheckpoint(sb);
+
+        sb.AppendLine("PRINT N'======== Migration 完成 ========';");
+        sb.AppendLine("GO");
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// Dry Run：每個批次各自 BEGIN TRAN + ROLLBACK，能驗證能不能跑、又不留下變更，
+    /// 且每批 rollback 後 log 即可重用，不會跟 Apply 一樣有 log 暴增風險。
+    /// </summary>
+    private static string BuildDryRunScript(
+        IList<SchemaDifference> ordered,
+        DatabaseSchema baseSchema,
+        string baseEnvName,
+        string targetEnvName,
+        Dictionary<(string, string, SchemaObjectType), SchemaProgramObject> programLookup)
+    {
+        var sb = new StringBuilder();
+        AppendHeader(sb, baseEnvName, targetEnvName, dryRun: true);
+        AppendSchemaCreation(sb, ordered, baseSchema, programLookup);
+
+        sb.AppendLine("PRINT N'[Dry Run] 開始驗證（每個批次 BEGIN TRAN + ROLLBACK，無實際變更）';");
+        sb.AppendLine("GO");
+        sb.AppendLine();
+
+        for (int i = 0; i < ordered.Count; )
+        {
+            var diff = ordered[i];
+            var sql = GenerateSqlForDifference(diff, baseSchema, programLookup);
+            if (string.IsNullOrWhiteSpace(sql)) { i++; continue; }
+
+            int batchEnd = TryFindAddColumnBatch(ordered, i, GetTableGroupKey(diff));
+            if (batchEnd - i >= 2)
+            {
+                EmitBatchedAddColumns(sb, ordered, i, batchEnd, baseSchema, wrapTransaction: true);
+                i = batchEnd;
+                continue;
+            }
+
+            sb.AppendLine($"-- [{RiskLevelText(diff.RiskLevel)}] {diff.Description ?? diff.ObjectName}");
+            sb.AppendLine($"PRINT N'>> {EscapeSqlString(diff.ObjectName)}';");
+            sb.AppendLine("BEGIN TRANSACTION;");
+            sb.AppendLine(ApplyIdempotencyGuard(diff, sql));
+            sb.AppendLine("IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;");
+            sb.AppendLine("GO");
+            sb.AppendLine();
+            i++;
+        }
+
+        sb.AppendLine("PRINT N'[Dry Run] 驗證完成';");
+        sb.AppendLine("GO");
+        return sb.ToString();
+    }
+
+    private static void AppendHeader(StringBuilder sb, string baseEnvName, string targetEnvName, bool dryRun)
     {
         sb.AppendLine("-- ================================================");
-        sb.AppendLine("-- Schema Migration Script");
+        sb.AppendLine($"-- Schema Migration Script{(dryRun ? " (Dry Run)" : string.Empty)}");
         sb.AppendLine($"-- 基準環境：{baseEnvName}");
         sb.AppendLine($"-- 目標環境：{targetEnvName}");
         sb.AppendLine($"-- 產生時間：{DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+        sb.AppendLine("-- 策略：拿掉外層 transaction，每個批次以 GO 分隔，每張表完成後 CHECKPOINT 釋放 log");
+        sb.AppendLine("-- 安全性：所有 DDL 為 idempotent，腳本可重複執行（失敗後修正再跑安全）");
         sb.AppendLine("-- ================================================");
         sb.AppendLine();
-        sb.AppendLine("BEGIN TRANSACTION;");
-        sb.AppendLine("BEGIN TRY");
+        sb.AppendLine("SET NOCOUNT ON;");
+        sb.AppendLine("SET XACT_ABORT ON;");
+        sb.AppendLine("GO");
         sb.AppendLine();
     }
 
-    private static void AppendDiffStatements(
+    /// <summary>
+    /// 在腳本最前面集中建立缺少的 Schema。
+    /// 收集所有 diff 涉及的 schema + 程式物件定義中 FROM/JOIN 引用的 schema，逐個 IF NOT EXISTS 建立。
+    /// </summary>
+    private static void AppendSchemaCreation(
         StringBuilder sb,
-        IList<SchemaDifference> diffs,
+        IList<SchemaDifference> ordered,
         DatabaseSchema baseSchema,
-        Dictionary<(string Schema, string Name, SchemaObjectType Type), SchemaProgramObject> programObjectLookup)
+        Dictionary<(string, string, SchemaObjectType), SchemaProgramObject> programLookup)
     {
-        var ordered = OrderDiffs(diffs, programObjectLookup);
+        var schemas = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
         foreach (var diff in ordered)
         {
-            var sql = GenerateSqlForDifference(diff, baseSchema, programObjectLookup);
-            if (!string.IsNullOrWhiteSpace(sql))
+            if (!string.IsNullOrEmpty(diff.Schema))
+                schemas.Add(diff.Schema);
+
+            // 程式物件（View/SP/Func/Trigger）的定義裡引用的 schema 也要建
+            if (diff.ObjectType is SchemaObjectType.View
+                or SchemaObjectType.StoredProcedure
+                or SchemaObjectType.Function
+                or SchemaObjectType.Trigger)
             {
-                sb.AppendLine($"    -- [{RiskLevelText(diff.RiskLevel)}] {diff.Description ?? diff.ObjectName}");
-                sb.AppendLine($"    {sql}");
-                sb.AppendLine();
+                var (_, objName) = ParseTwoParts(diff.ObjectName);
+                if (programLookup.TryGetValue((diff.Schema, objName, diff.ObjectType), out var obj)
+                    && !string.IsNullOrEmpty(obj.Definition))
+                {
+                    foreach (var (refSchema, _) in ParseViewReferences(obj.Definition))
+                        schemas.Add(refSchema);
+                }
             }
+        }
+
+        schemas.Remove("dbo"); // dbo 一定存在
+        if (schemas.Count == 0) return;
+
+        sb.AppendLine("-- ===== Schema 建立 =====");
+        foreach (var s in schemas.OrderBy(x => x, StringComparer.OrdinalIgnoreCase))
+        {
+            sb.AppendLine($"IF NOT EXISTS (SELECT 1 FROM sys.schemas WHERE name = N'{s}')");
+            sb.AppendLine($"    EXEC(N'CREATE SCHEMA [{s}]');");
+            sb.AppendLine("GO");
+        }
+        sb.AppendLine();
+    }
+
+    private static void AppendCheckpoint(StringBuilder sb)
+    {
+        sb.AppendLine("CHECKPOINT;");
+        sb.AppendLine("GO");
+        sb.AppendLine();
+    }
+
+    private static string? GetTableGroupKey(SchemaDifference diff)
+    {
+        switch (diff.ObjectType)
+        {
+            case SchemaObjectType.Table:
+                return diff.ObjectName; // [schema].[table]
+            case SchemaObjectType.Column:
+            case SchemaObjectType.Index:
+            case SchemaObjectType.Constraint:
+                var (_, table, _) = ParseThreeParts(diff.ObjectName);
+                return $"[{diff.Schema}].[{table}]";
+            default:
+                return null; // 程式物件不分組（每個一批，無 CHECKPOINT）
+        }
+    }
+
+    private static bool StringEq(string? a, string? b) =>
+        string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
+
+    private static string EscapeSqlString(string s) => s.Replace("'", "''");
+
+    /// <summary>
+    /// 向後掃描連續同表的 ADD COLUMN 差異，回傳結束 index（exclusive）。
+    /// </summary>
+    private static int TryFindAddColumnBatch(IList<SchemaDifference> ordered, int start, string? groupKey)
+    {
+        if (groupKey == null) return start;
+        int end = start;
+        while (end < ordered.Count)
+        {
+            var d = ordered[end];
+            if (d.ObjectType != SchemaObjectType.Column) break;
+            if (d.DifferenceType != DifferenceType.Added) break;
+            if (!StringEq(GetTableGroupKey(d), groupKey)) break;
+            end++;
+        }
+        return end;
+    }
+
+    /// <summary>
+    /// 將多個同表 ADD COLUMN 合併成單一動態 ALTER TABLE ADD：
+    ///   DECLARE @missing NVARCHAR(MAX) = N'';
+    ///   IF COL_LENGTH(...) IS NULL SET @missing += N', [col] type ...';  (每欄一行)
+    ///   IF LEN(@missing) > 0 EXEC(N'ALTER TABLE ... ADD ' + STUFF(@missing, 1, 2, ''));
+    /// 單次 metadata 鎖、單次 log 寫入，且保持 idempotent。
+    /// </summary>
+    private static void EmitBatchedAddColumns(
+        StringBuilder sb,
+        IList<SchemaDifference> ordered,
+        int start, int end,
+        DatabaseSchema baseSchema,
+        bool wrapTransaction)
+    {
+        var first = ordered[start];
+        var (_, tableName, _) = ParseThreeParts(first.ObjectName);
+        var schema = first.Schema;
+        var baseTable = baseSchema.GetTable(schema, tableName);
+        if (baseTable == null) return;
+
+        sb.AppendLine($"-- 批次新增 {end - start} 個欄位至 [{schema}].[{tableName}]（單一 ALTER，避免多次 metadata 鎖 / log 寫入）");
+        sb.AppendLine($"PRINT N'>> [{schema}].[{tableName}] (批次新增 {end - start} 欄)';");
+        if (wrapTransaction) sb.AppendLine("BEGIN TRANSACTION;");
+
+        sb.AppendLine("DECLARE @missing NVARCHAR(MAX) = N'';");
+        for (int k = start; k < end; k++)
+        {
+            var d = ordered[k];
+            var (_, _, c) = ParseThreeParts(d.ObjectName);
+            var col = baseTable.GetColumn(c);
+            if (col == null) continue;
+            // timestamp/rowversion 不可手動 ADD，逐個排除
+            if (col.DataType.Equals("timestamp", StringComparison.OrdinalIgnoreCase) ||
+                col.DataType.Equals("rowversion", StringComparison.OrdinalIgnoreCase))
+            {
+                sb.AppendLine($"-- [略過] {d.ObjectName}：timestamp/rowversion 需手動新增");
+                continue;
+            }
+            var nullable = col.IsNullable ? "NULL" : "NOT NULL";
+            var defaultPart = string.IsNullOrEmpty(col.DefaultValue) ? "" : $" DEFAULT {col.DefaultValue}";
+            var colDef = $", [{c}] {col.GetFullDataType()} {nullable}{defaultPart}";
+            // 嵌入 N'...' 字串內：所有單引號需 → ''
+            sb.AppendLine(
+                $"IF COL_LENGTH(N'{schema}.{tableName}', N'{c}') IS NULL " +
+                $"SET @missing += N'{colDef.Replace("'", "''")}';");
+        }
+        // 用變數承接最終 SQL，避免 EXEC(literal + function()) 在某些 SQL Server 版本被擋
+        sb.AppendLine("IF LEN(@missing) > 0");
+        sb.AppendLine("BEGIN");
+        sb.AppendLine($"    DECLARE @sql NVARCHAR(MAX) = N'ALTER TABLE [{schema}].[{tableName}] ADD ' + STUFF(@missing, 1, 2, N'');");
+        sb.AppendLine("    EXEC sp_executesql @sql;");
+        sb.AppendLine("END");
+
+        if (wrapTransaction) sb.AppendLine("IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;");
+        sb.AppendLine("GO");
+        sb.AppendLine();
+    }
+
+    /// <summary>
+    /// 為各種 DDL 加上 idempotent guard，使腳本可安全重跑。
+    /// </summary>
+    private static string ApplyIdempotencyGuard(SchemaDifference diff, string sql)
+    {
+        switch (diff.ObjectType)
+        {
+            case SchemaObjectType.Table when diff.DifferenceType == DifferenceType.Added:
+                return $"IF OBJECT_ID(N'{diff.ObjectName}', N'U') IS NULL\nBEGIN\n{sql}\nEND";
+
+            case SchemaObjectType.Column when diff.DifferenceType == DifferenceType.Added:
+            {
+                var (_, t, c) = ParseThreeParts(diff.ObjectName);
+                return $"IF COL_LENGTH(N'{diff.Schema}.{t}', N'{c}') IS NULL\n    {sql}";
+            }
+
+            case SchemaObjectType.Index when diff.DifferenceType == DifferenceType.Added:
+            {
+                var (_, t, n) = ParseThreeParts(diff.ObjectName);
+                return $"IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'{n}' AND object_id = OBJECT_ID(N'[{diff.Schema}].[{t}]'))\n    {sql}";
+            }
+
+            case SchemaObjectType.Constraint when diff.DifferenceType == DifferenceType.Added:
+            {
+                var (_, t, n) = ParseThreeParts(diff.ObjectName);
+                return $"IF NOT EXISTS (SELECT 1 FROM sys.objects WHERE name = N'{n}' AND parent_object_id = OBJECT_ID(N'[{diff.Schema}].[{t}]'))\n    {sql}";
+            }
+
+            // ALTER COLUMN（Column.Modified）已內含 sys.columns 動態檢查，可重跑
+            // 程式物件已改用 CREATE OR ALTER（見 GenerateProgramObjectSql）
+            default:
+                return sql;
         }
     }
 
@@ -120,7 +373,9 @@ public class SqlScriptGenerator : ISqlScriptGenerator
     }
 
     /// <summary>
-    /// 對 View 差異清單做拓撲排序，確保被依賴的 View 先建立
+    /// 對 View 差異清單做拓撲排序，確保被依賴的 View 先建立。
+    /// 依賴判斷使用與 ExpandViewDependencies 相同的 FROM/JOIN regex，
+    /// 能同時處理 `[schema].[name]` 與 `schema.name` 兩種寫法。
     /// </summary>
     private static IEnumerable<SchemaDifference> TopologicalSortViews(
         IList<SchemaDifference> viewDiffs,
@@ -128,9 +383,12 @@ public class SqlScriptGenerator : ISqlScriptGenerator
     {
         if (viewDiffs.Count == 0) return viewDiffs;
 
-        // 建立 objectName → diff 的快速查找（去除括號，大小寫不分）
+        // 以 schema+name (大小寫不分) 為 key，建立 byName 對照
+        static string Key(string schema, string name) =>
+            $"{schema}.{name}".ToUpperInvariant();
+
         var byName = viewDiffs.ToDictionary(
-            d => d.ObjectName.Replace("[", "").Replace("]", "").ToUpperInvariant(),
+            d => Key(d.Schema, ParseTwoParts(d.ObjectName).name),
             d => d);
 
         var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -138,24 +396,19 @@ public class SqlScriptGenerator : ISqlScriptGenerator
 
         void Visit(SchemaDifference diff)
         {
-            var key = diff.ObjectName.Replace("[", "").Replace("]", "").ToUpperInvariant();
+            var key = Key(diff.Schema, ParseTwoParts(diff.ObjectName).name);
             if (!visited.Add(key)) return;
 
-            // 找出此 View 的 definition，掃描其中引用了哪些同批次的 View
-            if (programObjectLookup.TryGetValue((diff.Schema, ParseTwoParts(diff.ObjectName).name, SchemaObjectType.View), out var obj)
-                && obj.Definition != null)
+            if (programObjectLookup.TryGetValue(
+                    (diff.Schema, ParseTwoParts(diff.ObjectName).name, SchemaObjectType.View),
+                    out var obj) && obj.Definition != null)
             {
-                foreach (var dep in byName.Keys)
+                foreach (var (depSchema, depName) in ParseViewReferences(obj.Definition))
                 {
-                    if (dep == key) continue;
-                    // 以 dot-notation 檢查 definition 是否包含依賴 View 名稱
-                    var depParts = dep.Split('.');
-                    if (depParts.Length >= 2)
-                    {
-                        var searchPattern = depParts[^2] + "." + depParts[^1];
-                        if (obj.Definition.Contains(searchPattern, StringComparison.OrdinalIgnoreCase))
-                            Visit(byName[dep]);
-                    }
+                    var depKey = Key(depSchema, depName);
+                    if (depKey == key) continue;
+                    if (byName.TryGetValue(depKey, out var depDiff))
+                        Visit(depDiff);
                 }
             }
 
@@ -167,6 +420,26 @@ public class SqlScriptGenerator : ISqlScriptGenerator
 
         return result;
     }
+
+    /// <summary>
+    /// 從 View 定義抽出 FROM / JOIN 後的物件參照（schema, name），同時支援 `[x].[y]` 與 `x.y` 兩種寫法。
+    /// </summary>
+    private static IEnumerable<(string Schema, string Name)> ParseViewReferences(string definition)
+    {
+        foreach (Match m in ViewDepRegex.Matches(definition))
+        {
+            var schema = m.Groups["schema"].Success && m.Groups["schema"].Length > 0
+                ? m.Groups["schema"].Value
+                : "dbo"; // 無前綴 → 預設 dbo
+            yield return (schema, m.Groups["name"].Value);
+        }
+    }
+
+    // 支援三種形式：[schema].[name] / schema.name / name（後者預設 dbo schema）
+    // 同時涵蓋 FROM、JOIN（含 INNER/LEFT/RIGHT/FULL/CROSS JOIN）、APPLY（OUTER/CROSS APPLY）
+    private static readonly Regex ViewDepRegex = new(
+        @"\b(?:FROM|JOIN|APPLY)\s+(?:\[?(?<schema>\w+)\]?\.)?\[?(?<name>\w+)\]?",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     private static Dictionary<(string, string, SchemaObjectType), SchemaProgramObject> BuildProgramObjectLookup(
         DatabaseSchema baseSchema)
@@ -302,11 +575,13 @@ public class SqlScriptGenerator : ISqlScriptGenerator
             sb.AppendLine(GenerateDynamicDropDependentIndexesSql(schema, tableName, columnName));
 
             // 動態讀取目標欄位的 nullable，避免基準/目標 nullability 不同導致 UPDATE fails 或資料截斷
+            // 若 Engine 為 Enterprise/Azure/Managed Instance（3/5/8），自動附加 WITH (ONLINE = ON) 以縮短鎖時間
             {
-                var innerSql = $"DECLARE @nl NCHAR(8); " +
+                var innerSql = $"DECLARE @nl NCHAR(8), @online NVARCHAR(30) = N''''; " +
+                               $"IF CAST(SERVERPROPERTY(''EngineEdition'') AS INT) IN (3,5,8) SET @online = N'' WITH (ONLINE = ON)''; " +
                                $"SELECT @nl = CASE WHEN is_nullable = 1 THEN N''NULL'' ELSE N''NOT NULL'' END " +
                                $"FROM sys.columns WHERE object_id = OBJECT_ID(N''[{schema}].[{tableName}]'') AND name = N''{columnName}''; " +
-                               $"IF @nl IS NOT NULL EXEC(N''ALTER TABLE [{schema}].[{tableName}] ALTER COLUMN [{columnName}] {dataType} '' + @nl);";
+                               $"IF @nl IS NOT NULL EXEC(N''ALTER TABLE [{schema}].[{tableName}] ALTER COLUMN [{columnName}] {dataType} '' + @nl + @online);";
                 sb.AppendLine($"EXEC(N'{innerSql}');");
             }
 
@@ -392,26 +667,21 @@ public class SqlScriptGenerator : ISqlScriptGenerator
         if (!lookup.TryGetValue((schema, objName, diff.ObjectType), out var obj) || obj.Definition == null)
             return $"-- 無法找到物件定義：{diff.ObjectName}";
 
-        // CREATE/ALTER VIEW、PROCEDURE、FUNCTION、TRIGGER 不能直接放在 BEGIN TRY 區塊內，
-        // 需以 EXEC(N'...') 動態執行
-        if (diff.DifferenceType == DifferenceType.Added)
+        // 統一改成 CREATE OR ALTER（SQL Server 2016+），同時支援 Added/Modified 並讓腳本可重跑
+        if (diff.DifferenceType == DifferenceType.Added ||
+            diff.DifferenceType == DifferenceType.Modified)
         {
             var def = obj.Definition.Trim().TrimEnd(';');
-            if (def.StartsWith("ALTER ", StringComparison.OrdinalIgnoreCase))
-                def = "CREATE " + def[6..];
-            return $"EXEC(N'{def.Replace("'", "''")}');";
-        }
-
-        if (diff.DifferenceType == DifferenceType.Modified)
-        {
-            var def = obj.Definition.Trim().TrimEnd(';');
-            if (def.StartsWith("CREATE ", StringComparison.OrdinalIgnoreCase))
-                def = "ALTER " + def[7..];
+            def = ProgramObjectCreateOrAlterRegex.Replace(def, "CREATE OR ALTER ", 1);
             return $"EXEC(N'{def.Replace("'", "''")}');";
         }
 
         return string.Empty;
     }
+
+    private static readonly Regex ProgramObjectCreateOrAlterRegex = new(
+        @"^\s*(?:CREATE\s+OR\s+ALTER|CREATE|ALTER)\s+",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     /// <summary>
     /// 產生修改預設值的 T-SQL：先動態 DROP 現有 DEFAULT 約束，再 ADD DEFAULT
@@ -440,8 +710,10 @@ public class SqlScriptGenerator : ISqlScriptGenerator
         sb.AppendLine(GenerateDynamicDropDependentIndexesSql(schema, tableName, columnName));
 
         // 動態 SQL：讀取目標現有型別，保持原有精度，只改 NULL/NOT NULL
+        // 若 Engine 為 Enterprise/Azure/Managed Instance（3/5/8），自動附加 WITH (ONLINE = ON) 縮短鎖時間
         var alterInner =
-            $"DECLARE @t NVARCHAR(200), @dt NVARCHAR(400);" +
+            $"DECLARE @t NVARCHAR(200), @dt NVARCHAR(400), @online NVARCHAR(30) = N''''; " +
+            $"IF CAST(SERVERPROPERTY(''EngineEdition'') AS INT) IN (3,5,8) SET @online = N'' WITH (ONLINE = ON)'';" +
             $"SELECT @t = tp.name, @dt = " +
             $"  CASE " +
             $"    WHEN tp.name IN (''nvarchar'',''varchar'',''char'',''nchar'',''binary'',''varbinary'') " +
@@ -455,7 +727,7 @@ public class SqlScriptGenerator : ISqlScriptGenerator
             $"FROM sys.columns c JOIN sys.types tp ON c.user_type_id = tp.user_type_id " +
             $"WHERE c.object_id = OBJECT_ID(N''[{schema}].[{tableName}]'') AND c.name = N''{columnName}''; " +
             $"IF @t IS NOT NULL " +
-            $"  EXEC(N''ALTER TABLE [{schema}].[{tableName}] ALTER COLUMN [{columnName}] '' + @dt + '' {nullKeyword}'');";
+            $"  EXEC(N''ALTER TABLE [{schema}].[{tableName}] ALTER COLUMN [{columnName}] '' + @dt + '' {nullKeyword}'' + @online);";
 
         sb.AppendLine($"EXEC(N'{alterInner}');");
 
@@ -558,6 +830,93 @@ public class SqlScriptGenerator : ISqlScriptGenerator
         RiskLevel.Medium => "中風險",
         _ => "未知"
     };
+
+    /// <summary>
+    /// 比對 View 定義中的 FROM / JOIN 來源，自動把目標缺少但基準有的 Table/View 補入腳本。
+    /// 參考 MoldPlan ViewMigrationGenerator 的依賴解析做法。
+    /// </summary>
+    private static IList<SchemaDifference> ExpandViewDependencies(
+        IList<SchemaDifference> selected,
+        DatabaseSchema baseSchema,
+        DatabaseSchema? targetSchema)
+    {
+        if (targetSchema == null) return selected;
+
+        var targetObjects = new HashSet<string>(
+            targetSchema.Tables.Select(t => $"[{t.Schema}].[{t.Name}]")
+                .Concat(targetSchema.Views.Select(v => $"[{v.Schema}].[{v.Name}]")),
+            StringComparer.OrdinalIgnoreCase);
+
+        var existingNames = new HashSet<string>(
+            selected.Select(d => d.ObjectName),
+            StringComparer.OrdinalIgnoreCase);
+
+        var result = new List<SchemaDifference>(selected);
+        var pendingViews = new Queue<SchemaProgramObject>();
+
+        // 將選取的（且基準有定義的）View 放入處理佇列
+        foreach (var diff in selected.Where(d => d.ObjectType == SchemaObjectType.View))
+        {
+            var (_, name) = ParseTwoParts(diff.ObjectName);
+            var view = baseSchema.Views.FirstOrDefault(v =>
+                v.Schema.Equals(diff.Schema, StringComparison.OrdinalIgnoreCase) &&
+                v.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+            if (view != null) pendingViews.Enqueue(view);
+        }
+
+        while (pendingViews.Count > 0)
+        {
+            var view = pendingViews.Dequeue();
+            if (string.IsNullOrEmpty(view.Definition)) continue;
+
+            foreach (var (depSchema, depName) in ParseViewReferences(view.Definition))
+            {
+                var depFull = $"[{depSchema}].[{depName}]";
+
+                if (targetObjects.Contains(depFull)) continue;     // 目標已有
+                if (!existingNames.Add(depFull)) continue;         // 已在補齊清單
+
+                // 嘗試從基準找 Table
+                var baseTable = baseSchema.Tables.FirstOrDefault(t =>
+                    t.Schema.Equals(depSchema, StringComparison.OrdinalIgnoreCase) &&
+                    t.Name.Equals(depName, StringComparison.OrdinalIgnoreCase));
+                if (baseTable != null)
+                {
+                    result.Add(new SchemaDifference
+                    {
+                        ObjectType = SchemaObjectType.Table,
+                        ObjectName = depFull,
+                        Schema = depSchema,
+                        DifferenceType = DifferenceType.Added,
+                        RiskLevel = RiskLevel.Low,
+                        Description = $"[自動補齊] 表格 {depFull}：因相依 View 需要"
+                    });
+                    continue;
+                }
+
+                // 嘗試從基準找 View；找到就遞迴展開其相依
+                var baseView = baseSchema.Views.FirstOrDefault(v =>
+                    v.Schema.Equals(depSchema, StringComparison.OrdinalIgnoreCase) &&
+                    v.Name.Equals(depName, StringComparison.OrdinalIgnoreCase));
+                if (baseView != null)
+                {
+                    result.Add(new SchemaDifference
+                    {
+                        ObjectType = SchemaObjectType.View,
+                        ObjectName = depFull,
+                        Schema = depSchema,
+                        DifferenceType = DifferenceType.Added,
+                        RiskLevel = RiskLevel.Low,
+                        Description = $"[自動補齊] 檢視表 {depFull}：因相依 View 需要"
+                    });
+                    pendingViews.Enqueue(baseView);
+                }
+                // 基準也沒有 → 無法補齊（可能是函數、同義字、外部物件），留給執行階段報錯
+            }
+        }
+
+        return result;
+    }
 
     private sealed class TupleIgnoreCaseComparer : IEqualityComparer<(string, string, SchemaObjectType)>
     {

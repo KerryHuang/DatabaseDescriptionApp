@@ -41,7 +41,7 @@ public class MssqlSchemaCollector : ISchemaCollector
 
     #region 批次表格收集
 
-    private record TableRow(string Schema, string Name);
+    private record TableRow(string Schema, string Name, long RowCount);
 
     private record ColumnRow(
         string TableSchema, string TableName, string Name, string DataType,
@@ -72,7 +72,12 @@ public class MssqlSchemaCollector : ISchemaCollector
     {
         // QueryMultiple：單一 round-trip 取回 5 個結果集
         using var multi = await connection.QueryMultipleAsync(@"
-SELECT s.name AS [Schema], t.name AS Name
+SELECT s.name AS [Schema], t.name AS Name,
+    ISNULL((
+        SELECT SUM(ps.row_count)
+        FROM sys.dm_db_partition_stats ps
+        WHERE ps.object_id = t.object_id AND ps.index_id IN (0,1)
+    ), 0) AS [RowCount]
 FROM sys.tables t
 JOIN sys.schemas s ON t.schema_id = s.schema_id
 WHERE t.name NOT LIKE '%diagram%'
@@ -223,6 +228,7 @@ WHERE t.name NOT LIKE '%diagram%';");
             {
                 Schema = t.Schema,
                 Name = t.Name,
+                RowCount = t.RowCount,
                 Columns = columnsLookup[key].Select(c => new SchemaColumn
                 {
                     Name = c.Name,

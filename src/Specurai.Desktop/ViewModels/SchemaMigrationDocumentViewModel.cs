@@ -29,6 +29,7 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
     private readonly IConnectionManager? _connectionManager;
 
     private MigrationAnalysis? _currentAnalysis;
+    private System.Threading.CancellationTokenSource? _currentCts;
 
     public override string DocumentType => "SchemaMigration";
     public override string DocumentKey => DocumentType;
@@ -40,10 +41,14 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
     private ConnectionProfile? _selectedTargetProfile;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsRunning))]
     private bool _isAnalyzing;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsRunning))]
     private bool _isExecuting;
+
+    public bool IsRunning => IsAnalyzing || IsExecuting;
 
     [ObservableProperty]
     private string _executionProgress = string.Empty;
@@ -76,6 +81,8 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
         "🟢 低風險", "🟡 中風險", "🔴 高風險", "🔴 禁止");
     public IReadOnlyList<FilterOptionViewModel> ObjectTypeFilters { get; } = CreateFilters(
         "表格", "欄位", "索引", "約束", "檢視表", "預存程序", "函數", "觸發程序");
+    public IReadOnlyList<FilterOptionViewModel> RowCountBucketFilters { get; } = CreateFilters(
+        "🟢 少（< 10 萬）", "🟡 中（10 萬 ~ 100 萬）", "🔴 多（≥ 100 萬）", "— 無資料");
     [ObservableProperty] private IReadOnlyList<FilterOptionViewModel> _differenceTypeFilters = [];
     [ObservableProperty] private IReadOnlyList<FilterOptionViewModel> _schemaFilters = [];
 
@@ -83,6 +90,7 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
     [ObservableProperty] private string _objectTypeFilterLabel = "物件類型（3）▾";
     [ObservableProperty] private string _differenceTypeFilterLabel = "差異類型 ▾";
     [ObservableProperty] private string _schemaFilterLabel = "結構描述 ▾";
+    [ObservableProperty] private string _rowCountFilterLabel = "目標列數 ▾";
 
     private static IReadOnlyList<FilterOptionViewModel> CreateFilters(params string[] labels) =>
         labels.Select(l => new FilterOptionViewModel { Label = l }).ToList();
@@ -140,7 +148,11 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
         DifferenceRows.Clear();
         FilteredRows.Clear();
         AnalysisReport = null;
+        LastReport = null; // 清除上次的執行報告與錯誤詳情區塊
         _currentAnalysis = null;
+        _currentCts?.Dispose();
+        _currentCts = new System.Threading.CancellationTokenSource();
+        CancelRunCommand.NotifyCanExecuteChanged();
 
         try
         {
@@ -161,11 +173,15 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
 
             _currentAnalysis = await _migrationService.AnalyzeAsync(
                 baseConn, targetConn,
-                SelectedBaseProfile.Name, SelectedTargetProfile.Name);
+                SelectedBaseProfile.Name, SelectedTargetProfile.Name,
+                _currentCts.Token);
 
             foreach (var diff in _currentAnalysis.Comparison.Differences)
             {
-                var row = new MigrationDifferenceRowViewModel(diff);
+                var row = new MigrationDifferenceRowViewModel(diff)
+                {
+                    TargetRowCount = diff.TargetTableRowCount
+                };
                 row.SelectionChanged += OnRowSelectionChanged;
                 DifferenceRows.Add(row);
             }
@@ -180,6 +196,14 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
             var blocked = _currentAnalysis.BlockedDifferences.Count;
             StatusMessage = $"分析完成：共 {total} 項差異，其中 {blocked} 項高風險（不可執行）";
         }
+        catch (OperationCanceledException)
+        {
+            StatusMessage = "分析已中止";
+            DifferenceRows.Clear();
+            FilteredRows.Clear();
+            AnalysisReport = null;
+            _currentAnalysis = null;
+        }
         catch (Exception ex)
         {
             StatusMessage = $"分析失敗：{ex.Message}";
@@ -187,6 +211,7 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
         finally
         {
             IsAnalyzing = false;
+            CancelRunCommand.NotifyCanExecuteChanged();
             AnalyzeCommand.NotifyCanExecuteChanged();
             DryRunCommand.NotifyCanExecuteChanged();
             ExecuteMigrationCommand.NotifyCanExecuteChanged();
@@ -199,6 +224,19 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
         !IsAnalyzing && !IsExecuting &&
         SelectedBaseProfile != null && SelectedTargetProfile != null &&
         SelectedBaseProfile.Id != SelectedTargetProfile.Id;
+
+    [RelayCommand(CanExecute = nameof(CanCancelRun))]
+    private void CancelRun()
+    {
+        if (_currentCts is { IsCancellationRequested: false })
+        {
+            StatusMessage = "正在中止...";
+            _currentCts.Cancel();
+        }
+    }
+
+    private bool CanCancelRun() =>
+        (IsAnalyzing || IsExecuting) && _currentCts is { IsCancellationRequested: false };
 
     partial void OnFilterTableNameChanged(string value) => ApplyFilter();
     partial void OnFilterColumnNameChanged(string value) => ApplyFilter();
@@ -218,9 +256,17 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
 
     private void SubscribeFilterEvents()
     {
-        foreach (var f in RiskLevelFilters.Concat(ObjectTypeFilters))
+        foreach (var f in RiskLevelFilters.Concat(ObjectTypeFilters).Concat(RowCountBucketFilters))
             f.SelectionChanged += _ => ApplyFilter();
     }
+
+    private static RowCountBucket BucketFromLabel(string label) => label switch
+    {
+        var s when s.StartsWith("🟢") => RowCountBucket.Low,
+        var s when s.StartsWith("🟡") => RowCountBucket.Medium,
+        var s when s.StartsWith("🔴") => RowCountBucket.High,
+        _ => RowCountBucket.None
+    };
 
     private void StartElapsedTimer(int totalCount, string label)
     {
@@ -289,11 +335,13 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
         var activeType = ObjectTypeFilters.Where(f => f.IsSelected).Select(f => f.Label).ToHashSet();
         var activeDiff = DifferenceTypeFilters.Where(f => f.IsSelected).Select(f => f.Label).ToHashSet();
         var activeSchema = SchemaFilters.Where(f => f.IsSelected).Select(f => f.Label).ToHashSet();
+        var activeBuckets = RowCountBucketFilters.Where(f => f.IsSelected).Select(f => BucketFromLabel(f.Label)).ToHashSet();
 
         RiskFilterLabel = activeRisk.Count == 0 ? "風險 ▾" : $"風險（{activeRisk.Count}）▾";
         ObjectTypeFilterLabel = activeType.Count == 0 ? "物件類型 ▾" : $"物件類型（{activeType.Count}）▾";
         DifferenceTypeFilterLabel = activeDiff.Count == 0 ? "差異類型 ▾" : $"差異類型（{activeDiff.Count}）▾";
         SchemaFilterLabel = activeSchema.Count == 0 ? "結構描述 ▾" : $"結構描述（{activeSchema.Count}）▾";
+        RowCountFilterLabel = activeBuckets.Count == 0 ? "目標列數 ▾" : $"目標列數（{activeBuckets.Count}）▾";
 
         var query = DifferenceRows.AsEnumerable();
 
@@ -312,6 +360,8 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
             query = query.Where(r => activeDiff.Contains(r.DifferenceTypeText));
         if (activeSchema.Count > 0)
             query = query.Where(r => activeSchema.Contains(r.Difference.Schema));
+        if (activeBuckets.Count > 0)
+            query = query.Where(r => activeBuckets.Contains(r.RowCountBucket));
 
         // 預設排序：風險降序（禁止→高→中→低）→ 物件類型（表格優先）→ 物件名稱
         var sorted = query
@@ -323,6 +373,10 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
         FilteredRows.Clear();
         foreach (var row in sorted)
             FilteredRows.Add(row);
+
+        // 篩選後重新評估按鈕可用性（CanGenerateScript 依 FilteredRows.Any(r => r.IsSelected)）
+        PreviewSqlCommand.NotifyCanExecuteChanged();
+        DownloadSqlCommand.NotifyCanExecuteChanged();
     }
 
     [RelayCommand]
@@ -336,7 +390,8 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
 
     private void OnRowSelectionChanged(bool isNowSelected)
     {
-        _selectedExecutableCount += isNowSelected ? 1 : -1;
+        // 重新計算（高風險亦會觸發事件，但只計入可執行項目供 Dry Run / Migration 使用）
+        _selectedExecutableCount = DifferenceRows.Count(r => r.IsSelected && r.IsExecutable);
         NotifySelectionCommands();
     }
 
@@ -394,6 +449,9 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
         IsExecuting = true;
         StatusMessage = "正在 Dry Run（不會實際提交）...";
         StartElapsedTimer(selected.Count, "Dry Run 中");
+        _currentCts?.Dispose();
+        _currentCts = new System.Threading.CancellationTokenSource();
+        CancelRunCommand.NotifyCanExecuteChanged();
 
         try
         {
@@ -401,14 +459,19 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
                 selected,
                 _currentAnalysis.BaseSchema,
                 _currentAnalysis.BaseSchema.ConnectionName,
-                _currentAnalysis.TargetSchema.ConnectionName);
+                _currentAnalysis.TargetSchema.ConnectionName,
+                _currentAnalysis.TargetSchema);
 
             var targetConn = _connectionManager.GetConnectionString(SelectedTargetProfile.Id);
-            LastReport = await _executor.ExecuteAsync(script, targetConn ?? string.Empty, dryRun: true);
+            LastReport = await _executor.ExecuteAsync(script, targetConn ?? string.Empty, dryRun: true, _currentCts.Token);
 
             StatusMessage = LastReport.IsSuccess
                 ? $"Dry Run 通過：腳本語法正確，共 {LastReport.SuccessCount} 項（已自動回滾，無實際變更）"
                 : $"Dry Run 失敗：{FirstLine(LastReport.ErrorMessage)}";
+        }
+        catch (OperationCanceledException)
+        {
+            StatusMessage = "Dry Run 已中止";
         }
         catch (Exception ex)
         {
@@ -418,6 +481,7 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
         {
             StopElapsedTimer();
             IsExecuting = false;
+            CancelRunCommand.NotifyCanExecuteChanged();
             DownloadReportCommand.NotifyCanExecuteChanged();
         }
     }
@@ -444,6 +508,9 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
         IsExecuting = true;
         StatusMessage = "正在執行 Migration...";
         StartElapsedTimer(selected.Count, "Migration 中");
+        _currentCts?.Dispose();
+        _currentCts = new System.Threading.CancellationTokenSource();
+        CancelRunCommand.NotifyCanExecuteChanged();
 
         try
         {
@@ -451,14 +518,19 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
                 selected,
                 _currentAnalysis.BaseSchema,
                 _currentAnalysis.BaseSchema.ConnectionName,
-                _currentAnalysis.TargetSchema.ConnectionName);
+                _currentAnalysis.TargetSchema.ConnectionName,
+                _currentAnalysis.TargetSchema);
 
             var targetConn = _connectionManager.GetConnectionString(SelectedTargetProfile.Id);
-            LastReport = await _executor.ExecuteAsync(script, targetConn ?? string.Empty);
+            LastReport = await _executor.ExecuteAsync(script, targetConn ?? string.Empty, dryRun: false, _currentCts.Token);
 
             StatusMessage = LastReport.IsSuccess
                 ? $"Migration 完成：{LastReport.SuccessCount} 項成功，{LastReport.SkippedCount} 項略過"
                 : $"Migration 失敗（已自動回滾）：{FirstLine(LastReport.ErrorMessage)}";
+        }
+        catch (OperationCanceledException)
+        {
+            StatusMessage = "Migration 已中止（已自動回滾）";
         }
         catch (Exception ex)
         {
@@ -468,6 +540,7 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
         {
             StopElapsedTimer();
             IsExecuting = false;
+            CancelRunCommand.NotifyCanExecuteChanged();
             DownloadReportCommand.NotifyCanExecuteChanged();
         }
     }
@@ -480,8 +553,9 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
     {
         if (_scriptGenerator == null || _currentAnalysis == null) return;
 
+        // 預覽/下載 SQL 不限可執行性，含高風險項目讓 DBA 人工檢視
         var selected = FilteredRows
-            .Where(r => r.IsSelected && r.IsExecutable)
+            .Where(r => r.IsSelected)
             .Select(r => r.Difference)
             .ToList();
 
@@ -489,7 +563,8 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
             selected,
             _currentAnalysis.BaseSchema,
             _currentAnalysis.BaseSchema.ConnectionName,
-            _currentAnalysis.TargetSchema.ConnectionName);
+            _currentAnalysis.TargetSchema.ConnectionName,
+            _currentAnalysis.TargetSchema);
 
         var window = (Avalonia.Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)
             ?.MainWindow;
@@ -504,8 +579,9 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
     {
         if (_scriptGenerator == null || _currentAnalysis == null) return;
 
+        // 預覽/下載 SQL 不限可執行性，含高風險項目讓 DBA 人工檢視
         var selected = FilteredRows
-            .Where(r => r.IsSelected && r.IsExecutable)
+            .Where(r => r.IsSelected)
             .Select(r => r.Difference)
             .ToList();
 
@@ -513,7 +589,8 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
             selected,
             _currentAnalysis.BaseSchema,
             _currentAnalysis.BaseSchema.ConnectionName,
-            _currentAnalysis.TargetSchema.ConnectionName);
+            _currentAnalysis.TargetSchema.ConnectionName,
+            _currentAnalysis.TargetSchema);
 
         var window = (Avalonia.Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)
             ?.MainWindow;
@@ -585,7 +662,8 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
     }
 
     private bool CanGenerateScript() =>
-        _currentAnalysis != null && _selectedExecutableCount > 0;
+        _currentAnalysis != null
+        && FilteredRows.Any(r => r.IsSelected); // 含高風險亦可預覽/下載
 
     private bool CanExportReport() => LastReport != null;
 
@@ -626,8 +704,7 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
     [RelayCommand]
     private void SelectAll()
     {
-        foreach (var row in DifferenceRows.Where(r => r.IsExecutable))
-            row.IsSelected = true;
+        foreach (var row in DifferenceRows) row.IsSelected = true;
         _selectedExecutableCount = DifferenceRows.Count(r => r.IsExecutable);
         NotifySelectionCommands();
     }
@@ -635,8 +712,7 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
     [RelayCommand]
     private void DeselectAll()
     {
-        foreach (var row in DifferenceRows.Where(r => r.IsExecutable))
-            row.IsSelected = false;
+        foreach (var row in DifferenceRows) row.IsSelected = false;
         _selectedExecutableCount = 0;
         NotifySelectionCommands();
     }

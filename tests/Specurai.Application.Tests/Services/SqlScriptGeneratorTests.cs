@@ -47,9 +47,12 @@ public class SqlScriptGeneratorTests
 
         // Assert
         script.ApplyScript.Should().Contain("CREATE TABLE [dbo].[Products]");
-        script.ApplyScript.Should().Contain("BEGIN TRANSACTION");
-        script.ApplyScript.Should().Contain("COMMIT TRANSACTION");
-        script.ApplyScript.Should().Contain("ROLLBACK TRANSACTION");
+        // 新版骨架：拿掉外層 transaction，使用 SET XACT_ABORT ON + GO 分批 + CHECKPOINT
+        script.ApplyScript.Should().Contain("SET XACT_ABORT ON");
+        script.ApplyScript.Should().Contain("CHECKPOINT");
+        script.ApplyScript.Should().Contain("GO");
+        // Idempotent guard：CREATE TABLE 前有 OBJECT_ID IS NULL 檢查
+        script.ApplyScript.Should().Contain("OBJECT_ID(N'[dbo].[Products]', N'U') IS NULL");
     }
 
     [Fact]
@@ -224,9 +227,8 @@ public class SqlScriptGeneratorTests
         // Act
         var script = _generator.Generate([diff], baseSchema, "基準", "目標");
 
-        // Assert — 必須用 EXEC() 包裝，否則在 BEGIN TRY 內 CREATE VIEW 會語法錯誤
-        script.ApplyScript.Should().Contain("EXEC(N'CREATE VIEW");
-        script.ApplyScript.Should().NotContain("\nCREATE VIEW");
+        // Assert — 改用 CREATE OR ALTER 並用 EXEC() 包裝（可重跑、不需外層 transaction）
+        script.ApplyScript.Should().Contain("EXEC(N'CREATE OR ALTER VIEW");
     }
 
     [Fact]
@@ -254,8 +256,8 @@ public class SqlScriptGeneratorTests
         // Act
         var script = _generator.Generate([diff], baseSchema, "基準", "目標");
 
-        // Assert — Modified 應改為 ALTER PROCEDURE 並用 EXEC() 包裝
-        script.ApplyScript.Should().Contain("EXEC(N'ALTER PROCEDURE");
+        // Assert — Modified 統一改成 CREATE OR ALTER 並用 EXEC() 包裝
+        script.ApplyScript.Should().Contain("EXEC(N'CREATE OR ALTER PROCEDURE");
     }
 
     [Fact]
@@ -327,7 +329,7 @@ public class SqlScriptGeneratorTests
         // Assert — Table 的 CREATE TABLE 應出現在 View 的 CREATE VIEW 前
         var apply = script.ApplyScript;
         var tablePos = apply.IndexOf("CREATE TABLE [dbo].[Orders]", StringComparison.Ordinal);
-        var viewPos  = apply.IndexOf("EXEC(N'CREATE VIEW", StringComparison.Ordinal);
+        var viewPos  = apply.IndexOf("EXEC(N'CREATE OR ALTER VIEW", StringComparison.Ordinal);
 
         tablePos.Should().BeGreaterThan(0);
         viewPos.Should().BeGreaterThan(tablePos, "Table 必須在 View 之前建立");

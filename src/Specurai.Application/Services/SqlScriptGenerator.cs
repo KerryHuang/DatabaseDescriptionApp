@@ -171,12 +171,20 @@ public class SqlScriptGenerator : ISqlScriptGenerator
     {
         var schemas = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
+        // 收集 baseSchema 中真實存在的所有 schema 名稱，作為白名單，避免 regex 假陽性誤建 schema
+        var knownSchemas = new HashSet<string>(
+            baseSchema.Tables.Select(t => t.Schema)
+                .Concat(baseSchema.Views.Select(v => v.Schema))
+                .Concat(baseSchema.StoredProcedures.Select(p => p.Schema))
+                .Concat(baseSchema.Functions.Select(f => f.Schema))
+                .Concat(baseSchema.Triggers.Select(g => g.Schema)),
+            StringComparer.OrdinalIgnoreCase);
+
         foreach (var diff in ordered)
         {
             if (!string.IsNullOrEmpty(diff.Schema))
                 schemas.Add(diff.Schema);
 
-            // 程式物件（View/SP/Func/Trigger）的定義裡引用的 schema 也要建
             if (diff.ObjectType is SchemaObjectType.View
                 or SchemaObjectType.StoredProcedure
                 or SchemaObjectType.Function
@@ -186,8 +194,10 @@ public class SqlScriptGenerator : ISqlScriptGenerator
                 if (programLookup.TryGetValue((diff.Schema, objName, diff.ObjectType), out var obj)
                     && !string.IsNullOrEmpty(obj.Definition))
                 {
+                    // 僅加入存在於基準 schema 白名單中的引用，避免 ViewDepRegex 誤匹配 CTE 別名 / OPENJSON / @變數
                     foreach (var (refSchema, _) in ParseViewReferences(obj.Definition))
-                        schemas.Add(refSchema);
+                        if (knownSchemas.Contains(refSchema))
+                            schemas.Add(refSchema);
                 }
             }
         }
@@ -673,6 +683,9 @@ public class SqlScriptGenerator : ISqlScriptGenerator
         {
             var def = obj.Definition.Trim().TrimEnd(';');
             def = ProgramObjectCreateOrAlterRegex.Replace(def, "CREATE OR ALTER ", 1);
+            // 若 SP/View body 內含「獨立一行 GO」會讓執行器 SplitOnGo 把批次切斷，
+            // 註解掉避免破壞 EXEC(N'...') 字串字面值的完整性
+            def = StandaloneGoRegex.Replace(def, "/*GO*/");
             return $"EXEC(N'{def.Replace("'", "''")}');";
         }
 
@@ -682,6 +695,11 @@ public class SqlScriptGenerator : ISqlScriptGenerator
     private static readonly Regex ProgramObjectCreateOrAlterRegex = new(
         @"^\s*(?:CREATE\s+OR\s+ALTER|CREATE|ALTER)\s+",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+    // 用於把程式物件定義內「獨立一行 GO」註解化，避免被 Executor 的 SplitOnGo 誤切
+    private static readonly Regex StandaloneGoRegex = new(
+        @"^\s*GO\s*$",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled | RegexOptions.Multiline);
 
     /// <summary>
     /// 產生修改預設值的 T-SQL：先動態 DROP 現有 DEFAULT 約束，再 ADD DEFAULT

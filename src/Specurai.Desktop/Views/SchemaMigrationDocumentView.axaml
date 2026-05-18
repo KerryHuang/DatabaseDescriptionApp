@@ -68,6 +68,29 @@
                     </StackPanel>
                 </Button>
 
+                <!-- LDF 大小調整：目標 MB + 縮小/預擴按鈕 + 自動執行勾選 -->
+                <Border Margin="12,0,0,0" Padding="6,2" BorderThickness="1"
+                        BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
+                        CornerRadius="3">
+                    <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                        <TextBlock Text="LDF" VerticalAlignment="Center" FontSize="12"/>
+                        <NumericUpDown Value="{Binding LogTargetSizeMb}"
+                                       Minimum="64" Maximum="102400" Increment="1024"
+                                       FormatString="0" Width="120" FontSize="12"
+                                       ToolTip.Tip="目標 LDF 大小 (MB)，可容納 6 位數字"/>
+                        <TextBlock Text="MB" VerticalAlignment="Center" FontSize="12"/>
+                        <Button Command="{Binding ResizeLogCommand}"
+                                FontSize="12" Padding="6,2"
+                                ToolTip.Tip="目標 &gt; 現大小：預擴；目標 &lt; 現大小：CHECKPOINT + SHRINKFILE">
+                            <TextBlock Text="調整 LDF"/>
+                        </Button>
+                        <CheckBox IsChecked="{Binding AutoResizeLogAfterMigration}"
+                                  Content="完成後自動"
+                                  FontSize="12"
+                                  ToolTip.Tip="Migration 成功後自動依上方 MB 調整 LDF"/>
+                    </StackPanel>
+                </Border>
+
                 <Button Command="{Binding CancelRunCommand}"
                         IsVisible="{Binding IsRunning}"
                         Margin="8,0,0,0"

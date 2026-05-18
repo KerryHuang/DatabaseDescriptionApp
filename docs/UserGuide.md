@@ -638,32 +638,77 @@ Schema Migration 協助跨環境（開發→測試→正式，或主系統→客
 2. 點擊 **「分析差異」** — 系統產出：
    - 差異清單（新增、刪除、修改）
    - 每項差異的 **風險等級**（低/中/高/禁止）
+   - **目標列數**（資料表的列數，影響耗時估算與風險評估）
    - 完整文字報告（執行建議順序、風險提示）
-3. 使用 **篩選器** 縮小範圍（風險、物件類型、差異類型，全部多選）
+3. 使用 **篩選器** 縮小範圍：
+   - 風險、物件類型、差異類型、**目標列數燈號**、結構描述（全部多選）
 4. 勾選要執行的項目
-   - 高/禁止風險的項目預設不可勾選，需明確取消保護才可勾選
+   - 高風險預設可勾選用於「預覽 SQL / 下載 SQL」由 DBA 人工檢視
+   - Dry Run / 執行 Migration 會自動跳過高風險項目
 5. 預覽或執行：
    - **預覽 SQL** — 彈窗顯示完整 T-SQL 腳本，可複製
    - **下載 SQL** — 存成 `.sql` 檔手動在 SSMS 執行
-   - **Dry Run** — 模擬執行（自動回滾），僅驗證腳本語法與約束
-   - **執行 Migration** — 正式套用至目標資料庫（含自動回滾保護）
+   - **Dry Run** — 每批次包 `BEGIN TRAN + ROLLBACK` 驗證（不留變更，log 不脹）
+   - **執行 Migration** — 正式套用至目標資料庫
 6. 執行完成後顯示執行報告（狀態、耗時、備註），可下載
+
+### 腳本架構（v2 重構後）
+
+為了避免大量 DDL 撐爆 transaction log（曾發生 LDF 從 100MB 脹到 18GB 的事故），Migration 腳本已重構為：
+
+- **拿掉外層大 transaction**：每個批次以 `GO` 分隔、各自為獨立的隱式交易
+- **每張表後 `CHECKPOINT`**：SIMPLE 模式下立即釋放可重用 log space
+- **所有 DDL 加 idempotent guard**：`IF OBJECT_ID/COL_LENGTH/NOT EXISTS` 檢查，腳本可安全重跑
+- **同表多欄位 ADD COLUMN 合併**：單一動態 `ALTER TABLE ADD`，單次 metadata 鎖
+- **程式物件用 `CREATE OR ALTER`**（SQL Server 2016+）：可重複執行
+- **`ALTER COLUMN` 自動 ONLINE**：依 `EngineEdition` 動態附加 `WITH (ONLINE = ON)`（Enterprise/Azure SQL DB/Managed Instance）
+- **Schema 自動建立**：腳本最前面集中 `IF NOT EXISTS ... CREATE SCHEMA`
+- **View 相依物件自動補齊**：選了 View 但其相依的 Table/View 未在目標時，自動加入腳本（用 FROM/JOIN regex + 拓撲排序）
 
 ### 風險等級
 
-| 等級 | 意義 | 範例 |
-|------|------|------|
-| 低 | 可安全執行 | 新增資料表、新增可空欄位 |
-| 中 | 建議先備份 | 修改預存程序、加索引 |
-| 高 | 可能造成資料遺失 | 修改欄位型別、縮短長度 |
-| 禁止 | 不建議自動執行 | DROP TABLE、DROP COLUMN |
+| 等級 | 意義 | 範例 | 自動執行 |
+|------|------|------|---------|
+| 🟢 低 | 可安全執行 | 新增資料表、新增可空欄位 | ✅ |
+| 🟡 中 | 建議先備份 | 修改預存程序、加索引、大表新增欄位（≥10萬列） | ✅ |
+| 🔴 高 | 可能造成資料遺失 | ALTER COLUMN 縮長度/改型別/改 NOT NULL | ❌（僅可預覽 SQL） |
+| ⛔ 禁止 | 不建議自動執行 | DROP TABLE、DROP COLUMN | ❌ |
+
+**自動升級規則**（依目標表列數 + 操作類型）：
+- 大表（≥1M 列）的 ADD COLUMN NOT NULL+default → 升為高風險
+- ALTER COLUMN 縮長度/改型別/改 NOT NULL → 一律高風險（需人工處理）
+
+### LDF 大小管理
+
+執行 Migration 旁附帶 LDF 大小調整工具：
+
+- **目標 MB 輸入框** + **「調整 LDF」按鈕**：
+  - 目標 > 現大小：`ALTER DATABASE MODIFY FILE` 預擴（避免下次 migration 時 autogrow 卡寫入）
+  - 目標 < 現大小：`CHECKPOINT` + `DBCC SHRINKFILE` 縮小（回收 LDF 物理空間）
+- **「完成後自動」勾選**：Migration 成功後自動依目標 MB 調整 LDF
 
 ### 建議工作流
 
-1. 先跑 **Dry Run** 驗證腳本無誤
-2. 目標環境做 **完整備份**（可用 [備份與還原](#備份與還原)）
-3. 非尖峰時段執行 **Migration**
-4. 保留執行報告作為變更紀錄
+1. 大量 migration 前先 **預擴 LDF**（例如 10GB），避免 autogrow 卡頓
+2. 先跑 **Dry Run** 驗證腳本無誤
+3. 目標環境做 **完整備份**（可用 [備份與還原](#備份與還原)）
+4. 非尖峰時段執行 **Migration**（建議勾「完成後自動」+ 1GB 善後）
+5. 高風險項目用「下載 SQL」交給 DBA 人工執行
+6. 保留執行報告作為變更紀錄
+
+### CLI 對齊指令
+
+Desktop 的所有 Migration 功能在 CLI 都有對齊指令：
+
+```bash
+specurai migration analyze   --base X --target Y [--json]
+specurai migration dry-run   --base X --target Y
+specurai migration apply     --base X --target Y [--yes] [--log-resize-mb 1024]
+specurai migration preview   --base X --target Y --out script.sql [--include-high-risk]
+specurai migration log-resize --target Y --size-mb 10240
+```
+
+退出碼：失敗 = 1，可串接 CI/CD pipeline。
 
 ---
 

@@ -76,7 +76,7 @@ specurai tables list
 | 統計分析 | 欄位使用分析、資料表統計（列數、空間、圖表） | Ctrl+U / Ctrl+T |
 | 備份與還原 | 完整/差異/交易記錄備份，伺服器端操作、備份驗證、歷史記錄 | Ctrl+Shift+B |
 | 結構比對 | 跨環境 Schema 差異偵測、同步腳本、HTML/Excel 報表 | Ctrl+M |
-| Schema Migration | 風險評估、多維度篩選、Dry Run、自動回滾、執行報告 | Ctrl+Shift+M |
+| Schema Migration | 列數風險評估、多維度篩選、idempotent 腳本（GO 分批 + CHECKPOINT）、Dry Run、View 相依自動補齊、ONLINE ALTER、LDF 縮小/預擴 | Ctrl+Shift+M |
 | 健康監控 | CPU / 記憶體 / 磁碟 / 連線數，自動告警、趨勢圖，SQL Agent 排程 | Ctrl+H |
 | 效能診斷 | 等候事件、耗時查詢、索引狀態、錯誤記錄、完整性檢查（CHECKDB / Suspect Pages） | Ctrl+P |
 | 索引管理 | 缺少索引建議、未使用索引清理 | Ctrl+I / Ctrl+J |
@@ -358,6 +358,13 @@ specurai health alerts --days 7
 # Schema 比對
 specurai schema compare --base "正式" --target "測試"
 specurai schema compare-multi --base "正式" --targets "客戶A,客戶B,客戶C"
+
+# Schema Migration（差異分析、執行、LDF 管理）
+specurai migration analyze    --base "正式" --target "測試"
+specurai migration dry-run    --base "正式" --target "測試"
+specurai migration apply      --base "正式" --target "測試" --yes --log-resize-mb 1024
+specurai migration preview    --base "正式" --target "測試" --out migration.sql
+specurai migration log-resize --target "測試" --size-mb 10240
 
 # 使用分析
 specurai usage scan --years 2

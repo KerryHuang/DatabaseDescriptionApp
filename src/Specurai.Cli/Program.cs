@@ -67,6 +67,11 @@ public static class Program
         rootCommand.AddCommand(UsageCommand.Create());
         rootCommand.AddCommand(JobsCommand.Create());
         rootCommand.AddCommand(MaintenanceCommand.Create());
+        rootCommand.AddCommand(BackupCommand.Create());
+        rootCommand.AddCommand(RestoreCommand.Create());
+        rootCommand.AddCommand(RecoveryModelCommand.Create());
+        rootCommand.AddCommand(IndexCommand.Create());
+        rootCommand.AddCommand(ColumnsCommand.Create());
 
         // 使用中介軟體捕獲全域選項
         var builder = new CommandLineBuilder(rootCommand)

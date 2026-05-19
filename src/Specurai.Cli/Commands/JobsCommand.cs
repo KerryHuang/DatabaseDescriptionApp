@@ -20,6 +20,53 @@ public static class JobsCommand
         command.AddCommand(CreateEnableCommand());
         command.AddCommand(CreateDisableCommand());
         command.AddCommand(CreateDeleteCommand());
+        command.AddCommand(CreateScheduleCommand());
+        command.AddCommand(CreateImportCommand());
+        return command;
+    }
+
+    /// <summary>
+    /// 更新 Job 排程
+    /// freqType: 1=一次, 4=每日, 8=每週, 16=每月
+    /// freqInterval: 每日=間隔天數；每週=星期 bitmask(1=日,2=一,...64=六)；每月=日
+    /// activeStartTime: HHMMSS 格式（例：030000 = 03:00:00）
+    /// </summary>
+    private static Command CreateScheduleCommand()
+    {
+        var jobIdArg = new Argument<string>("jobId", "Job ID (GUID)");
+        var freqTypeOption = new Option<int>("--freq-type", () => 4, "頻率類型：1=一次, 4=每日, 8=每週, 16=每月");
+        var freqIntervalOption = new Option<int>("--freq-interval", () => 1, "頻率間隔（每日=天數；每週=星期 bitmask；每月=日）");
+        var startTimeOption = new Option<int>("--start-time", () => 30000, "開始時間 HHMMSS（例：30000 表示 03:00:00）");
+        var command = new Command("schedule", "更新 Job 排程") { jobIdArg, freqTypeOption, freqIntervalOption, startTimeOption };
+
+        command.SetHandler(async (jobIdStr, freqType, freqInterval, startTime) =>
+        {
+            if (!Guid.TryParse(jobIdStr, out var jobId)) { CliOutput.Error("無效的 Job ID。"); Environment.ExitCode = 2; return; }
+            var service = Program.Services.GetRequiredService<IAgentJobService>();
+            await service.UpdateScheduleAsync(jobId, freqType, freqInterval, startTime);
+            if (CliOutput.JsonMode)
+                CliOutput.Success(new { JobId = jobId, FreqType = freqType, FreqInterval = freqInterval, ActiveStartTime = startTime });
+            else
+                CliOutput.SuccessMessage("Job 排程已更新");
+        }, jobIdArg, freqTypeOption, freqIntervalOption, startTimeOption);
+
+        return command;
+    }
+
+    private static Command CreateImportCommand()
+    {
+        var jobIdArg = new Argument<string>("jobId", "Job ID (GUID)");
+        var command = new Command("import", "將外部 Job 匯入並標記為 [Specurai]") { jobIdArg };
+
+        command.SetHandler(async (jobIdStr) =>
+        {
+            if (!Guid.TryParse(jobIdStr, out var jobId)) { CliOutput.Error("無效的 Job ID。"); Environment.ExitCode = 2; return; }
+            var service = Program.Services.GetRequiredService<IAgentJobService>();
+            await service.ImportJobAsync(jobId);
+            if (CliOutput.JsonMode) CliOutput.Success(new { JobId = jobId, Message = "Job 已匯入" });
+            else CliOutput.SuccessMessage("Job 已匯入");
+        }, jobIdArg);
+
         return command;
     }
 

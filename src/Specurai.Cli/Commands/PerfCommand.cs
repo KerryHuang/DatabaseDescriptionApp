@@ -263,7 +263,7 @@ public static class PerfCommand
                 table.AddRow(
                     e.LogDate.ToString("yyyy-MM-dd HH:mm:ss"),
                     (e.ProcessInfo ?? "").EscapeMarkup(),
-                    e.Text.EscapeMarkup()[..Math.Min(100, e.Text.Length)]);
+                    (e.Text ?? "").EscapeMarkup()[..Math.Min(100, (e.Text ?? "").Length)]);
             }
 
             AnsiConsole.Write(table);

@@ -111,7 +111,7 @@ public static class HealthCommand
                     "OK" => "[green]正常[/]",
                     "WARNING" => "[yellow]警告[/]",
                     "CRITICAL" => "[red]嚴重[/]",
-                    _ => m.Status
+                    _ => m.Status ?? ""
                 };
                 table.AddRow(
                     m.CheckType.EscapeMarkup(),
@@ -157,7 +157,7 @@ public static class HealthCommand
                 {
                     "WARNING" => "[yellow]警告[/]",
                     "CRITICAL" => "[red]嚴重[/]",
-                    _ => a.Status
+                    _ => a.Status ?? ""
                 };
                 table.AddRow(
                     a.CheckTime.ToString("yyyy-MM-dd HH:mm"),

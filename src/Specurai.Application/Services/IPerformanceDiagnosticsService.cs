@@ -73,6 +73,12 @@ public interface IPerformanceDiagnosticsService
     Task ExecuteDropIndexAsync(string dropIndexStatement, string databaseName, CancellationToken ct = default);
 
     /// <summary>
+    /// 取得伺服器上所有使用者資料庫名稱（排除系統資料庫，供報表的資料庫篩選選項使用）
+    /// </summary>
+    /// <param name="ct">取消權杖</param>
+    Task<IReadOnlyList<string>> GetUserDatabasesAsync(CancellationToken ct = default);
+
+    /// <summary>
     /// 取得各資料庫的 CHECKDB 健康狀態(含分級)
     /// </summary>
     Task<IReadOnlyList<IntegrityCheckStatus>> GetIntegrityCheckStatusAsync(IProgress<string>? progress = null, CancellationToken ct = default);

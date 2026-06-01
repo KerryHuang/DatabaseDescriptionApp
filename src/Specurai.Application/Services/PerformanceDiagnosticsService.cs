@@ -60,6 +60,10 @@ public class PerformanceDiagnosticsService : IPerformanceDiagnosticsService
         => _repository.ExecuteDropIndexAsync(dropIndexStatement, databaseName, ct);
 
     /// <inheritdoc/>
+    public Task<IReadOnlyList<string>> GetUserDatabasesAsync(CancellationToken ct = default)
+        => _repository.GetUserDatabasesAsync(ct);
+
+    /// <inheritdoc/>
     public async Task<IReadOnlyList<IntegrityCheckStatus>> GetIntegrityCheckStatusAsync(IProgress<string>? progress = null, CancellationToken ct = default)
     {
         var rows = await _repository.GetLastCheckDbAsync(progress, ct);

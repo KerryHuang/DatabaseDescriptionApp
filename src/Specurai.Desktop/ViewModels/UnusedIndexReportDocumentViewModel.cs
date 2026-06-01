@@ -28,6 +28,9 @@ public partial class UnusedIndexReportDocumentViewModel : DocumentViewModel
 
     private IReadOnlyList<UnusedIndex> _allUnusedIndexes = [];
 
+    /// <summary>伺服器上的所有使用者資料庫（開啟報表時載入，供篩選選項使用）</summary>
+    private IReadOnlyList<string> _serverDatabases = [];
+
     #endregion
 
     #region 狀態屬性
@@ -50,7 +53,7 @@ public partial class UnusedIndexReportDocumentViewModel : DocumentViewModel
     #region 篩選屬性
 
     [ObservableProperty]
-    private string? _databaseFilter;
+    private string? _databaseFilter = "全部";
 
     [ObservableProperty]
     private string? _tableFilter;
@@ -131,6 +134,54 @@ public partial class UnusedIndexReportDocumentViewModel : DocumentViewModel
 
     #endregion
 
+    #region 初始化
+
+    /// <summary>
+    /// 開啟報表時載入伺服器上的所有使用者資料庫，使資料庫篩選選項在尚未載入報表前即可使用。
+    /// 必須由 UI 執行緒呼叫（透過捕捉的同步內容回到 UI 執行緒修改集合）。
+    /// </summary>
+    public async Task LoadDatabaseOptionsAsync()
+    {
+        if (_service == null) return;
+
+        try
+        {
+            var databases = await _service.GetUserDatabasesAsync();
+            _serverDatabases = databases;
+
+            // 與已載入報表的結果合併，避免覆蓋掉已載入的選項（開啟後立即載入報表的競態）
+            var previousSelection = DatabaseFilter;
+            SetDatabaseOptions(_serverDatabases.Concat(_allUnusedIndexes.Select(m => m.DatabaseName)));
+
+            // 保留使用者目前的選取；若已不存在則回到「全部」
+            DatabaseFilter = previousSelection is not null && DatabaseOptions.Contains(previousSelection)
+                ? previousSelection
+                : "全部";
+        }
+        catch
+        {
+            // 預載失敗時靜默略過；使用者仍可手動「載入報表」，屆時選項會由結果補上
+        }
+    }
+
+    /// <summary>
+    /// 以指定的資料庫名稱集合重建篩選選項（保留開頭的「全部」）。
+    /// </summary>
+    private void SetDatabaseOptions(IEnumerable<string?> databases)
+    {
+        DatabaseOptions.Clear();
+        DatabaseOptions.Add("全部");
+        foreach (var db in databases
+            .Where(d => !string.IsNullOrEmpty(d))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(d => d, StringComparer.OrdinalIgnoreCase))
+        {
+            DatabaseOptions.Add(db!);
+        }
+    }
+
+    #endregion
+
     #region 命令
 
     private bool CanRunCommand => !IsLoading;
@@ -153,17 +204,8 @@ public partial class UnusedIndexReportDocumentViewModel : DocumentViewModel
             {
                 _allUnusedIndexes = results;
 
-                // 動態填充資料庫選項
-                DatabaseOptions.Clear();
-                DatabaseOptions.Add("全部");
-                foreach (var db in results
-                    .Select(m => m.DatabaseName)
-                    .Where(d => !string.IsNullOrEmpty(d))
-                    .Distinct()
-                    .OrderBy(d => d))
-                {
-                    DatabaseOptions.Add(db);
-                }
+                // 合併伺服器資料庫清單與結果中的資料庫，確保篩選選項完整
+                SetDatabaseOptions(_serverDatabases.Concat(results.Select(m => m.DatabaseName)));
 
                 // 重置篩選
                 DatabaseFilter = "全部";

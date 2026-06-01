@@ -55,6 +55,20 @@ public class PerformanceDiagnosticsServiceTests
     }
 
     [Fact]
+    public async Task GetUserDatabases_應直接轉發()
+    {
+        var repo = Substitute.For<IPerformanceDiagnosticsRepository>();
+        var data = new List<string> { "db1", "db2" };
+        repo.GetUserDatabasesAsync(Arg.Any<CancellationToken>()).Returns(data);
+
+        var svc = new PerformanceDiagnosticsService(repo);
+        var results = await svc.GetUserDatabasesAsync();
+
+        results.Should().BeEquivalentTo(data);
+        await repo.Received(1).GetUserDatabasesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task GetCheckDbJobHistory_應傳遞top參數()
     {
         var repo = Substitute.For<IPerformanceDiagnosticsRepository>();

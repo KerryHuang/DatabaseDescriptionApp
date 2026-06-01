@@ -439,6 +439,9 @@ public partial class MainWindowViewModel : ViewModelBase
         doc.CloseRequested += OnDocumentCloseRequested;
         Documents.Add(doc);
         SelectedDocument = doc;
+
+        // 開啟時即載入資料庫篩選選項（不等待使用者按「載入報表」）
+        _ = doc.LoadDatabaseOptionsAsync();
     }
 
     [RelayCommand]
@@ -458,6 +461,9 @@ public partial class MainWindowViewModel : ViewModelBase
         doc.CloseRequested += OnDocumentCloseRequested;
         Documents.Add(doc);
         SelectedDocument = doc;
+
+        // 開啟時即載入資料庫篩選選項（不等待使用者按「載入報表」）
+        _ = doc.LoadDatabaseOptionsAsync();
     }
 
     [RelayCommand]

@@ -73,6 +73,12 @@ public interface IPerformanceDiagnosticsRepository
     Task ExecuteDropIndexAsync(string dropIndexStatement, string databaseName, CancellationToken ct = default);
 
     /// <summary>
+    /// 取得伺服器上所有使用者資料庫名稱（排除系統資料庫，供報表的資料庫篩選選項使用）
+    /// </summary>
+    /// <param name="ct">取消權杖</param>
+    Task<IReadOnlyList<string>> GetUserDatabasesAsync(CancellationToken ct = default);
+
+    /// <summary>
     /// 取得各資料庫最後一次成功 CHECKDB 的時間(原始資料,Health 分級由 Service 計算)
     /// </summary>
     /// <param name="progress">進度回報(每處理一個 DB 回報一次)</param>

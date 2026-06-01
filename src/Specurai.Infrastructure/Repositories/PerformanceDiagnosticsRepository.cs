@@ -316,6 +316,16 @@ DROP TABLE #ErrorLog;";
         return results;
     }
 
+    /// <inheritdoc/>
+    public async Task<IReadOnlyList<string>> GetUserDatabasesAsync(CancellationToken ct = default)
+    {
+        var connectionString = _connectionStringProvider();
+        if (string.IsNullOrEmpty(connectionString))
+            return Array.Empty<string>();
+
+        return await GetUserDatabasesAsync(connectionString, ct);
+    }
+
     private async Task<IReadOnlyList<string>> GetUserDatabasesAsync(string connectionString, CancellationToken ct)
     {
         await using var connection = new SqlConnection(connectionString);

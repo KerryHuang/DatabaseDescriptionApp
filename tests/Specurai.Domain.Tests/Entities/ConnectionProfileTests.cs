@@ -136,6 +136,7 @@ public class ConnectionProfileTests
         profile.Username = "newuser";
         profile.Password = "newpass";
         profile.IsDefault = true;
+        profile.Environment = DatabaseEnvironment.Development;
 
         // Assert
         profile.Name.Should().Be("新名稱");
@@ -145,6 +146,7 @@ public class ConnectionProfileTests
         profile.Username.Should().Be("newuser");
         profile.Password.Should().Be("newpass");
         profile.IsDefault.Should().BeTrue();
+        profile.Environment.Should().Be(DatabaseEnvironment.Development);
     }
 
     [Fact]

@@ -92,6 +92,15 @@
                                 <TextBox Text="{Binding Database}" Watermark="例如: MyDatabase" IsReadOnly="{Binding IsExternalProfileSelected}"/>
                             </StackPanel>
 
+                            <!-- 環境 -->
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="環境"/>
+                                <ComboBox HorizontalAlignment="Stretch"
+                                          ItemsSource="{Binding EnvironmentOptions}"
+                                          SelectedItem="{Binding Environment}"
+                                          IsEnabled="{Binding !IsExternalProfileSelected}"/>
+                            </StackPanel>
+
                             <!-- 驗證方式 -->
                             <StackPanel Spacing="8" Margin="0,5,0,0">
                                 <TextBlock Text="驗證方式"/>

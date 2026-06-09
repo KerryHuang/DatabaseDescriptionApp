@@ -89,6 +89,18 @@ public partial class MainWindowViewModel : ViewModelBase
     /// </summary>
     public Func<string, Task<bool>>? ConfirmSaveCallback { get; set; }
 
+    /// <summary>
+    /// 目前連線是否為正式環境（Production），供破壞性操作防呆使用。
+    /// </summary>
+    public bool IsCurrentProfileProduction =>
+        _connectionManager?.GetCurrentProfile()?.Environment == DatabaseEnvironment.Production;
+
+    /// <summary>
+    /// 目前連線的資料庫名稱（供 Production 警告橫幅顯示）。
+    /// </summary>
+    public string? CurrentEnvironmentDatabase =>
+        _connectionManager?.GetCurrentProfile()?.Database;
+
     public MainWindowViewModel()
     {
         // Design-time constructor

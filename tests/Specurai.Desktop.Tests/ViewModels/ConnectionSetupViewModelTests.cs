@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using FluentAssertions;
 using NSubstitute;
 using Specurai.Application.Services;
@@ -464,6 +466,97 @@ public class ConnectionSetupViewModelTests
         vm.SelectedExternalProfile = new ConnectionProfile { Name = "外部測試", Server = "s", Database = "db" };
 
         vm.CanConnect.Should().BeTrue();
+    }
+
+    #endregion
+
+    #region Environment 欄位測試
+
+    [Fact]
+    public void EnvironmentOptions_應包含四個環境選項()
+    {
+        // Assert
+        ConnectionSetupViewModel.EnvironmentOptions.Should().BeEquivalentTo(new[]
+        {
+            DatabaseEnvironment.Development,
+            DatabaseEnvironment.Testing,
+            DatabaseEnvironment.Staging,
+            DatabaseEnvironment.Production
+        });
+    }
+
+    [Fact]
+    public void 初始狀態_Environment應為Staging()
+    {
+        // Act
+        var vm = new ConnectionSetupViewModel();
+
+        // Assert
+        vm.Environment.Should().Be(DatabaseEnvironment.Staging);
+    }
+
+    [Fact]
+    public void 選取Profile_應載入其Environment()
+    {
+        // Arrange
+        var profile = new ConnectionProfile
+        {
+            Id = Guid.NewGuid(),
+            Name = "正式",
+            Server = "prod",
+            Database = "ProdDb",
+            Environment = DatabaseEnvironment.Production
+        };
+        _connectionManager.GetAllProfiles().Returns(new List<ConnectionProfile> { profile });
+        var vm = new ConnectionSetupViewModel(_connectionManager);
+
+        // Act
+        vm.SelectedProfile = profile;
+
+        // Assert
+        vm.Environment.Should().Be(DatabaseEnvironment.Production);
+    }
+
+    [Fact]
+    public void 儲存_應將Environment寫入新Profile()
+    {
+        // Arrange
+        _connectionManager.GetAllProfiles().Returns(new List<ConnectionProfile>());
+        var vm = new ConnectionSetupViewModel(_connectionManager);
+        vm.Name = "正式";
+        vm.Server = "prod";
+        vm.Database = "ProdDb";
+        vm.Environment = DatabaseEnvironment.Production;
+
+        // Act
+        vm.SaveCommand.Execute(null);
+
+        // Assert
+        _connectionManager.Received().AddProfile(
+            Arg.Is<ConnectionProfile>(p => p.Environment == DatabaseEnvironment.Production));
+    }
+
+    [Fact]
+    public void 新增_應將Environment重置為Staging()
+    {
+        // Arrange
+        var profile = new ConnectionProfile
+        {
+            Id = Guid.NewGuid(),
+            Name = "正式",
+            Server = "prod",
+            Database = "ProdDb",
+            Environment = DatabaseEnvironment.Production
+        };
+        _connectionManager.GetAllProfiles().Returns(new List<ConnectionProfile> { profile });
+        var vm = new ConnectionSetupViewModel(_connectionManager);
+        vm.SelectedProfile = profile; // 先載入 Production
+
+        // Act
+        vm.NewProfileCommand.Execute(null);
+
+        // Assert
+        vm.Environment.Should().Be(DatabaseEnvironment.Staging);
     }
 
     #endregion

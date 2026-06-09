@@ -48,6 +48,26 @@ public class ConnectionExportServiceTests
     }
 
     [Fact]
+    public void ExportToJson_應保留環境欄位()
+    {
+        var profiles = new List<ConnectionProfile>
+        {
+            new()
+            {
+                Name = "正式環境",
+                Server = "prod",
+                Database = "ProdDb",
+                Environment = DatabaseEnvironment.Production
+            }
+        };
+
+        var data = _service.ExportToJson(profiles, includePasswords: false);
+
+        var imported = _service.ImportFromJson(data);
+        imported.Profiles[0].Environment.Should().Be(DatabaseEnvironment.Production);
+    }
+
+    [Fact]
     public void ExportToJson_不含密碼_密碼應為Null()
     {
         var profiles = 建立測試連線清單();

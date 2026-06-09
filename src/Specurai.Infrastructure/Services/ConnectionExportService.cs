@@ -135,7 +135,8 @@ public class ConnectionExportService : IConnectionExportService
             AuthType = p.AuthType,
             Username = p.Username,
             Password = includePasswords ? p.Password : null,
-            IsDefault = p.IsDefault
+            IsDefault = p.IsDefault,
+            Environment = p.Environment
         }).ToList();
     }
 

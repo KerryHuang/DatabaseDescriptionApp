@@ -520,7 +520,7 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
         if (ConfirmExecuteCallback != null)
         {
             var confirmed = await ConfirmExecuteCallback(
-                $"即將對目標資料庫套用 {selected.Count} 項結構變更（含可能的 DROP/ALTER），此操作將直接修改目標資料庫。是否繼續？");
+                $"即將對目標資料庫「{SelectedTargetProfile.Name}」套用 {selected.Count} 項結構變更，將直接修改該資料庫且無法自動還原。是否繼續？");
             if (!confirmed)
             {
                 StatusMessage = "已取消 Migration";

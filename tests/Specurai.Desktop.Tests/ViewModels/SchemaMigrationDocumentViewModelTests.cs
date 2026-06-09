@@ -282,6 +282,7 @@ public class SchemaMigrationDocumentViewModelTests
         };
         var field = typeof(SchemaMigrationDocumentViewModel)
             .GetField("_currentAnalysis", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        field.Should().NotBeNull("若 _currentAnalysis 欄位改名，請同步更新此測試");
         field!.SetValue(vm, analysis);
 
         // 直接填入 FilteredRows，使 selected.Count > 0（守衛之一）

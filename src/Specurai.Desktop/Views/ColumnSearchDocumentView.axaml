@@ -51,7 +51,7 @@
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate x:DataType="vm:SelectableProfile">
                                                 <CheckBox IsChecked="{Binding IsSelected}"
-                                                          Content="{Binding Profile.Name}"
+                                                          Content="{Binding Profile, Converter={StaticResource ConnectionProfileDisplayConverter}}"
                                                           Margin="0,2"/>
                                             </DataTemplate>
                                         </ItemsControl.ItemTemplate>

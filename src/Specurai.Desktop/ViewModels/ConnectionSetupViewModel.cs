@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
@@ -40,6 +41,9 @@ public partial class ConnectionSetupViewModel : ViewModelBase
     private bool _isDefault;
 
     [ObservableProperty]
+    private DatabaseEnvironment _environment = DatabaseEnvironment.Staging;
+
+    [ObservableProperty]
     private bool _isTesting;
 
     [ObservableProperty]
@@ -65,6 +69,9 @@ public partial class ConnectionSetupViewModel : ViewModelBase
 
     public ObservableCollection<ConnectionProfile> Profiles { get; } = [];
     public ObservableCollection<ConnectionProfile> ExternalProfiles { get; } = [];
+
+    public static IReadOnlyList<DatabaseEnvironment> EnvironmentOptions { get; } =
+        Enum.GetValues<DatabaseEnvironment>();
 
     public bool IsSyncButtonVisible =>
         !string.IsNullOrWhiteSpace(ExternalSourceDirectory);
@@ -145,6 +152,7 @@ public partial class ConnectionSetupViewModel : ViewModelBase
             Username = value.Username ?? string.Empty;
             Password = value.Password ?? string.Empty;
             IsDefault = value.IsDefault;
+            Environment = value.Environment;
             IsEditing = true;
         }
         else
@@ -278,7 +286,8 @@ public partial class ConnectionSetupViewModel : ViewModelBase
                 : AuthenticationType.SqlServerAuthentication,
             Username = UseWindowsAuth ? null : Username,
             Password = UseWindowsAuth ? null : Password,
-            IsDefault = IsDefault
+            IsDefault = IsDefault,
+            Environment = Environment
         };
     }
 
@@ -291,6 +300,7 @@ public partial class ConnectionSetupViewModel : ViewModelBase
         Username = string.Empty;
         Password = string.Empty;
         IsDefault = false;
+        Environment = DatabaseEnvironment.Staging;
         TestResult = string.Empty;
     }
 }

@@ -78,6 +78,9 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
     /// <summary>Migration 完成後自動將 LDF 調整為 LogTargetSizeMb</summary>
     [ObservableProperty] private bool _autoResizeLogAfterMigration;
 
+    /// <summary>執行 Migration 前的確認回呼（由 MainWindow 設定；Production 連線會顯示警告橫幅）。</summary>
+    public Func<string, Task<bool>>? ConfirmExecuteCallback { get; set; }
+
     // 篩選屬性
     [ObservableProperty] private string _filterTableName = string.Empty;
     [ObservableProperty] private string _filterColumnName = string.Empty;
@@ -512,6 +515,17 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
         {
             StatusMessage = "未選取任何可執行的差異項目";
             return;
+        }
+
+        if (ConfirmExecuteCallback != null)
+        {
+            var confirmed = await ConfirmExecuteCallback(
+                $"即將對目標資料庫「{SelectedTargetProfile.Name}」套用 {selected.Count} 項結構變更，將直接修改該資料庫且無法自動還原。是否繼續？");
+            if (!confirmed)
+            {
+                StatusMessage = "已取消 Migration";
+                return;
+            }
         }
 
         IsExecuting = true;

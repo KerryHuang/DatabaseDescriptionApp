@@ -1,3 +1,6 @@
+using System;
+using System.Collections.Generic;
+using System.Threading;
 using FluentAssertions;
 using NSubstitute;
 using Specurai.Application.Services;
@@ -238,6 +241,100 @@ public class SchemaMigrationDocumentViewModelTests
 
         // Assert
         vm.SchemaFilterLabel.Should().Be("結構描述（1）▾");
+    }
+
+    #endregion
+
+    #region 執行前確認閘門測試
+
+    /// <summary>
+    /// 建立可執行狀態的 VM：
+    /// 1. 透過反射設定 _currentAnalysis（ExecuteMigrationAsync 的第一個 null 守衛）
+    /// 2. 直接填入 FilteredRows 含一筆已選取且可執行（RiskLevel.Low）的列
+    /// 3. 設定 SelectedTargetProfile（另一個 null 守衛）
+    /// 4. _connectionManager.GetConnectionString 回傳合法連線字串
+    /// </summary>
+    private SchemaMigrationDocumentViewModel BuildExecutableVm()
+    {
+        _connectionManager.GetAllProfiles().Returns(new List<ConnectionProfile>());
+        _connectionManager.GetConnectionString(Arg.Any<Guid>()).Returns("Server=localhost;Database=Target;");
+
+        var vm = new SchemaMigrationDocumentViewModel(
+            _migrationService, _scriptGenerator, _executor, _connectionManager);
+
+        // 設定 SelectedTargetProfile（守衛之一）
+        var targetProfile = new ConnectionProfile { Name = "目標環境", Server = "target", Database = "TargetDb" };
+        vm.SelectedTargetProfile = targetProfile;
+
+        // 透過反射設定 _currentAnalysis（守衛之一）
+        var analysis = new MigrationAnalysis
+        {
+            BaseSchema = new DatabaseSchema { ConnectionName = "基準" },
+            TargetSchema = new DatabaseSchema { ConnectionName = "目標" },
+            Comparison = new SchemaComparison
+            {
+                Differences = new List<SchemaDifference>
+                {
+                    new() { ObjectType = SchemaObjectType.Table, ObjectName = "dbo.Orders",
+                            RiskLevel = RiskLevel.Low, DifferenceType = DifferenceType.Added }
+                }
+            }
+        };
+        var field = typeof(SchemaMigrationDocumentViewModel)
+            .GetField("_currentAnalysis", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        field.Should().NotBeNull("若 _currentAnalysis 欄位改名，請同步更新此測試");
+        field!.SetValue(vm, analysis);
+
+        // 直接填入 FilteredRows，使 selected.Count > 0（守衛之一）
+        var diff = analysis.Comparison.Differences[0];
+        var row = new MigrationDifferenceRowViewModel(diff); // 預設 IsSelected = true，IsExecutable = true（Low）
+        vm.FilteredRows.Add(row);
+
+        // _scriptGenerator 回傳合法腳本讓 ExecuteAsync 能被呼叫
+        _scriptGenerator.Generate(
+            Arg.Any<IList<SchemaDifference>>(),
+            Arg.Any<DatabaseSchema>(),
+            Arg.Any<string>(),
+            Arg.Any<string>(),
+            Arg.Any<DatabaseSchema?>())
+            .Returns(new SyncScript { ApplyScript = "-- migration script" });
+
+        // _executor 回傳成功報告（true 測試才能走到底）
+        _executor.ExecuteAsync(
+            Arg.Any<SyncScript>(), Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new MigrationReport { IsSuccess = true }));
+
+        return vm;
+    }
+
+    [Fact]
+    public async Task ExecuteMigration_確認回傳False_不應執行()
+    {
+        // Arrange
+        var vm = BuildExecutableVm();
+        vm.ConfirmExecuteCallback = _ => Task.FromResult(false);
+
+        // Act
+        await vm.ExecuteMigrationCommand.ExecuteAsync(null);
+
+        // Assert
+        await _executor.DidNotReceive().ExecuteAsync(
+            Arg.Any<SyncScript>(), Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ExecuteMigration_確認回傳True_應執行()
+    {
+        // Arrange
+        var vm = BuildExecutableVm();
+        vm.ConfirmExecuteCallback = _ => Task.FromResult(true);
+
+        // Act
+        await vm.ExecuteMigrationCommand.ExecuteAsync(null);
+
+        // Assert
+        await _executor.Received().ExecuteAsync(
+            Arg.Any<SyncScript>(), Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<CancellationToken>());
     }
 
     #endregion

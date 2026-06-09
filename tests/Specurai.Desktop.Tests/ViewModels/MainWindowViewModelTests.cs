@@ -324,6 +324,64 @@ public class MainWindowViewModelTests
     }
 
     #endregion
+
+    #region Production 防呆判斷
+
+    private MainWindowViewModel CreateVmWithCurrentProfile(ConnectionProfile? current)
+    {
+        _connectionManager.GetCurrentProfile().Returns(current);
+        return new MainWindowViewModel(
+            _connectionManager,
+            _exportService,
+            _tableQueryService,
+            _sqlQueryRepository,
+            _columnTypeRepository,
+            _objectTree,
+            new UpdateNotificationViewModel());
+    }
+
+    [Fact]
+    public void IsCurrentProfileProduction_當前為Production_應為True()
+    {
+        // Arrange
+        var vm = CreateVmWithCurrentProfile(new ConnectionProfile
+        {
+            Name = "正式", Server = "prod", Database = "ProdDb",
+            Environment = DatabaseEnvironment.Production
+        });
+
+        // Assert
+        vm.IsCurrentProfileProduction.Should().BeTrue();
+        vm.CurrentEnvironmentDatabase.Should().Be("ProdDb");
+    }
+
+    [Fact]
+    public void IsCurrentProfileProduction_當前為Staging_應為False()
+    {
+        // Arrange
+        var vm = CreateVmWithCurrentProfile(new ConnectionProfile
+        {
+            Name = "預備", Server = "stg", Database = "StgDb",
+            Environment = DatabaseEnvironment.Staging
+        });
+
+        // Assert
+        vm.IsCurrentProfileProduction.Should().BeFalse();
+        vm.CurrentEnvironmentDatabase.Should().Be("StgDb");
+    }
+
+    [Fact]
+    public void IsCurrentProfileProduction_無當前連線_應為False()
+    {
+        // Arrange
+        var vm = CreateVmWithCurrentProfile(null);
+
+        // Assert
+        vm.IsCurrentProfileProduction.Should().BeFalse();
+        vm.CurrentEnvironmentDatabase.Should().BeNull();
+    }
+
+    #endregion
 }
 
 /// <summary>

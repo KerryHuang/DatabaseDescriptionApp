@@ -91,7 +91,11 @@ public partial class MainWindow : Window
 
     private async Task<bool> ShowConfirmSaveDialogAsync(string message)
     {
-        var dialog = new ConfirmDialog(message);
+        string? banner = null;
+        if (DataContext is MainWindowViewModel vm && vm.IsCurrentProfileProduction)
+            banner = $"⚠ 正式環境 (Production)：{vm.CurrentEnvironmentDatabase}";
+
+        var dialog = new ConfirmDialog(message, banner);
         await dialog.ShowDialog(this);
         return dialog.Result;
     }

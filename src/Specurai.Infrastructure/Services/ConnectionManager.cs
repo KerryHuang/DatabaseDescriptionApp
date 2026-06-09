@@ -24,7 +24,9 @@ public class ConnectionManager : IConnectionManager
     }
 
     public IReadOnlyList<ConnectionProfile> GetAllProfiles()
-        => _temporaryProfiles.Concat(_profiles).OrderBy(p => p.Name).ToList().AsReadOnly();
+        => _temporaryProfiles.Concat(_profiles)
+            .OrderBy(p => p, ConnectionProfileComparer.Instance)
+            .ToList().AsReadOnly();
 
     public ConnectionProfile? GetCurrentProfile()
     {

@@ -30,17 +30,40 @@ public class ConnectionManagerTemporaryProfileTests
         all.Should().Contain(p => p.Name == "臨時PROD-test1");
     }
 
-    [Fact(DisplayName = "RegisterTemporaryProfiles: temporary profiles should come before persistent ones")]
-    public void RegisterTemporaryProfiles_ShouldPrioritizeOverPersistent()
+    [Fact(DisplayName = "RegisterTemporaryProfiles: 預設連線應排在非預設之前")]
+    public void RegisterTemporaryProfiles_DefaultShouldComeFirst()
     {
+        var prefix = $"預設優先-{Guid.NewGuid():N}-";
         _manager.RegisterTemporaryProfiles(new List<ConnectionProfile>
         {
-            new() { Name = "臨時優先-test2", Server = "temporary-srv", Database = "TempDB" }
+            new() { Name = prefix + "zzz-非預設", Server = "s", Database = "d", Environment = DatabaseEnvironment.Development },
+            new() { Name = prefix + "aaa-預設",   Server = "s", Database = "d", Environment = DatabaseEnvironment.Production, IsDefault = true },
         });
 
-        var all = _manager.GetAllProfiles();
-        // 臨時 profile 應在清單最前面
-        all[0].Name.Should().Be("臨時優先-test2", "臨時 profile 應排在持久化 profile 之前");
+        var mine = _manager.GetAllProfiles().Where(p => p.Name.StartsWith(prefix)).ToList();
+
+        mine[0].Name.Should().Be(prefix + "aaa-預設", "預設連線應排最前，與環境/名稱無關");
+    }
+
+    [Fact(DisplayName = "GetAllProfiles: 應依 預設→環境→名稱 排序")]
+    public void GetAllProfiles_ShouldSortByDefaultThenEnvThenName()
+    {
+        var prefix = $"排序測試-{Guid.NewGuid():N}-";
+        _manager.RegisterTemporaryProfiles(new List<ConnectionProfile>
+        {
+            new() { Name = prefix + "prod-zzz", Server = "s", Database = "d", Environment = DatabaseEnvironment.Production },
+            new() { Name = prefix + "dev-bbb",  Server = "s", Database = "d", Environment = DatabaseEnvironment.Development },
+            new() { Name = prefix + "dev-aaa",  Server = "s", Database = "d", Environment = DatabaseEnvironment.Development },
+            new() { Name = prefix + "the-default", Server = "s", Database = "d", Environment = DatabaseEnvironment.Production, IsDefault = true },
+        });
+
+        var mine = _manager.GetAllProfiles().Where(p => p.Name.StartsWith(prefix)).ToList();
+
+        mine.Select(p => p.Name).Should().Equal(
+            prefix + "the-default", // 預設優先（即使環境 Production、名稱靠後）
+            prefix + "dev-aaa",     // 環境 Development，名稱 aaa
+            prefix + "dev-bbb",     // 環境 Development，名稱 bbb
+            prefix + "prod-zzz");   // 環境 Production
     }
 
     [Fact(DisplayName = "RegisterTemporaryProfiles: should not be persisted to disk")]

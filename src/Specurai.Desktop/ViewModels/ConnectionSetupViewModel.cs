@@ -70,6 +70,7 @@ public partial class ConnectionSetupViewModel : ViewModelBase
     public ObservableCollection<ConnectionProfile> Profiles { get; } = [];
     public ObservableCollection<ConnectionProfile> ExternalProfiles { get; } = [];
 
+    /// <summary>可選擇的資料庫環境清單（由 <see cref="DatabaseEnvironment"/> 列舉產生，供環境下拉選單綁定）。</summary>
     public static IReadOnlyList<DatabaseEnvironment> EnvironmentOptions { get; } =
         Enum.GetValues<DatabaseEnvironment>();
 

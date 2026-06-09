@@ -83,10 +83,7 @@
                                   HorizontalAlignment="Stretch">
                             <ComboBox.ItemTemplate>
                                 <DataTemplate x:DataType="domain:ConnectionProfile">
-                                    <StackPanel>
-                                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold"/>
-                                        <TextBlock Text="{Binding Database}" FontSize="11" Foreground="Gray"/>
-                                    </StackPanel>
+                                    <TextBlock Text="{Binding Converter={StaticResource ConnectionProfileDisplayConverter}}"/>
                                 </DataTemplate>
                             </ComboBox.ItemTemplate>
                         </ComboBox>
@@ -118,13 +115,10 @@
                                         <CheckBox IsChecked="{Binding IsSelected}"
                                                   IsEnabled="{Binding IsEnabled}"
                                                   Cursor="Hand">
-                                            <StackPanel Orientation="Vertical" Spacing="2">
-                                                <TextBlock Text="{Binding Profile.Name}" FontWeight="SemiBold"/>
-                                                <StackPanel Orientation="Horizontal" Spacing="5">
-                                                    <TextBlock Text="{Binding Profile.Server}" FontSize="11" Foreground="Gray"/>
-                                                    <TextBlock Text="(基準環境)" FontSize="11" Foreground="Orange"
-                                                               IsVisible="{Binding !IsEnabled}"/>
-                                                </StackPanel>
+                                            <StackPanel Orientation="Horizontal" Spacing="5">
+                                                <TextBlock Text="{Binding Profile, Converter={StaticResource ConnectionProfileDisplayConverter}}" FontWeight="SemiBold"/>
+                                                <TextBlock Text="(基準環境)" FontSize="11" Foreground="Orange"
+                                                           IsVisible="{Binding !IsEnabled}"/>
                                             </StackPanel>
                                         </CheckBox>
                                     </Border>

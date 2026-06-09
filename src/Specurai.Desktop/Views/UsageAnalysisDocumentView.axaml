@@ -57,7 +57,7 @@
                               PlaceholderText="選擇基準環境">
                         <ComboBox.ItemTemplate>
                             <DataTemplate x:DataType="domain:ConnectionProfile">
-                                <TextBlock Text="{Binding Name}"/>
+                                <TextBlock Text="{Binding Converter={StaticResource ConnectionProfileDisplayConverter}}"/>
                             </DataTemplate>
                         </ComboBox.ItemTemplate>
                     </ComboBox>
@@ -71,7 +71,7 @@
                         </ItemsControl.ItemsPanel>
                         <ItemsControl.ItemTemplate>
                             <DataTemplate x:DataType="vm:SelectableProfile">
-                                <CheckBox Content="{Binding Profile.Name}"
+                                <CheckBox Content="{Binding Profile, Converter={StaticResource ConnectionProfileDisplayConverter}}"
                                           IsChecked="{Binding IsSelected}"
                                           Margin="0,0,12,0"/>
                             </DataTemplate>

@@ -38,11 +38,7 @@
                                      SelectedItem="{Binding SelectedProfile}">
                                 <ListBox.ItemTemplate>
                                     <DataTemplate>
-                                        <StackPanel Orientation="Horizontal" Spacing="5">
-                                            <TextBlock Text="{Binding Name}"/>
-                                            <TextBlock Text="(預設)" Foreground="Gray"
-                                                       IsVisible="{Binding IsDefault}"/>
-                                        </StackPanel>
+                                        <TextBlock Text="{Binding Converter={StaticResource ConnectionProfileDisplayConverter}}"/>
                                     </DataTemplate>
                                 </ListBox.ItemTemplate>
                             </ListBox>
@@ -54,7 +50,7 @@
                                          SelectedItem="{Binding SelectedExternalProfile}">
                                     <ListBox.ItemTemplate>
                                         <DataTemplate>
-                                            <TextBlock Text="{Binding Name}"/>
+                                            <TextBlock Text="{Binding Converter={StaticResource ConnectionProfileDisplayConverter}}"/>
                                         </DataTemplate>
                                     </ListBox.ItemTemplate>
                                 </ListBox>

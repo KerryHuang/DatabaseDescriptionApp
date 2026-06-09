@@ -120,7 +120,9 @@ private async Task<bool> ShowConfirmSaveDialogAsync(string message)
 }
 ```
 
-這是所有破壞性操作確認的唯一集中點（`MainWindowViewModel.ConfirmSaveCallback` → 各 Document ViewModel 的 `ConfirmExecuteCallback` / `ConfirmCallback`），因此 DROP、還原、Schema Migration、Recovery Model 變更等皆自動受惠，**不需修改各別 ViewModel**。
+這是所有破壞性操作確認的唯一集中點（`MainWindowViewModel.ConfirmSaveCallback` → 各 Document ViewModel 的 `ConfirmExecuteCallback` / `ConfirmCallback`）。已接上集中確認路徑而自動受惠者：TableDetail、缺少/未使用/使用狀態索引報表、Recovery Model 變更等。
+
+> **實作期間範圍修正（Schema Migration）**：原設計假設 Schema Migration 也已走集中確認路徑，但實際上 `SchemaMigrationDocumentViewModel.ExecuteMigrationAsync`（套用真實 DDL）原本**完全沒有任何執行前確認**。本次已為其新增 `ConfirmExecuteCallback`，並在 `MainWindowViewModel.OpenSchemaMigration` 接上 `ConfirmSaveCallback`，使 Migration 執行前會確認、且 Production 連線時顯示警告橫幅。確認文案會標示目標資料庫名稱與「無法自動還原」。
 
 ### 4. 自動流通、v1 不額外曝露
 
@@ -131,6 +133,10 @@ private async Task<bool> ShowConfirmSaveDialogAsync(string message)
 - MCP 建立連線（`ConnectionCrudTools`）
 
 v1 不在 CLI／MCP／匯入介面額外提供環境選擇（YAGNI），未來需要再加。
+
+### 4.1 環境選單繁中顯示（實作期間新增）
+
+環境下拉選單以繁體中文顯示（符合 UI 文字繁中規範）：新增 `DatabaseEnvironmentDisplayConverter`（`Specurai.Desktop/Converters/`，enum → 開發/測試/預備/正式環境），於 `App.axaml` 註冊，`ConnectionSetupWindow.axaml` 的 ComboBox 以 `ItemTemplate` 套用。`SelectedItem` 仍綁定 `DatabaseEnvironment` 列舉值，僅顯示文字本地化。
 
 ### 5. 共用設定（moldplan-change-database）
 
@@ -145,6 +151,8 @@ v1 不在 CLI／MCP／匯入介面額外提供環境選擇（YAGNI），未來�
 - **Desktop**：
   - `ConnectionSetupViewModel`：`EnvironmentOptions` 含四個值；`OnSelectedProfileChanged` 載入 `Environment`；`CreateProfileFromForm` 寫回；`ClearForm` 重置為 Staging。
   - `MainWindowViewModel`：`IsCurrentProfileProduction` 在當前連線為 Production／非 Production／null 三種情況正確回傳。
+  - `SchemaMigrationDocumentViewModel`：`ConfirmExecuteCallback` 回傳 false 時不執行 Migration、回傳 true 時執行。
+  - `DatabaseEnvironmentDisplayConverter`：四個列舉值對應繁中、非列舉值回傳原值。
 
 ## 不在範圍內（Out of Scope）
 

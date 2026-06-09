@@ -632,6 +632,7 @@ public partial class MainWindowViewModel : ViewModelBase
 
         var doc = App.Services?.GetRequiredService<SchemaMigrationDocumentViewModel>()
             ?? new SchemaMigrationDocumentViewModel();
+        doc.ConfirmExecuteCallback = ConfirmSaveCallback;
         doc.CloseRequested += OnDocumentCloseRequested;
         Documents.Add(doc);
         SelectedDocument = doc;

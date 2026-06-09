@@ -24,7 +24,7 @@
                     <TextBlock Text="基準資料庫：" VerticalAlignment="Center"/>
                     <ComboBox ItemsSource="{Binding ConnectionProfiles}"
                               SelectedItem="{Binding SelectedBaseProfile}"
-                              MinWidth="180">
+                              Width="260">
                         <ComboBox.ItemTemplate>
                             <DataTemplate x:DataType="domain:ConnectionProfile">
                                 <TextBlock Text="{Binding Converter={StaticResource ConnectionProfileDisplayConverter}}"/>
@@ -37,7 +37,7 @@
                     <TextBlock Text="目標資料庫：" VerticalAlignment="Center"/>
                     <ComboBox ItemsSource="{Binding ConnectionProfiles}"
                               SelectedItem="{Binding SelectedTargetProfile}"
-                              MinWidth="180">
+                              Width="260">
                         <ComboBox.ItemTemplate>
                             <DataTemplate x:DataType="domain:ConnectionProfile">
                                 <TextBlock Text="{Binding Converter={StaticResource ConnectionProfileDisplayConverter}}"/>

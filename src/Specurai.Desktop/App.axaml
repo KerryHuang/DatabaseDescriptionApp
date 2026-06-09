@@ -8,6 +8,7 @@
     <Application.Resources>
         <converters:TestResultColorConverter x:Key="TestResultColorConverter"/>
         <converters:DatabaseEnvironmentDisplayConverter x:Key="DatabaseEnvironmentDisplayConverter"/>
+        <converters:ConnectionProfileDisplayConverter x:Key="ConnectionProfileDisplayConverter"/>
     </Application.Resources>
 
     <Application.DataTemplates>

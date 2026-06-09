@@ -29,6 +29,9 @@
 | 7 | UsageAnalysisDocumentView | `AvailableProfiles` | `ObservableCollection<ConnectionProfile>` |
 | 8 | UsageAnalysisDocumentView | `TargetProfileItems` | `ObservableCollection<SelectableProfile>` |
 | 9 | BackupRestore / SqlQuery | `ConnectionProfiles` | `ObservableCollection<ConnectionProfile>` |
+| 10 | ColumnSearchDocumentView | `SelectableProfiles` | `ObservableCollection<SelectableProfile>` |
+
+> **實作期間補漏**：初版盤點遺漏了 ColumnSearch 的多資料庫勾選清單（#10，來源同樣是 `GetAllProfiles()`），最終審查時補上，套用相同的顯示轉換器（`{Binding Profile, Converter=...}`）。排序因來源相同已自動套用。
 
 **關鍵觀察**：所有集合都源自 `ConnectionManager.GetAllProfiles()`（目前 `_temporaryProfiles.Concat(_profiles).OrderBy(p => p.Name)`），且各衍生集合（MainWindow 篩選、UsageAnalysis 排除基準、勾選包裝）都**保留來源順序**。因此集中改一處排序即可全面套用。
 

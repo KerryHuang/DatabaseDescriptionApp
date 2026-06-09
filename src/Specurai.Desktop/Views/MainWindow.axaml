@@ -279,7 +279,7 @@
                                       MaxDropDownHeight="400">
                                 <ComboBox.ItemTemplate>
                                     <DataTemplate x:DataType="domain:ConnectionProfile">
-                                        <TextBlock Text="{Binding Name}"/>
+                                        <TextBlock Text="{Binding Converter={StaticResource ConnectionProfileDisplayConverter}}"/>
                                     </DataTemplate>
                                 </ComboBox.ItemTemplate>
                             </ComboBox>

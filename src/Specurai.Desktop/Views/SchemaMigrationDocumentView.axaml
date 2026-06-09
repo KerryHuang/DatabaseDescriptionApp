@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:Specurai.Desktop.ViewModels"
+             xmlns:domain="using:Specurai.Domain.Entities"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:behaviors="using:Specurai.Desktop.Behaviors"
@@ -23,16 +24,26 @@
                     <TextBlock Text="基準資料庫：" VerticalAlignment="Center"/>
                     <ComboBox ItemsSource="{Binding ConnectionProfiles}"
                               SelectedItem="{Binding SelectedBaseProfile}"
-                              DisplayMemberBinding="{Binding Name}"
-                              MinWidth="180"/>
+                              Width="260">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate x:DataType="domain:ConnectionProfile">
+                                <TextBlock Text="{Binding Converter={StaticResource ConnectionProfileDisplayConverter}}"/>
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
                 </StackPanel>
 
                 <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,0,16,0">
                     <TextBlock Text="目標資料庫：" VerticalAlignment="Center"/>
                     <ComboBox ItemsSource="{Binding ConnectionProfiles}"
                               SelectedItem="{Binding SelectedTargetProfile}"
-                              DisplayMemberBinding="{Binding Name}"
-                              MinWidth="180"/>
+                              Width="260">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate x:DataType="domain:ConnectionProfile">
+                                <TextBlock Text="{Binding Converter={StaticResource ConnectionProfileDisplayConverter}}"/>
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
                 </StackPanel>
 
                 <Button Command="{Binding AnalyzeCommand}" Margin="0,0,4,0"

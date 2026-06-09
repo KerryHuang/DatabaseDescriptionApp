@@ -367,6 +367,7 @@ public class MainWindowViewModelTests
 
         // Assert
         vm.IsCurrentProfileProduction.Should().BeFalse();
+        vm.CurrentEnvironmentDatabase.Should().Be("StgDb");
     }
 
     [Fact]

@@ -91,12 +91,14 @@ public partial class MainWindowViewModel : ViewModelBase
 
     /// <summary>
     /// 目前連線是否為正式環境（Production），供破壞性操作防呆使用。
+    /// 本屬性不觸發 PropertyChanged，每次存取即時讀取目前連線；呼叫方應在需要時（例如開啟確認對話框時）主動讀取。
     /// </summary>
     public bool IsCurrentProfileProduction =>
         _connectionManager?.GetCurrentProfile()?.Environment == DatabaseEnvironment.Production;
 
     /// <summary>
     /// 目前連線的資料庫名稱（供 Production 警告橫幅顯示）。
+    /// 本屬性不觸發 PropertyChanged，每次存取即時讀取目前連線；呼叫方應在需要時主動讀取。
     /// </summary>
     public string? CurrentEnvironmentDatabase =>
         _connectionManager?.GetCurrentProfile()?.Database;

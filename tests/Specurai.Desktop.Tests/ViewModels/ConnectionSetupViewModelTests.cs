@@ -116,7 +116,8 @@ public class ConnectionSetupViewModelTests
             AuthType = AuthenticationType.SqlServerAuthentication,
             Username = "sa",
             Password = "password",
-            IsDefault = true
+            IsDefault = true,
+            Environment = DatabaseEnvironment.Production
         };
         _connectionManager.GetAllProfiles().Returns(new List<ConnectionProfile> { profile });
 
@@ -133,6 +134,7 @@ public class ConnectionSetupViewModelTests
         vm.Username.Should().Be("sa");
         vm.Password.Should().Be("password");
         vm.IsDefault.Should().BeTrue();
+        vm.Environment.Should().Be(DatabaseEnvironment.Production);
         vm.IsEditing.Should().BeTrue();
     }
 
@@ -476,13 +478,11 @@ public class ConnectionSetupViewModelTests
     public void EnvironmentOptions_應包含四個環境選項()
     {
         // Assert
-        ConnectionSetupViewModel.EnvironmentOptions.Should().BeEquivalentTo(new[]
-        {
+        ConnectionSetupViewModel.EnvironmentOptions.Should().Equal(
             DatabaseEnvironment.Development,
             DatabaseEnvironment.Testing,
             DatabaseEnvironment.Staging,
-            DatabaseEnvironment.Production
-        });
+            DatabaseEnvironment.Production);
     }
 
     [Fact]
@@ -533,6 +533,31 @@ public class ConnectionSetupViewModelTests
 
         // Assert
         _connectionManager.Received().AddProfile(
+            Arg.Is<ConnectionProfile>(p => p.Environment == DatabaseEnvironment.Production));
+    }
+
+    [Fact]
+    public void 儲存更新_應將Environment寫入更新Profile()
+    {
+        // Arrange
+        var profile = new ConnectionProfile
+        {
+            Id = Guid.NewGuid(),
+            Name = "正式",
+            Server = "prod",
+            Database = "ProdDb",
+            Environment = DatabaseEnvironment.Staging
+        };
+        _connectionManager.GetAllProfiles().Returns(new List<ConnectionProfile> { profile });
+        var vm = new ConnectionSetupViewModel(_connectionManager);
+        vm.SelectedProfile = profile; // 進入編輯模式
+        vm.Environment = DatabaseEnvironment.Production;
+
+        // Act
+        vm.SaveCommand.Execute(null);
+
+        // Assert
+        _connectionManager.Received().UpdateProfile(
             Arg.Is<ConnectionProfile>(p => p.Environment == DatabaseEnvironment.Production));
     }
 

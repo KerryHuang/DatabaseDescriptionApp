@@ -60,4 +60,9 @@ public class ConnectionProfile
     /// 是否為預設連線
     /// </summary>
     public bool IsDefault { get; set; }
+
+    /// <summary>
+    /// 連線所屬環境（預設預備環境）
+    /// </summary>
+    public DatabaseEnvironment Environment { get; set; } = DatabaseEnvironment.Staging;
 }

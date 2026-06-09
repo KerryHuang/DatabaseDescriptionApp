@@ -40,13 +40,21 @@ public class HealthMonitoringInstaller : IHealthMonitoringInstaller
             progress?.Report(new InstallProgress(10, "解析腳本批次..."));
             ct.ThrowIfCancellationRequested();
 
+            await using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync(ct);
+
+            // 偵測 SQL Server 版本；STRING_AGG 需 2017+（主版本 14），舊版改用相容寫法
+            var majorVersion = await GetServerMajorVersionAsync(connection, ct);
+            if (ShouldUseLegacy(majorVersion))
+            {
+                progress?.Report(new InstallProgress(15, $"偵測到 SQL Server 主版本 {majorVersion}，套用舊版相容語法..."));
+                script = ConvertAggregationToLegacy(script);
+            }
+
             var batches = SplitScriptIntoBatches(script);
             var totalBatches = batches.Count;
 
             progress?.Report(new InstallProgress(20, $"開始執行 {totalBatches} 個批次..."));
-
-            await using var connection = new SqlConnection(connectionString);
-            await connection.OpenAsync(ct);
 
             for (var i = 0; i < totalBatches; i++)
             {
@@ -315,6 +323,7 @@ DROP DATABASE DBA;";
         // 資料庫名稱替換
         exportSql = exportSql.Replace("USE DBA;", "USE [$(DBADatabaseName)];");
         exportSql = exportSql.Replace("CREATE DATABASE DBA;", "CREATE DATABASE [$(DBADatabaseName)];");
+        exportSql = exportSql.Replace("ALTER DATABASE DBA SET RECOVERY SIMPLE;", "ALTER DATABASE [$(DBADatabaseName)] SET RECOVERY SIMPLE;");
         exportSql = exportSql.Replace("WHERE name = 'DBA'", "WHERE name = '$(DBADatabaseName)'");
         exportSql = exportSql.Replace("DELETE FROM DBA.dbo.ServerHealthLog", "DELETE FROM [$(DBADatabaseName)].dbo.ServerHealthLog");
         exportSql = exportSql.Replace("ALTER INDEX ALL ON DBA.dbo.ServerHealthLog", "ALTER INDEX ALL ON [$(DBADatabaseName)].dbo.ServerHealthLog");
@@ -398,7 +407,212 @@ DROP DATABASE DBA;";
         return header + exportSql;
     }
 
-    private static async Task<string?> LoadEmbeddedScriptAsync(string fileName)
+    /// <summary>
+    /// 查詢已開啟連線所屬 SQL Server 執行個體的主版本號。
+    /// 使用 ProductVersion（全版本皆支援）而非 ProductMajorVersion（較新版才有）。
+    /// </summary>
+    private static async Task<int> GetServerMajorVersionAsync(SqlConnection connection, CancellationToken ct)
+    {
+        const string sql = "SELECT CAST(SERVERPROPERTY('ProductVersion') AS NVARCHAR(128));";
+        await using var command = new SqlCommand(sql, connection) { CommandTimeout = 30 };
+        var productVersion = await command.ExecuteScalarAsync(ct) as string;
+        return ParseMajorVersion(productVersion);
+    }
+
+    /// <summary>
+    /// 解析 SQL Server 版本字串（SERVERPROPERTY('ProductVersion')，如 "15.0.2000.5"）的主版本號。
+    /// 無法解析時回傳 0，呼叫端會將其視為舊版而套用相容寫法（安全降級）。
+    /// </summary>
+    internal static int ParseMajorVersion(string? productVersion)
+    {
+        if (string.IsNullOrWhiteSpace(productVersion))
+            return 0;
+
+        var firstSegment = productVersion.Split('.')[0];
+        return int.TryParse(firstSegment, out var major) ? major : 0;
+    }
+
+    /// <summary>
+    /// 判斷指定主版本是否需改用舊版相容寫法。
+    /// STRING_AGG 自 SQL Server 2017（主版本 14）起支援；低於 14（含無法解析的 0）皆走相容路徑。
+    /// </summary>
+    internal static bool ShouldUseLegacy(int majorVersion) => majorVersion < 14;
+
+    /// <summary>
+    /// 將安裝腳本中使用 STRING_AGG（SQL Server 2017+，主版本 14）的 4 個區塊
+    /// 改寫為 FOR XML PATH('') + STUFF 的相容寫法（SQL Server 2008+ 皆可執行）。
+    /// STRING_AGG 在舊版屬解析階段錯誤，無法以 T-SQL 內的 IF 分支，故須於安裝器層替換文字。
+    /// </summary>
+    internal static string ConvertAggregationToLegacy(string script)
+    {
+        if (string.IsNullOrEmpty(script) || !script.Contains("STRING_AGG"))
+            return script;
+
+        // 統一換行為 LF，避免來源檔（LF）與 C# 字面值（可能 CRLF）不一致導致替換失效
+        var normalized = script.Replace("\r\n", "\n");
+
+        foreach (var (original, legacy) in LegacyAggregationReplacements)
+        {
+            normalized = normalized.Replace(N(original), N(legacy));
+        }
+
+        return normalized;
+    }
+
+    /// <summary>將字串換行統一為 LF。</summary>
+    private static string N(string s) => s.Replace("\r\n", "\n");
+
+    /// <summary>
+    /// STRING_AGG → FOR XML PATH('') + STUFF 的相容寫法對照表。
+    /// 每組 (原始片段, 相容片段) 須與 HealthMonitoringInstall.sql 內容逐字相符（含縮排）。
+    /// 區塊 3、4 因 COUNT 與 STRING_AGG 寫在同一個 SELECT，降級時拆成兩段查詢。
+    /// </summary>
+    private static readonly (string Original, string Legacy)[] LegacyAggregationReplacements =
+    {
+        // 區塊 1：sp_MonitorBlocking
+        (
+            """
+                    SELECT @BlockingInfo = STRING_AGG(
+                        CAST(
+                            'Session ' + CAST(session_id AS NVARCHAR) +
+                            ' blocked by ' + CAST(blocking_session_id AS NVARCHAR) +
+                            ' (wait: ' + CAST(wait_time/1000 AS NVARCHAR) + 's)'
+                        AS NVARCHAR(MAX)),
+                        '; '
+                    )
+                    FROM sys.dm_exec_requests
+                    WHERE blocking_session_id <> 0;
+            """,
+            """
+                    SELECT @BlockingInfo = STUFF((
+                        SELECT '; ' + CAST(
+                            'Session ' + CAST(session_id AS NVARCHAR) +
+                            ' blocked by ' + CAST(blocking_session_id AS NVARCHAR) +
+                            ' (wait: ' + CAST(wait_time/1000 AS NVARCHAR) + 's)'
+                        AS NVARCHAR(MAX))
+                        FROM sys.dm_exec_requests
+                        WHERE blocking_session_id <> 0
+                        FOR XML PATH(''), TYPE
+                    ).value('.', 'NVARCHAR(MAX)'), 1, 2, '');
+            """
+        ),
+        // 區塊 2：sp_MonitorLongQueries
+        (
+            """
+                    SELECT @LongQueryInfo = STRING_AGG(
+                        CAST(
+                            'Session ' + CAST(r.session_id AS NVARCHAR) +
+                            ' (' + CAST(r.total_elapsed_time/1000 AS NVARCHAR) + 's): ' +
+                            ISNULL(DB_NAME(r.database_id), 'N/A')
+                        AS NVARCHAR(MAX)),
+                        '; '
+                    )
+                    FROM sys.dm_exec_requests r
+                    WHERE r.status IN ('running', 'runnable')
+                        AND r.total_elapsed_time > (@ThresholdSeconds * 1000)
+                        AND r.session_id > 50;
+            """,
+            """
+                    SELECT @LongQueryInfo = STUFF((
+                        SELECT '; ' + CAST(
+                            'Session ' + CAST(r.session_id AS NVARCHAR) +
+                            ' (' + CAST(r.total_elapsed_time/1000 AS NVARCHAR) + 's): ' +
+                            ISNULL(DB_NAME(r.database_id), 'N/A')
+                        AS NVARCHAR(MAX))
+                        FROM sys.dm_exec_requests r
+                        WHERE r.status IN ('running', 'runnable')
+                            AND r.total_elapsed_time > (@ThresholdSeconds * 1000)
+                            AND r.session_id > 50
+                        FOR XML PATH(''), TYPE
+                    ).value('.', 'NVARCHAR(MAX)'), 1, 2, '');
+            """
+        ),
+        // 區塊 3：sp_MonitorBackups（COUNT 與 STRING_AGG 同一 SELECT，拆成兩段）
+        (
+            """
+                SELECT
+                    @NoBackupCount = COUNT(*),
+                    @NoBackupDBs = STRING_AGG(CAST(d.name AS NVARCHAR(MAX)), ', ')
+                FROM sys.databases d
+                LEFT JOIN (
+                    SELECT
+                        database_name,
+                        MAX(backup_finish_date) AS last_backup_date
+                    FROM msdb.dbo.backupset
+                    WHERE type = 'D'
+                    GROUP BY database_name
+                ) b ON d.name = b.database_name
+                WHERE d.database_id > 4
+                    AND d.state = 0
+                    AND (b.last_backup_date IS NULL OR b.last_backup_date < DATEADD(HOUR, -24, GETDATE()));
+            """,
+            """
+                SELECT @NoBackupCount = COUNT(*)
+                FROM sys.databases d
+                LEFT JOIN (
+                    SELECT
+                        database_name,
+                        MAX(backup_finish_date) AS last_backup_date
+                    FROM msdb.dbo.backupset
+                    WHERE type = 'D'
+                    GROUP BY database_name
+                ) b ON d.name = b.database_name
+                WHERE d.database_id > 4
+                    AND d.state = 0
+                    AND (b.last_backup_date IS NULL OR b.last_backup_date < DATEADD(HOUR, -24, GETDATE()));
+
+                SELECT @NoBackupDBs = STUFF((
+                    SELECT ', ' + CAST(d.name AS NVARCHAR(MAX))
+                    FROM sys.databases d
+                    LEFT JOIN (
+                        SELECT
+                            database_name,
+                            MAX(backup_finish_date) AS last_backup_date
+                        FROM msdb.dbo.backupset
+                        WHERE type = 'D'
+                        GROUP BY database_name
+                    ) b ON d.name = b.database_name
+                    WHERE d.database_id > 4
+                        AND d.state = 0
+                        AND (b.last_backup_date IS NULL OR b.last_backup_date < DATEADD(HOUR, -24, GETDATE()))
+                    FOR XML PATH(''), TYPE
+                ).value('.', 'NVARCHAR(MAX)'), 1, 2, '');
+            """
+        ),
+        // 區塊 4：sp_MonitorSQLAgentJobs（COUNT 與 STRING_AGG 同一 SELECT，拆成兩段）
+        (
+            """
+                SELECT
+                    @FailedJobCount = COUNT(DISTINCT j.name),
+                    @FailedJobs = STRING_AGG(CAST(j.name AS NVARCHAR(MAX)), ', ')
+                FROM msdb.dbo.sysjobs j
+                INNER JOIN msdb.dbo.sysjobhistory h ON j.job_id = h.job_id
+                WHERE h.run_status = 0
+                    AND h.step_id = 0
+                    AND msdb.dbo.agent_datetime(h.run_date, h.run_time) >= DATEADD(HOUR, -24, GETDATE());
+            """,
+            """
+                SELECT @FailedJobCount = COUNT(DISTINCT j.name)
+                FROM msdb.dbo.sysjobs j
+                INNER JOIN msdb.dbo.sysjobhistory h ON j.job_id = h.job_id
+                WHERE h.run_status = 0
+                    AND h.step_id = 0
+                    AND msdb.dbo.agent_datetime(h.run_date, h.run_time) >= DATEADD(HOUR, -24, GETDATE());
+
+                SELECT @FailedJobs = STUFF((
+                    SELECT ', ' + CAST(j.name AS NVARCHAR(MAX))
+                    FROM msdb.dbo.sysjobs j
+                    INNER JOIN msdb.dbo.sysjobhistory h ON j.job_id = h.job_id
+                    WHERE h.run_status = 0
+                        AND h.step_id = 0
+                        AND msdb.dbo.agent_datetime(h.run_date, h.run_time) >= DATEADD(HOUR, -24, GETDATE())
+                    FOR XML PATH(''), TYPE
+                ).value('.', 'NVARCHAR(MAX)'), 1, 2, '');
+            """
+        ),
+    };
+
+    internal static async Task<string?> LoadEmbeddedScriptAsync(string fileName)
     {
         var assembly = Assembly.GetExecutingAssembly();
         var resourceName = assembly.GetManifestResourceNames()

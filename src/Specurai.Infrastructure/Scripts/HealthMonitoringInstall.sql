@@ -13,6 +13,8 @@ GO
 IF NOT EXISTS (SELECT name FROM sys.databases WHERE name = 'DBA')
 BEGIN
     CREATE DATABASE DBA;
+    -- 監控記錄資料庫無需完整復原，設為 SIMPLE 避免交易記錄無限增長
+    ALTER DATABASE DBA SET RECOVERY SIMPLE;
 END
 GO
 

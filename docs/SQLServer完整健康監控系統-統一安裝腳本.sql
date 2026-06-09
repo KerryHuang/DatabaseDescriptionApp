@@ -24,6 +24,8 @@ PRINT N'[步驟 1/10] 建立 DBA 資料庫...';
 IF NOT EXISTS (SELECT name FROM sys.databases WHERE name = 'DBA')
 BEGIN
     CREATE DATABASE DBA;
+    -- 監控記錄資料庫無需完整復原，設為 SIMPLE 避免交易記錄無限增長
+    ALTER DATABASE DBA SET RECOVERY SIMPLE;
     PRINT N'  ✅ DBA 資料庫建立成功';
 END
 ELSE
@@ -202,16 +204,16 @@ BEGIN
     
     IF @BlockingCount > 0
     BEGIN
-        SELECT @BlockingInfo = STRING_AGG(
-            CAST(
-                'Session ' + CAST(session_id AS NVARCHAR) + 
+        SELECT @BlockingInfo = STUFF((
+            SELECT '; ' + CAST(
+                'Session ' + CAST(session_id AS NVARCHAR) +
                 ' blocked by ' + CAST(blocking_session_id AS NVARCHAR) +
                 ' (wait: ' + CAST(wait_time/1000 AS NVARCHAR) + 's)'
-            AS NVARCHAR(MAX)),
-            '; '
-        )
-        FROM sys.dm_exec_requests
-        WHERE blocking_session_id <> 0;
+            AS NVARCHAR(MAX))
+            FROM sys.dm_exec_requests
+            WHERE blocking_session_id <> 0
+            FOR XML PATH(''), TYPE
+        ).value('.', 'NVARCHAR(MAX)'), 1, 2, '');
         
         INSERT INTO ServerHealthLog (check_type, metric_name, metric_value, threshold_value, status, alert_message, additional_info)
         VALUES (
@@ -262,18 +264,18 @@ BEGIN
     
     IF @LongQueryCount > 0
     BEGIN
-        SELECT @LongQueryInfo = STRING_AGG(
-            CAST(
-                'Session ' + CAST(r.session_id AS NVARCHAR) + 
+        SELECT @LongQueryInfo = STUFF((
+            SELECT '; ' + CAST(
+                'Session ' + CAST(r.session_id AS NVARCHAR) +
                 ' (' + CAST(r.total_elapsed_time/1000 AS NVARCHAR) + 's): ' +
                 ISNULL(DB_NAME(r.database_id), 'N/A')
-            AS NVARCHAR(MAX)),
-            '; '
-        )
-        FROM sys.dm_exec_requests r
-        WHERE r.status IN ('running', 'runnable')
-            AND r.total_elapsed_time > (@ThresholdSeconds * 1000)
-            AND r.session_id > 50;
+            AS NVARCHAR(MAX))
+            FROM sys.dm_exec_requests r
+            WHERE r.status IN ('running', 'runnable')
+                AND r.total_elapsed_time > (@ThresholdSeconds * 1000)
+                AND r.session_id > 50
+            FOR XML PATH(''), TYPE
+        ).value('.', 'NVARCHAR(MAX)'), 1, 2, '');
         
         INSERT INTO ServerHealthLog (check_type, metric_name, metric_value, threshold_value, status, alert_message, additional_info)
         VALUES (
@@ -311,12 +313,10 @@ BEGIN
     DECLARE @NoBackupCount INT;
     DECLARE @NoBackupDBs NVARCHAR(MAX);
     
-    SELECT 
-        @NoBackupCount = COUNT(*),
-        @NoBackupDBs = STRING_AGG(CAST(d.name AS NVARCHAR(MAX)), ', ')
+    SELECT @NoBackupCount = COUNT(*)
     FROM sys.databases d
     LEFT JOIN (
-        SELECT 
+        SELECT
             database_name,
             MAX(backup_finish_date) AS last_backup_date
         FROM msdb.dbo.backupset
@@ -326,6 +326,23 @@ BEGIN
     WHERE d.database_id > 4
         AND d.state = 0
         AND (b.last_backup_date IS NULL OR b.last_backup_date < DATEADD(HOUR, -24, GETDATE()));
+
+    SELECT @NoBackupDBs = STUFF((
+        SELECT ', ' + CAST(d.name AS NVARCHAR(MAX))
+        FROM sys.databases d
+        LEFT JOIN (
+            SELECT
+                database_name,
+                MAX(backup_finish_date) AS last_backup_date
+            FROM msdb.dbo.backupset
+            WHERE type = 'D'
+            GROUP BY database_name
+        ) b ON d.name = b.database_name
+        WHERE d.database_id > 4
+            AND d.state = 0
+            AND (b.last_backup_date IS NULL OR b.last_backup_date < DATEADD(HOUR, -24, GETDATE()))
+        FOR XML PATH(''), TYPE
+    ).value('.', 'NVARCHAR(MAX)'), 1, 2, '');
     
     INSERT INTO ServerHealthLog (check_type, metric_name, metric_value, threshold_value, status, alert_message, additional_info)
     VALUES (
@@ -528,14 +545,22 @@ BEGIN
     DECLARE @FailedJobCount INT;
     DECLARE @FailedJobs NVARCHAR(MAX);
     
-    SELECT 
-        @FailedJobCount = COUNT(DISTINCT j.name),
-        @FailedJobs = STRING_AGG(CAST(j.name AS NVARCHAR(MAX)), ', ')
+    SELECT @FailedJobCount = COUNT(DISTINCT j.name)
     FROM msdb.dbo.sysjobs j
     INNER JOIN msdb.dbo.sysjobhistory h ON j.job_id = h.job_id
     WHERE h.run_status = 0
         AND h.step_id = 0
         AND msdb.dbo.agent_datetime(h.run_date, h.run_time) >= DATEADD(HOUR, -24, GETDATE());
+
+    SELECT @FailedJobs = STUFF((
+        SELECT ', ' + CAST(j.name AS NVARCHAR(MAX))
+        FROM msdb.dbo.sysjobs j
+        INNER JOIN msdb.dbo.sysjobhistory h ON j.job_id = h.job_id
+        WHERE h.run_status = 0
+            AND h.step_id = 0
+            AND msdb.dbo.agent_datetime(h.run_date, h.run_time) >= DATEADD(HOUR, -24, GETDATE())
+        FOR XML PATH(''), TYPE
+    ).value('.', 'NVARCHAR(MAX)'), 1, 2, '');
     
     INSERT INTO ServerHealthLog (check_type, metric_name, metric_value, threshold_value, status, alert_message, additional_info)
     VALUES (

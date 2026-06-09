@@ -7,6 +7,18 @@
         WindowStartupLocation="CenterOwner"
         CanResize="False">
     <StackPanel Margin="20" Spacing="15">
+        <Border x:Name="WarningBanner"
+                IsVisible="False"
+                Background="#22FF3B30"
+                BorderBrush="#FF3B30"
+                BorderThickness="1"
+                CornerRadius="4"
+                Padding="10,8">
+            <TextBlock x:Name="WarningText"
+                       Foreground="#FF3B30"
+                       FontWeight="Bold"
+                       TextWrapping="Wrap"/>
+        </Border>
         <TextBlock x:Name="MessageText"
                    TextWrapping="Wrap"
                    FontSize="14"/>

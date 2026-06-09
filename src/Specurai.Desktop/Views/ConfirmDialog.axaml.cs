@@ -17,6 +17,18 @@ public partial class ConfirmDialog : Window
         MessageText.Text = message;
     }
 
+    /// <summary>
+    /// 建立含警告橫幅的確認對話框。當 <paramref name="warningBanner"/> 非空白時，於訊息上方顯示紅色警告橫幅。
+    /// </summary>
+    public ConfirmDialog(string message, string? warningBanner) : this(message)
+    {
+        if (!string.IsNullOrEmpty(warningBanner))
+        {
+            WarningText.Text = warningBanner;
+            WarningBanner.IsVisible = true;
+        }
+    }
+
     private void OnYesClick(object? sender, RoutedEventArgs e)
     {
         Result = true;

@@ -1,3 +1,4 @@
+using System.Text.Json;
 using FluentAssertions;
 using Specurai.Domain.Entities;
 
@@ -177,5 +178,81 @@ public class ConnectionProfileTests
 
         // Assert
         profile.Id.Should().Be(customId);
+    }
+
+    [Fact]
+    public void ConnectionProfile_Environment_預設為Staging()
+    {
+        // Arrange & Act
+        var profile = new ConnectionProfile
+        {
+            Name = "測試",
+            Server = "localhost",
+            Database = "TestDb"
+        };
+
+        // Assert
+        profile.Environment.Should().Be(DatabaseEnvironment.Staging);
+    }
+
+    [Fact]
+    public void ConnectionProfile_可設定Environment為Production()
+    {
+        // Arrange & Act
+        var profile = new ConnectionProfile
+        {
+            Name = "正式",
+            Server = "prod",
+            Database = "ProdDb",
+            Environment = DatabaseEnvironment.Production
+        };
+
+        // Assert
+        profile.Environment.Should().Be(DatabaseEnvironment.Production);
+    }
+
+    [Fact]
+    public void ConnectionProfile_序列化往返_應保留Environment()
+    {
+        // Arrange
+        var profile = new ConnectionProfile
+        {
+            Name = "正式",
+            Server = "prod",
+            Database = "ProdDb",
+            Environment = DatabaseEnvironment.Production
+        };
+
+        // Act
+        var json = JsonSerializer.Serialize(profile);
+        var restored = JsonSerializer.Deserialize<ConnectionProfile>(json);
+
+        // Assert
+        restored!.Environment.Should().Be(DatabaseEnvironment.Production);
+    }
+
+    [Fact]
+    public void ConnectionProfile_反序列化舊JSON無Environment欄位_應為Staging()
+    {
+        // Arrange：模擬既有 connections.json 內無 Environment 欄位的連線
+        var legacyJson = """
+            { "Name": "舊連線", "Server": "localhost", "Database": "OldDb", "AuthType": 0 }
+            """;
+
+        // Act
+        var profile = JsonSerializer.Deserialize<ConnectionProfile>(legacyJson);
+
+        // Assert
+        profile!.Environment.Should().Be(DatabaseEnvironment.Staging);
+    }
+
+    [Fact]
+    public void DatabaseEnvironment_列舉值順序應為Dev_Test_Staging_Prod()
+    {
+        // Assert
+        ((int)DatabaseEnvironment.Development).Should().Be(0);
+        ((int)DatabaseEnvironment.Testing).Should().Be(1);
+        ((int)DatabaseEnvironment.Staging).Should().Be(2);
+        ((int)DatabaseEnvironment.Production).Should().Be(3);
     }
 }

@@ -72,12 +72,16 @@ public static class JobsCommand
 
     private static Command CreateListCommand()
     {
-        var command = new Command("list", "列出 Specurai 管理的 Job");
+        var includeNonSpecuraiOpt = new Option<bool>(
+            "--include-non-specurai", "一併列出未由 Specurai 管理的 Agent Job");
+        var command = new Command("list", "列出 Specurai 管理的 Job") { includeNonSpecuraiOpt };
 
-        command.SetHandler(async () =>
+        command.SetHandler(async (includeNonSpecurai) =>
         {
             var service = Program.Services.GetRequiredService<IAgentJobService>();
-            var jobs = await service.GetJobsAsync();
+            var jobs = (await service.GetJobsAsync()).ToList();
+            if (includeNonSpecurai)
+                jobs.AddRange(await service.GetNonSpecuraiJobsAsync());
 
             if (CliOutput.JsonMode)
             {
@@ -85,9 +89,10 @@ public static class JobsCommand
                 return;
             }
 
-            if (jobs.Count == 0) { CliOutput.Info("沒有 Specurai 管理的 Agent Job。"); return; }
+            if (jobs.Count == 0) { CliOutput.Info("沒有 Agent Job。"); return; }
 
             var table = new Table().Title("Agent Jobs");
+            if (includeNonSpecurai) table.AddColumn("類型");
             table.AddColumn("名稱");
             table.AddColumn("狀態");
             table.AddColumn("上次執行");
@@ -96,18 +101,19 @@ public static class JobsCommand
 
             foreach (var j in jobs)
             {
-                var status = j.IsEnabled ? "[green]啟用[/]" : "[grey]停用[/]";
-                var outcome = j.LastRunOutcomeText;
-                table.AddRow(
-                    j.Name.EscapeMarkup(),
-                    status,
-                    j.LastRunDate?.ToString("yyyy-MM-dd HH:mm") ?? "從未",
-                    outcome.EscapeMarkup(),
-                    j.NextRunDate?.ToString("yyyy-MM-dd HH:mm") ?? "N/A");
+                var cells = new List<string>();
+                if (includeNonSpecurai)
+                    cells.Add(j.IsSpecuraiJob ? "[blue]Specurai[/]" : "[grey]其他[/]");
+                cells.Add(j.Name.EscapeMarkup());
+                cells.Add(j.IsEnabled ? "[green]啟用[/]" : "[grey]停用[/]");
+                cells.Add(j.LastRunDate?.ToString("yyyy-MM-dd HH:mm") ?? "從未");
+                cells.Add(j.LastRunOutcomeText.EscapeMarkup());
+                cells.Add(j.NextRunDate?.ToString("yyyy-MM-dd HH:mm") ?? "N/A");
+                table.AddRow(cells.ToArray());
             }
 
             AnsiConsole.Write(table);
-        });
+        }, includeNonSpecuraiOpt);
 
         return command;
     }

@@ -67,6 +67,24 @@ public class ConnCommandUpdateExportTests
         profile.AuthType.Should().Be(AuthenticationType.WindowsAuthentication);
     }
 
+    [Fact(DisplayName = "HasProfileUpdate: 全部為 null 應回傳 false")]
+    public void HasProfileUpdate_AllNull_ShouldReturnFalse()
+    {
+        ConnCommand.HasProfileUpdate(null, null, null, null, null, null).Should().BeFalse();
+    }
+
+    [Fact(DisplayName = "HasProfileUpdate: 任一欄位有值應回傳 true")]
+    public void HasProfileUpdate_AnyProvided_ShouldReturnTrue()
+    {
+        ConnCommand.HasProfileUpdate(null, "new-server", null, null, null, null).Should().BeTrue();
+    }
+
+    [Fact(DisplayName = "HasProfileUpdate: 空字串視為有值應回傳 true")]
+    public void HasProfileUpdate_EmptyString_ShouldReturnTrue()
+    {
+        ConnCommand.HasProfileUpdate(null, null, null, null, "", null).Should().BeTrue();
+    }
+
     [Fact(DisplayName = "ExportProfilesToFile: 應將服務輸出的位元組寫入指定路徑")]
     public void ExportProfilesToFile_ShouldWriteServiceBytesToPath()
     {

@@ -22,6 +22,82 @@ public static class ConnCommand
         command.AddCommand(CreateTestCommand());
         command.AddCommand(CreateRemoveCommand());
         command.AddCommand(CreateImportCommand());
+        command.AddCommand(CreateUpdateCommand());
+        command.AddCommand(CreateExportCommand());
+        return command;
+    }
+
+    private static Command CreateUpdateCommand()
+    {
+        var nameArg = new Argument<string>("name", "要更新的連線名稱");
+        var newNameOpt = new Option<string?>("--new-name", "新名稱");
+        var serverOpt = new Option<string?>("--server", "新伺服器位址");
+        var databaseOpt = new Option<string?>("--database", "新資料庫名稱");
+        var authOpt = new Option<string?>("--auth", "新認證方式（Windows 或 SqlServer）");
+        var userOpt = new Option<string?>("--user", "新 SQL 帳號");
+        var passwordOpt = new Option<string?>("--password", "新 SQL 密碼");
+
+        var command = new Command("update", "更新既有連線") { nameArg };
+        command.AddOption(newNameOpt);
+        command.AddOption(serverOpt);
+        command.AddOption(databaseOpt);
+        command.AddOption(authOpt);
+        command.AddOption(userOpt);
+        command.AddOption(passwordOpt);
+
+        command.SetHandler((name, newName, server, database, auth, user, password) =>
+        {
+            var cm = Program.Services.GetRequiredService<IConnectionManager>();
+            var profile = cm.GetAllProfiles()
+                .FirstOrDefault(p => p.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+
+            if (profile == null)
+            {
+                CliOutput.Error($"找不到連線「{name}」");
+                Environment.ExitCode = 1;
+                return;
+            }
+
+            ApplyProfileUpdates(profile, newName, server, database, auth, user, password);
+            cm.UpdateProfile(profile);
+
+            if (CliOutput.JsonMode)
+                CliOutput.Success(new { profile.Id, profile.Name, Message = "連線已更新" });
+            else
+                CliOutput.SuccessMessage($"已更新連線「{profile.Name}」");
+        }, nameArg, newNameOpt, serverOpt, databaseOpt, authOpt, userOpt, passwordOpt);
+
+        return command;
+    }
+
+    private static Command CreateExportCommand()
+    {
+        var outputOpt = new Option<string>(["--output", "-o"], "輸出檔案路徑") { IsRequired = true };
+        var includePwdOpt = new Option<bool>("--include-passwords", "匯出時包含密碼（預設 false）");
+
+        var command = new Command("export", "匯出連線設定為 JSON") { outputOpt, includePwdOpt };
+
+        command.SetHandler((output, includePasswords) =>
+        {
+            var cm = Program.Services.GetRequiredService<IConnectionManager>();
+            var exportService = Program.Services.GetRequiredService<IConnectionExportService>();
+
+            var profiles = cm.GetAllProfiles();
+            if (profiles.Count == 0)
+            {
+                CliOutput.Error("沒有連線設定可匯出。");
+                Environment.ExitCode = 1;
+                return;
+            }
+
+            var count = ExportProfilesToFile(exportService, profiles, output, includePasswords);
+
+            if (CliOutput.JsonMode)
+                CliOutput.Success(new { Output = output, Count = count });
+            else
+                CliOutput.SuccessMessage($"已匯出 {count} 個連線設定至 {output}");
+        }, outputOpt, includePwdOpt);
+
         return command;
     }
 
@@ -452,6 +528,44 @@ public static class ConnCommand
         }, stdinOpt, pathArg);
 
         return command;
+    }
+
+    /// <summary>
+    /// 將非 null 的新值套用到既有連線設定（鏡像 MCP UpdateConnection 行為）。
+    /// </summary>
+    internal static ConnectionProfile ApplyProfileUpdates(
+        ConnectionProfile profile,
+        string? newName = null,
+        string? newServer = null,
+        string? newDatabase = null,
+        string? newAuthType = null,
+        string? newUsername = null,
+        string? newPassword = null)
+    {
+        if (newName != null) profile.Name = newName;
+        if (newServer != null) profile.Server = newServer;
+        if (newDatabase != null) profile.Database = newDatabase;
+        if (newAuthType != null)
+            profile.AuthType = newAuthType.Equals("SqlServer", StringComparison.OrdinalIgnoreCase)
+                ? AuthenticationType.SqlServerAuthentication
+                : AuthenticationType.WindowsAuthentication;
+        if (newUsername != null) profile.Username = newUsername;
+        if (newPassword != null) profile.Password = newPassword;
+        return profile;
+    }
+
+    /// <summary>
+    /// 將連線設定透過匯出服務序列化並寫入檔案，回傳匯出筆數（鏡像 MCP ExportConnections 行為）。
+    /// </summary>
+    internal static int ExportProfilesToFile(
+        IConnectionExportService exportService,
+        IReadOnlyList<ConnectionProfile> profiles,
+        string outputPath,
+        bool includePasswords)
+    {
+        var data = exportService.ExportToJson(profiles, includePasswords);
+        File.WriteAllBytes(outputPath, data);
+        return profiles.Count;
     }
 
     /// <summary>

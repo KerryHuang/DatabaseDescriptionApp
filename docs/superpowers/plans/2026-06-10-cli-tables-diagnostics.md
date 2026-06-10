@@ -547,4 +547,13 @@ Expected：`stats` 顯示統計表；`create-sql` 輸出 CREATE TABLE 語句。
 - **Placeholder 掃描**：無 TBD/TODO；每個程式碼步驟均含完整程式碼。✅
 - **型別一致性**：`GetCreateTableSqlAsync(string,string,CancellationToken)→Task<string?>` 在介面、實作、MCP、CLI、測試一致；`ITableStatisticsService` / `IColumnUsageService` 方法與實體屬性與既有定義相符。✅
 - **架構**：`create-sql` 的原始 SQL 由 MCP 展示層上移至 Application 服務（改善分層），MCP 改為呼叫服務；`ISqlQueryRepository`（Domain 介面）回傳 `DataTable`，Application 依賴 Domain 合法。✅
-- **刻意取捨**：前四個讀取命令沿用既有 `tables` 子命令「無單元測試」慣例（純接線），僅 `create-sql` 服務層走 TDD。`create-sql` 的 SQL 為忠實鏡像 MCP 既有版本（保留 decimal precision/scale 處理），不在本批處理其既有的字串內插風格。
+- **刻意取捨**：前四個讀取命令沿用既有 `tables` 子命令「無單元測試」慣例（純接線），僅 `create-sql` 服務層走 TDD。
+
+## 執行中發現並修正的既有 Bug（2026-06-10）
+
+抽取 `create-sql` 時的煙霧測試揭露 **MCP 原 `GetCreateTableSql` 的既有 bug**：其 SQL 使用 `SELECT @sql = @sql + ... FROM ... ORDER BY` 的變數累加反模式，在實測 server（SQL Server 2022）上只會取到**單一欄位**，產生不完整的 `CREATE TABLE`（11 欄表只輸出 1 欄）。
+
+- **決定**：不忠實鏡像此 bug。改用 `STUFF(... FOR XML PATH(''), TYPE ...)` 串接欄位定義——相容 SQL Server 2005+（呼應專案近期「相容舊版 SQL Server」的取向，未用 2017+ 的 `STRING_AGG`）。
+- **附帶改善**：找不到資料表時 `@cols` 為 NULL → 服務回傳 `null` → CLI 顯示「找不到資料表」；原版會回一個空殼 `CREATE TABLE ( )`。
+- **效益**：修在共用服務，MCP 與 CLI 同時修復。已加 DBNull 測試覆蓋找不到的路徑（create-sql 服務測試共 3 個）。
+- 已實測 `Systems.SerialNoConfig` 正確輸出全部 11 欄含型別/長度/預設值。

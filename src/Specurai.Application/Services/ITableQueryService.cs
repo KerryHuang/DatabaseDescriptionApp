@@ -59,6 +59,14 @@ public interface ITableQueryService
         CancellationToken ct = default);
 
     /// <summary>
+    /// 產生指定資料表的 CREATE TABLE SQL 語句；找不到資料表時回傳 null。
+    /// </summary>
+    Task<string?> GetCreateTableSqlAsync(
+        string schema,
+        string tableName,
+        CancellationToken ct = default);
+
+    /// <summary>
     /// 刪除指定索引
     /// </summary>
     Task DropIndexAsync(

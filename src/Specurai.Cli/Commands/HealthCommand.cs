@@ -32,32 +32,31 @@ public static class HealthCommand
         {
             var service = Program.Services.GetRequiredService<IHealthMonitoringService>();
 
-            string sql;
             try
             {
-                sql = await service.GenerateExportSqlAsync();
+                var sql = await service.GenerateExportSqlAsync();
+
+                if (!string.IsNullOrEmpty(output))
+                {
+                    var fullPath = Path.GetFullPath(output);
+                    await File.WriteAllTextAsync(fullPath, sql);
+                    if (CliOutput.JsonMode)
+                        CliOutput.Success(new { Output = fullPath, Length = sql.Length });
+                    else
+                        CliOutput.SuccessMessage($"已輸出健康監控安裝 SQL 至 {fullPath}");
+                }
+                else
+                {
+                    if (CliOutput.JsonMode)
+                        CliOutput.Success(new { Sql = sql });
+                    else
+                        Console.WriteLine(sql);
+                }
             }
             catch (Exception ex)
             {
                 CliOutput.Error($"產生 SQL 腳本失敗：{ex.Message}");
                 Environment.ExitCode = 1;
-                return;
-            }
-
-            if (!string.IsNullOrEmpty(output))
-            {
-                await File.WriteAllTextAsync(output, sql);
-                if (CliOutput.JsonMode)
-                    CliOutput.Success(new { Output = output, Length = sql.Length });
-                else
-                    CliOutput.SuccessMessage($"已輸出健康監控安裝 SQL 至 {output}");
-            }
-            else
-            {
-                if (CliOutput.JsonMode)
-                    CliOutput.Success(new { Sql = sql });
-                else
-                    Console.WriteLine(sql);
             }
         }, outputOpt);
 

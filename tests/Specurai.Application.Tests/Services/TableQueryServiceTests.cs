@@ -77,6 +77,23 @@ public class TableQueryServiceTests
         result.Should().BeNull();
     }
 
+    [Fact(DisplayName = "GetCreateTableSqlAsync: 名稱含單引號應被跳脫以防注入")]
+    public async Task GetCreateTableSqlAsync_NameWithQuote_ShouldEscape()
+    {
+        string? captured = null;
+        var dt = new System.Data.DataTable();
+        dt.Columns.Add("CreateTableScript");
+        _sqlQueryRepository
+            .ExecuteQueryAsync(Arg.Do<string>(s => captured = s), Arg.Any<CancellationToken>())
+            .Returns(dt);
+
+        await _service.GetCreateTableSqlAsync("dbo'; DROP TABLE X--", "T");
+
+        captured.Should().NotBeNull();
+        captured!.Should().Contain("dbo''; DROP TABLE X--");
+        captured.Should().NotContain("'dbo'; DROP TABLE X--");
+    }
+
     #endregion
 
     #region GetAllTablesAsync 測試

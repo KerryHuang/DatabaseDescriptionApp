@@ -406,8 +406,11 @@ public static class TablesCommand
                     s.TableName,
                     s.ObjectType,
                     s.ApproximateRowCount,
+                    s.ExactRowCount,
+                    s.DisplayRowCount,
                     s.ColumnCount,
                     s.IndexCount,
+                    s.ForeignKeyCount,
                     s.DataSizeMB,
                     s.IndexSizeMB,
                     s.TotalSizeMB

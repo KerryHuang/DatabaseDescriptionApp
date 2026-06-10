@@ -19,6 +19,48 @@ public static class HealthCommand
         command.AddCommand(CreateAlertsCommand());
         command.AddCommand(CreateInstallCommand());
         command.AddCommand(CreateUninstallCommand());
+        command.AddCommand(CreateExportSqlCommand());
+        return command;
+    }
+
+    private static Command CreateExportSqlCommand()
+    {
+        var outputOpt = new Option<string?>(["--output", "-o"], "輸出檔案路徑（不指定則輸出至 stdout）");
+        var command = new Command("export-sql", "產生健康監控安裝 SQL 腳本") { outputOpt };
+
+        command.SetHandler(async (output) =>
+        {
+            var service = Program.Services.GetRequiredService<IHealthMonitoringService>();
+
+            string sql;
+            try
+            {
+                sql = await service.GenerateExportSqlAsync();
+            }
+            catch (Exception ex)
+            {
+                CliOutput.Error($"產生 SQL 腳本失敗：{ex.Message}");
+                Environment.ExitCode = 1;
+                return;
+            }
+
+            if (!string.IsNullOrEmpty(output))
+            {
+                await File.WriteAllTextAsync(output, sql);
+                if (CliOutput.JsonMode)
+                    CliOutput.Success(new { Output = output, Length = sql.Length });
+                else
+                    CliOutput.SuccessMessage($"已輸出健康監控安裝 SQL 至 {output}");
+            }
+            else
+            {
+                if (CliOutput.JsonMode)
+                    CliOutput.Success(new { Sql = sql });
+                else
+                    Console.WriteLine(sql);
+            }
+        }, outputOpt);
+
         return command;
     }
 

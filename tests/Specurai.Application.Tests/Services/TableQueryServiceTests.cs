@@ -16,6 +16,7 @@ public class TableQueryServiceTests
     private readonly IIndexRepository _indexRepository;
     private readonly IRelationRepository _relationRepository;
     private readonly IParameterRepository _parameterRepository;
+    private readonly ISqlQueryRepository _sqlQueryRepository;
     private readonly TableQueryService _service;
 
     public TableQueryServiceTests()
@@ -25,14 +26,58 @@ public class TableQueryServiceTests
         _indexRepository = Substitute.For<IIndexRepository>();
         _relationRepository = Substitute.For<IRelationRepository>();
         _parameterRepository = Substitute.For<IParameterRepository>();
+        _sqlQueryRepository = Substitute.For<ISqlQueryRepository>();
 
         _service = new TableQueryService(
             _tableRepository,
             _columnRepository,
             _indexRepository,
             _relationRepository,
-            _parameterRepository);
+            _parameterRepository,
+            _sqlQueryRepository);
     }
+
+    #region GetCreateTableSqlAsync 測試
+
+    [Fact(DisplayName = "GetCreateTableSqlAsync: 有結果時應回傳建表語句")]
+    public async Task GetCreateTableSqlAsync_WhenRowExists_ShouldReturnScript()
+    {
+        var dt = new System.Data.DataTable();
+        dt.Columns.Add("CreateTableScript");
+        dt.Rows.Add("CREATE TABLE [dbo].[T] (...);");
+        _sqlQueryRepository.ExecuteQueryAsync(Arg.Any<string>()).Returns(dt);
+
+        var result = await _service.GetCreateTableSqlAsync("dbo", "T");
+
+        result.Should().Be("CREATE TABLE [dbo].[T] (...);");
+    }
+
+    [Fact(DisplayName = "GetCreateTableSqlAsync: 無結果時應回傳 null")]
+    public async Task GetCreateTableSqlAsync_WhenNoRows_ShouldReturnNull()
+    {
+        var dt = new System.Data.DataTable();
+        dt.Columns.Add("CreateTableScript");
+        _sqlQueryRepository.ExecuteQueryAsync(Arg.Any<string>()).Returns(dt);
+
+        var result = await _service.GetCreateTableSqlAsync("dbo", "Missing");
+
+        result.Should().BeNull();
+    }
+
+    [Fact(DisplayName = "GetCreateTableSqlAsync: 結果為 DBNull（找不到資料表）時應回傳 null")]
+    public async Task GetCreateTableSqlAsync_WhenDbNull_ShouldReturnNull()
+    {
+        var dt = new System.Data.DataTable();
+        dt.Columns.Add("CreateTableScript");
+        dt.Rows.Add(DBNull.Value);
+        _sqlQueryRepository.ExecuteQueryAsync(Arg.Any<string>()).Returns(dt);
+
+        var result = await _service.GetCreateTableSqlAsync("dbo", "Missing");
+
+        result.Should().BeNull();
+    }
+
+    #endregion
 
     #region GetAllTablesAsync 測試
 

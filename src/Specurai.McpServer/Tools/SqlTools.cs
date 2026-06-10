@@ -76,41 +76,14 @@ public static class SqlTools
     /// </summary>
     [McpServerTool, Description("產生指定資料表的 CREATE TABLE SQL 語句")]
     public static async Task<string> GetCreateTableSql(
-        ISqlQueryRepository sqlQueryRepository,
+        ITableQueryService tableQueryService,
         [Description("Schema 名稱，例如 dbo")] string schema,
         [Description("資料表名稱")] string tableName)
     {
-        var sql = $@"
-            DECLARE @sql NVARCHAR(MAX) = '';
-            DECLARE @tableName NVARCHAR(256) = '[{schema}].[{tableName}]';
-
-            SELECT @sql = @sql +
-                CASE WHEN @sql = '' THEN '' ELSE ',' + CHAR(13) + CHAR(10) END +
-                '    [' + c.COLUMN_NAME + '] ' +
-                c.DATA_TYPE +
-                CASE
-                    WHEN c.DATA_TYPE IN ('varchar','nvarchar','char','nchar')
-                        THEN '(' + CASE WHEN c.CHARACTER_MAXIMUM_LENGTH = -1 THEN 'MAX' ELSE CAST(c.CHARACTER_MAXIMUM_LENGTH AS VARCHAR) END + ')'
-                    WHEN c.DATA_TYPE IN ('decimal','numeric')
-                        THEN '(' + CAST(c.NUMERIC_PRECISION AS VARCHAR) + ',' + CAST(c.NUMERIC_SCALE AS VARCHAR) + ')'
-                    ELSE ''
-                END +
-                CASE WHEN c.IS_NULLABLE = 'NO' THEN ' NOT NULL' ELSE ' NULL' END +
-                CASE WHEN c.COLUMN_DEFAULT IS NOT NULL THEN ' DEFAULT ' + c.COLUMN_DEFAULT ELSE '' END
-            FROM INFORMATION_SCHEMA.COLUMNS c
-            WHERE c.TABLE_SCHEMA = '{schema}' AND c.TABLE_NAME = '{tableName}'
-            ORDER BY c.ORDINAL_POSITION;
-
-            SELECT 'CREATE TABLE ' + @tableName + ' (' + CHAR(13) + CHAR(10) + @sql + CHAR(13) + CHAR(10) + ');' AS CreateTableScript;
-        ";
-
         try
         {
-            var dataTable = await sqlQueryRepository.ExecuteQueryAsync(sql);
-            if (dataTable.Rows.Count > 0)
-                return dataTable.Rows[0][0]?.ToString() ?? $"無法產生 [{schema}].[{tableName}] 的建表語句。";
-
-            return $"找不到資料表 [{schema}].[{tableName}]。";
+            var script = await tableQueryService.GetCreateTableSqlAsync(schema, tableName);
+            return script ?? $"找不到資料表 [{schema}].[{tableName}]。";
         }
         catch (Exception ex)
         {

@@ -19,6 +19,11 @@ public static class TablesCommand
         command.AddCommand(CreateIndexesCommand());
         command.AddCommand(CreateRelationsCommand());
         command.AddCommand(CreateDefinitionCommand());
+        command.AddCommand(CreateParametersCommand());
+        command.AddCommand(CreateRowCountCommand());
+        command.AddCommand(CreateStatsCommand());
+        command.AddCommand(CreateColumnStatsCommand());
+        command.AddCommand(CreateCreateSqlCommand());
         return command;
     }
 
@@ -303,6 +308,225 @@ public static class TablesCommand
                 AnsiConsole.MarkupLine($"[bold]-- {schema}.{name}[/]");
                 Console.WriteLine(definition);
             }
+        }, objectArg);
+
+        return command;
+    }
+
+    private static Command CreateParametersCommand()
+    {
+        var objectArg = new Argument<string>("object", "物件名稱（格式：schema.name）");
+        var command = new Command("parameters", "顯示預存程序/函數的參數") { objectArg };
+
+        command.SetHandler(async (objectName) =>
+        {
+            var (schema, name) = ParseObjectName(objectName);
+            var service = Program.Services.GetRequiredService<ITableQueryService>();
+            var parameters = await service.GetParametersAsync(schema, name);
+
+            if (CliOutput.JsonMode)
+            {
+                var data = parameters.Select(p => new
+                {
+                    p.Name,
+                    p.DataType,
+                    p.Length,
+                    p.IsOutput,
+                    p.DefaultValue,
+                    p.Ordinal
+                }).ToList();
+                CliOutput.Success(data, data.Count);
+            }
+            else
+            {
+                if (parameters.Count == 0)
+                {
+                    CliOutput.Info($"物件 {schema}.{name} 沒有參數，或物件不存在。");
+                    return;
+                }
+
+                var table = new Table().Title($"[bold]{schema}.{name}[/] 參數");
+                table.AddColumn("參數");
+                table.AddColumn("型別");
+                table.AddColumn("長度");
+                table.AddColumn("輸出");
+                table.AddColumn("預設值");
+
+                foreach (var p in parameters)
+                {
+                    table.AddRow(
+                        p.Name.EscapeMarkup(),
+                        p.DataType.EscapeMarkup(),
+                        p.Length?.ToString() ?? "",
+                        p.IsOutput ? "✓" : "",
+                        (p.DefaultValue ?? "").EscapeMarkup());
+                }
+
+                AnsiConsole.Write(table);
+            }
+        }, objectArg);
+
+        return command;
+    }
+
+    private static Command CreateRowCountCommand()
+    {
+        var objectArg = new Argument<string>("object", "資料表名稱（格式：schema.name）");
+        var command = new Command("row-count", "取得資料表精確列數（COUNT(*)）") { objectArg };
+
+        command.SetHandler(async (objectName) =>
+        {
+            var (schema, name) = ParseObjectName(objectName);
+            var service = Program.Services.GetRequiredService<ITableStatisticsService>();
+            var count = await service.GetExactRowCountAsync(schema, name);
+
+            if (CliOutput.JsonMode)
+                CliOutput.Success(new { Schema = schema, Table = name, RowCount = count });
+            else
+                CliOutput.SuccessMessage($"{schema}.{name} 精確列數：{count:N0}");
+        }, objectArg);
+
+        return command;
+    }
+
+    private static Command CreateStatsCommand()
+    {
+        var command = new Command("stats", "顯示所有資料表的統計資訊（列數、大小等）");
+
+        command.SetHandler(async () =>
+        {
+            var service = Program.Services.GetRequiredService<ITableStatisticsService>();
+            var stats = await service.GetAllTableStatisticsAsync();
+
+            if (CliOutput.JsonMode)
+            {
+                var data = stats.Select(s => new
+                {
+                    s.SchemaName,
+                    s.TableName,
+                    s.ObjectType,
+                    s.ApproximateRowCount,
+                    s.ColumnCount,
+                    s.IndexCount,
+                    s.DataSizeMB,
+                    s.IndexSizeMB,
+                    s.TotalSizeMB
+                }).ToList();
+                CliOutput.Success(data, data.Count);
+            }
+            else
+            {
+                if (stats.Count == 0)
+                {
+                    CliOutput.Info("沒有資料表統計資訊。");
+                    return;
+                }
+
+                var table = new Table().Title("[bold]資料表統計[/]");
+                table.AddColumn("Schema");
+                table.AddColumn("資料表");
+                table.AddColumn("類型");
+                table.AddColumn(new TableColumn("約略列數").RightAligned());
+                table.AddColumn(new TableColumn("欄位").RightAligned());
+                table.AddColumn(new TableColumn("索引").RightAligned());
+                table.AddColumn(new TableColumn("總大小(MB)").RightAligned());
+
+                foreach (var s in stats)
+                {
+                    table.AddRow(
+                        s.SchemaName.EscapeMarkup(),
+                        s.TableName.EscapeMarkup(),
+                        s.ObjectType.EscapeMarkup(),
+                        s.ApproximateRowCount.ToString("N0"),
+                        s.ColumnCount.ToString(),
+                        s.IndexCount.ToString(),
+                        s.TotalSizeMB.ToString("N2"));
+                }
+
+                AnsiConsole.Write(table);
+            }
+        });
+
+        return command;
+    }
+
+    private static Command CreateColumnStatsCommand()
+    {
+        var searchOption = new Option<string?>("--search", "篩選文字（可選）");
+        var command = new Command("column-stats", "顯示欄位使用狀態統計（型別一致性分析）") { searchOption };
+
+        command.SetHandler(async (search) =>
+        {
+            var service = Program.Services.GetRequiredService<IColumnUsageService>();
+            var stats = string.IsNullOrWhiteSpace(search)
+                ? await service.GetStatisticsAsync()
+                : await service.GetFilteredStatisticsAsync(search);
+
+            if (CliOutput.JsonMode)
+            {
+                var data = stats.Select(s => new
+                {
+                    s.ColumnName,
+                    s.UsageCount,
+                    s.IsFullyConsistent,
+                    s.PrimaryDataType,
+                    s.PrimaryMaxLength,
+                    s.PrimaryIsNullable
+                }).ToList();
+                CliOutput.Success(data, data.Count);
+            }
+            else
+            {
+                if (stats.Count == 0)
+                {
+                    CliOutput.Info("沒有欄位使用統計資訊。");
+                    return;
+                }
+
+                var table = new Table().Title("[bold]欄位使用統計[/]");
+                table.AddColumn("欄位");
+                table.AddColumn(new TableColumn("使用次數").RightAligned());
+                table.AddColumn("型別一致");
+                table.AddColumn("主要型別");
+
+                foreach (var s in stats)
+                {
+                    table.AddRow(
+                        s.ColumnName.EscapeMarkup(),
+                        s.UsageCount.ToString("N0"),
+                        s.IsFullyConsistent ? "[green]✓[/]" : "[yellow]✗[/]",
+                        s.PrimaryDataType.EscapeMarkup());
+                }
+
+                AnsiConsole.Write(table);
+            }
+        }, searchOption);
+
+        return command;
+    }
+
+    private static Command CreateCreateSqlCommand()
+    {
+        var objectArg = new Argument<string>("object", "資料表名稱（格式：schema.name）");
+        var command = new Command("create-sql", "產生資料表的 CREATE TABLE 語句") { objectArg };
+
+        command.SetHandler(async (objectName) =>
+        {
+            var (schema, name) = ParseObjectName(objectName);
+            var service = Program.Services.GetRequiredService<ITableQueryService>();
+            var script = await service.GetCreateTableSqlAsync(schema, name);
+
+            if (script == null)
+            {
+                CliOutput.Error($"找不到資料表 {schema}.{name}。");
+                Environment.ExitCode = 1;
+                return;
+            }
+
+            if (CliOutput.JsonMode)
+                CliOutput.Success(new { Schema = schema, Table = name, Script = script });
+            else
+                AnsiConsole.WriteLine(script);
         }, objectArg);
 
         return command;

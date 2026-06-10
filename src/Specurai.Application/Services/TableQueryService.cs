@@ -80,10 +80,14 @@ public class TableQueryService : ITableQueryService
         string tableName,
         CancellationToken ct = default)
     {
+        // 跳脫單引號以中和字串字面值注入（三處內插皆位於單引號字串內）。
+        var s = schema.Replace("'", "''");
+        var t = tableName.Replace("'", "''");
+
         // 以 FOR XML PATH + STUFF 串接各欄位定義（相容 SQL Server 2005+，
         // 避免 `SELECT @v = @v + ... ORDER BY` 變數累加反模式只取到單一欄位的問題）。
         var sql = $@"
-            DECLARE @tableName NVARCHAR(256) = '[{schema}].[{tableName}]';
+            DECLARE @tableName NVARCHAR(256) = '[{s}].[{t}]';
             DECLARE @cols NVARCHAR(MAX) = STUFF((
                 SELECT ',' + CHAR(13) + CHAR(10) +
                     '    [' + c.COLUMN_NAME + '] ' +
@@ -98,7 +102,7 @@ public class TableQueryService : ITableQueryService
                     CASE WHEN c.IS_NULLABLE = 'NO' THEN ' NOT NULL' ELSE ' NULL' END +
                     CASE WHEN c.COLUMN_DEFAULT IS NOT NULL THEN ' DEFAULT ' + c.COLUMN_DEFAULT ELSE '' END
                 FROM INFORMATION_SCHEMA.COLUMNS c
-                WHERE c.TABLE_SCHEMA = '{schema}' AND c.TABLE_NAME = '{tableName}'
+                WHERE c.TABLE_SCHEMA = '{s}' AND c.TABLE_NAME = '{t}'
                 ORDER BY c.ORDINAL_POSITION
                 FOR XML PATH(''), TYPE).value('.', 'NVARCHAR(MAX)'), 1, 3, '');
 

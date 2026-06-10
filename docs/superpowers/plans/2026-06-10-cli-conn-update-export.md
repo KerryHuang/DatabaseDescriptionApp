@@ -393,3 +393,14 @@ Expected：若已有連線設定 → 顯示「已匯出 N 個連線設定至 ...
 - **Placeholder 掃描**：無 TBD/TODO，所有程式碼步驟均含完整程式碼。✅
 - **型別一致性**：`ApplyProfileUpdates` / `ExportProfilesToFile` 簽章在測試與實作一致；`IConnectionExportService.ExportToJson(IReadOnlyList<ConnectionProfile>, bool)` 與介面定義相符；`IConnectionManager.UpdateProfile/GetAllProfiles` 與介面相符。✅
 - **環境欄位**：`conn export` 的環境欄位由 `ConnectionExportService` 內部處理（對齊 2026-06-09 修正），CLI 無需額外處理；`conn update` 比照 MCP `UpdateConnection` 不含 environment 參數（YAGNI）。
+
+## Code Review 後調整（2026-06-10）
+
+依 `code-reviewer` 審查回饋處理：
+
+- **刻意取捨 — 連線查找僅用名稱**：MCP `UpdateConnection` 透過 `ProfileResolver` 支援「名稱或 ID」；CLI `conn update` 維持與既有 `switch`/`test`/`remove` 子命令一致，**一律以名稱查找**。此為與 CLI 自身慣例對齊的刻意決定，非遺漏。
+- **已採納修正**：
+  - `conn update` 未提供任何更新欄位時防呆（`HasProfileUpdate` helper，回 ExitCode 2 並提示），避免誤報「已更新」。
+  - `conn update` / `conn export` handler 加 try/catch，失敗時輸出友善錯誤並設 ExitCode 1，維持 JsonMode 結構化輸出契約（鏡像 MCP 的錯誤處理）。
+  - `conn export --include-passwords` 於人類模式輸出明文密碼警示。
+  - 新增 `HasProfileUpdate` 的 3 個單元測試（共 9 個測試全綠）。

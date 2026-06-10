@@ -47,6 +47,13 @@ public static class ConnCommand
 
         command.SetHandler((name, newName, server, database, auth, user, password) =>
         {
+            if (!HasProfileUpdate(newName, server, database, auth, user, password))
+            {
+                CliOutput.Error("未提供任何要更新的欄位（--new-name / --server / --database / --auth / --user / --password）");
+                Environment.ExitCode = 2;
+                return;
+            }
+
             var cm = Program.Services.GetRequiredService<IConnectionManager>();
             var profile = cm.GetAllProfiles()
                 .FirstOrDefault(p => p.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
@@ -58,8 +65,17 @@ public static class ConnCommand
                 return;
             }
 
-            ApplyProfileUpdates(profile, newName, server, database, auth, user, password);
-            cm.UpdateProfile(profile);
+            try
+            {
+                ApplyProfileUpdates(profile, newName, server, database, auth, user, password);
+                cm.UpdateProfile(profile);
+            }
+            catch (Exception ex)
+            {
+                CliOutput.Error($"更新連線失敗：{ex.Message}");
+                Environment.ExitCode = 1;
+                return;
+            }
 
             if (CliOutput.JsonMode)
                 CliOutput.Success(new { profile.Id, profile.Name, Message = "連線已更新" });
@@ -90,7 +106,20 @@ public static class ConnCommand
                 return;
             }
 
-            var count = ExportProfilesToFile(exportService, profiles, output, includePasswords);
+            if (includePasswords)
+                CliOutput.Warning("匯出檔案將包含明文密碼，請妥善保管。");
+
+            int count;
+            try
+            {
+                count = ExportProfilesToFile(exportService, profiles, output, includePasswords);
+            }
+            catch (Exception ex)
+            {
+                CliOutput.Error($"匯出連線失敗：{ex.Message}");
+                Environment.ExitCode = 1;
+                return;
+            }
 
             if (CliOutput.JsonMode)
                 CliOutput.Success(new { Output = output, Count = count });
@@ -553,6 +582,19 @@ public static class ConnCommand
         if (newPassword != null) profile.Password = newPassword;
         return profile;
     }
+
+    /// <summary>
+    /// 判斷是否至少提供一個要更新的欄位（皆為 null 代表未指定任何變更）。
+    /// </summary>
+    internal static bool HasProfileUpdate(
+        string? newName,
+        string? newServer,
+        string? newDatabase,
+        string? newAuthType,
+        string? newUsername,
+        string? newPassword)
+        => newName != null || newServer != null || newDatabase != null
+            || newAuthType != null || newUsername != null || newPassword != null;
 
     /// <summary>
     /// 將連線設定透過匯出服務序列化並寫入檔案，回傳匯出筆數（鏡像 MCP ExportConnections 行為）。

@@ -175,6 +175,25 @@ curl -fsSL https://raw.githubusercontent.com/KerryHuang/DatabaseDescriptionApp/m
 
 ---
 
+## 雙平台 / 雙系統注意事項
+
+整套（CLI/MCP/桌面 App）皆支援 Windows 與 macOS（含 Linux）；`release.yml` 已建 `win-x64`、`osx-arm64`、`osx-x64`、`linux-x64` 四個 runtime，CI 於 windows/macos/ubuntu 三平台測試。若同一使用者**同時在 Windows 與 Mac 兩台使用**，需注意：
+
+1. **安裝路徑與 PATH 機制不同**（由各自 installer 處理）
+   - Windows：`install.ps1` 裝到 `%LOCALAPPDATA%\Programs\Specurai`，寫入 User PATH，**需重開終端機**生效。
+   - macOS：`install.sh` 裝到 `~/.local/bin`，需確認該路徑在 shell PATH；首次執行可能需 `xattr -dr com.apple.quarantine ~/.local/bin/Specurai.Cli`（未經 Apple 公證）。
+   - 先前以 `Set-Alias specurai …` 寫入 PowerShell `$PROFILE` 的做法**僅限 Windows**；macOS 靠 `~/.local/bin` 上的執行檔，不需該別名。
+
+2. **macOS 晶片需對應正確 runtime**
+   - Apple Silicon → `osx-arm64`；Intel Mac → `osx-x64`。
+   - `install.sh` 以 `uname -m`（`arm64` / `x86_64`）自動判斷；手動下載 Release 資產時須自行選對。
+
+3. **連線設定不跨機同步**
+   - Specurai 連線存於各機本機：Windows `%APPDATA%\Specurai\connections.json`、macOS `~/Library/Application Support/Specurai/connections.json`。
+   - 兩台要一致時，用 `specurai conn export` / `conn import`，或經 `mpe export specurai --stdout | specurai conn import --stdin` 重新匯入（即 mp-env 整合的用途）。
+
+4. **腳本跨平台規範**：依專案 `CLAUDE.md`，`install.ps1` / `install.sh` 須 UTF-8 無 BOM、LF 行尾；`install.sh` 不依賴 GNU-only 工具（macOS 的 `sed`/`grep` 為 BSD 版，解析 `releases/latest` 時避免 GNU 專屬旗標，或要求 `jq`）。
+
 ## 風險與注意事項
 
 1. **`PackAsTool` × `PublishSingleFile` 衝突**：Phase 1b 以 `-p:PackAsTool=false` 規避，實作時務必先本機驗證 `dotnet publish -r win-x64 --self-contained -p:PublishSingleFile=true -p:PackAsTool=false src/Specurai.Cli` 能產出可執行單檔。

@@ -173,21 +173,28 @@ public class ConfirmGateTests
         var service = Substitute.For<IAgentJobService>();
         var jobId = Guid.NewGuid();
 
-        await AgentJobTools.DeleteAgentJob(service, jobId.ToString(), confirm: true);
+        var result = await AgentJobTools.DeleteAgentJob(service, jobId.ToString(), confirm: true);
 
         await service.Received(1).DeleteJobAsync(jobId, Arg.Any<CancellationToken>());
+        result.Should().Contain("已刪除");
     }
 
-    [Fact(DisplayName = "uninstall_health_monitoring: confirm=false 不應移除並回摘要")]
-    public async Task UninstallHealth_ConfirmFalse_ShouldReturnSummaryWithoutExecuting()
+    [Theory(DisplayName = "uninstall_health_monitoring: confirm=false 摘要依範圍顯示且不執行")]
+    [InlineData(false, false, "含歷史資料")]
+    [InlineData(true, false, "保留歷史資料")]
+    [InlineData(false, true, "僅移除排程 Job")]
+    public async Task UninstallHealth_ConfirmFalse_SummaryReflectsScope(
+        bool keepHistory, bool removeJobsOnly, string expected)
     {
         var service = Substitute.For<IHealthMonitoringService>();
 
-        var result = await HealthInstallerTools.UninstallHealthMonitoring(service, confirm: false);
+        var result = await HealthInstallerTools.UninstallHealthMonitoring(
+            service, keepHistory, removeJobsOnly, confirm: false);
 
+        result.Should().Contain("confirm:true");
+        result.Should().Contain(expected);
         await service.DidNotReceive().UninstallAsync(
             Arg.Any<UninstallOptions>(), Arg.Any<IProgress<InstallProgress>>(), Arg.Any<CancellationToken>());
-        result.Should().Contain("confirm:true");
     }
 
     [Fact(DisplayName = "uninstall_health_monitoring: confirm=true 應移除")]

@@ -22,6 +22,10 @@ if [ -z "$tag" ]; then
   tag="$(curl -fsSL "https://api.github.com/repos/$repo/releases/latest" \
         | grep '"tag_name"' | head -1 | sed -E 's/.*"tag_name": *"([^"]+)".*/\1/')"
 fi
+if [ -z "$tag" ]; then
+  echo "找不到最新版本（可能尚無 Release 或 GitHub API 限流）。請以 VERSION=x.y.z 指定。" >&2
+  exit 1
+fi
 case "$tag" in v*) : ;; *) tag="v$tag" ;; esac
 
 install_asset() {
@@ -30,12 +34,22 @@ install_asset() {
   dest="$sharedir/$sub"
   tmp="$(mktemp -d)"
   echo "下載 $asset ($tag)..."
-  curl -fsSL "$url" -o "$tmp/$asset"
+  if ! curl -fsSL "$url" -o "$tmp/$asset"; then
+    echo "下載失敗（版本 $tag 可能無此資產 $asset）" >&2
+    rm -rf "$tmp"; exit 1
+  fi
+  tar xzf "$tmp/$asset" -C "$tmp"
+  rm -f "$tmp/$asset"
+  if [ ! -f "$tmp/$exe" ]; then
+    echo "解壓後找不到執行檔 $exe" >&2
+    rm -rf "$tmp"; exit 1
+  fi
+  chmod +x "$tmp/$exe"
+  xattr -dr com.apple.quarantine "$tmp/$exe" 2>/dev/null || true
+  # 下載/解壓成功後才置換舊版本（避免升級失敗殘留破損狀態）
   rm -rf "$dest"; mkdir -p "$dest"
-  tar xzf "$tmp/$asset" -C "$dest"
+  mv "$tmp"/* "$dest"/
   rm -rf "$tmp"
-  chmod +x "$dest/$exe"
-  xattr -dr com.apple.quarantine "$dest/$exe" 2>/dev/null || true
   mkdir -p "$bindir"
   ln -sf "$dest/$exe" "$bindir/$final"
   echo "已安裝 $final 至 $bindir（→ $dest/$exe）"

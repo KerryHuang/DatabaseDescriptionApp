@@ -261,8 +261,9 @@ jobs:
   publish-nuget:
     name: 發布 NuGet 套件
     runs-on: ubuntu-latest
-    env:
-      HAS_NUGET_KEY: ${{ secrets.NUGET_API_KEY != '' }}
+    permissions:
+      id-token: write
+      contents: read
     steps:
       - name: 檢出程式碼
         uses: actions/checkout@v4
@@ -289,11 +290,16 @@ jobs:
           -p:Version=${{ steps.get-version.outputs.version }}
           -o nupkg
 
+      - name: NuGet 登入（Trusted Publishing OIDC）
+        uses: NuGet/login@v1
+        id: nuget-login
+        with:
+          user: KerryHuangTW
+
       - name: 發布至 NuGet
-        if: env.HAS_NUGET_KEY == 'true'
         run: >
           dotnet nuget push nupkg/*.nupkg
-          --api-key ${{ secrets.NUGET_API_KEY }}
+          --api-key "${{ steps.nuget-login.outputs.NUGET_API_KEY }}"
           --source https://api.nuget.org/v3/index.json
           --skip-duplicate
 

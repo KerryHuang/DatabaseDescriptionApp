@@ -385,6 +385,21 @@ jobs:
             # 在設定檔加入：{"mcpServers":{"specurai":{"command":"specurai-mcp"}}}
             ```
 
+            ## CLI（specurai）安裝
+
+            ### 一鍵安裝（免 .NET SDK）
+
+            - **Windows（PowerShell）：** `irm https://raw.githubusercontent.com/KerryHuang/DatabaseDescriptionApp/master/scripts/install.ps1 | iex`
+            - **macOS / Linux：** `curl -fsSL https://raw.githubusercontent.com/KerryHuang/DatabaseDescriptionApp/master/scripts/install.sh | bash`
+
+            安裝後（Windows 需重開終端機）執行 `specurai --help`。更新＝重跑安裝指令。
+
+            ### dotnet tool（需 .NET 8 SDK）
+
+            ```bash
+            dotnet tool install -g Specurai.Cli
+            ```
+
             ## macOS 桌面應用程式安裝說明
 
             macOS 版本目前未經 Apple 公證，首次開啟時可能會出現安全性警告。

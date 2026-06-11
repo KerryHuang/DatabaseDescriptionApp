@@ -271,6 +271,36 @@ dotnet tool install -g Specurai.Cli
 
 ---
 
+## 安裝 CLI（specurai）
+
+### 方式一：一鍵安裝（免 .NET SDK）
+
+Windows（PowerShell）：
+```powershell
+irm https://raw.githubusercontent.com/KerryHuang/DatabaseDescriptionApp/master/scripts/install.ps1 | iex
+```
+
+macOS / Linux：
+```bash
+curl -fsSL https://raw.githubusercontent.com/KerryHuang/DatabaseDescriptionApp/master/scripts/install.sh | bash
+```
+
+安裝後（Windows 需重開終端機）：
+```bash
+specurai --help
+```
+
+更新＝重跑上述指令。要連 MCP 一起裝：Windows 加 `-WithMcp`、macOS/Linux 加 `--with-mcp`。
+
+### 方式二：dotnet tool（需 .NET 8 SDK）
+
+```bash
+dotnet tool install -g Specurai.Cli      # 指令：specurai
+dotnet tool update  -g Specurai.Cli      # 更新
+```
+
+---
+
 ## 使用
 
 ### 桌面應用程式快捷鍵

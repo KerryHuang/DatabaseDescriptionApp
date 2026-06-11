@@ -235,6 +235,12 @@ jobs:
           -p:Version=${{ steps.get-version.outputs.version }}
           -o nupkg
 
+      - name: 建立 CLI NuGet 套件
+        run: >
+          dotnet pack src/Specurai.Cli -c Release
+          -p:Version=${{ steps.get-version.outputs.version }}
+          -o nupkg
+
       - name: 發布至 NuGet
         if: env.HAS_NUGET_KEY == 'true'
         run: >

@@ -15,6 +15,10 @@ public class ConfirmGateTests
     [InlineData(typeof(RestoreTools), nameof(RestoreTools.RestoreRun))]
     [InlineData(typeof(MigrationTools), nameof(MigrationTools.MigrationApply))]
     [InlineData(typeof(MigrationTools), nameof(MigrationTools.MigrationLogResize))]
+    [InlineData(typeof(ConnectionCrudTools), nameof(ConnectionCrudTools.DeleteConnection))]
+    [InlineData(typeof(AgentJobTools), nameof(AgentJobTools.DeleteAgentJob))]
+    [InlineData(typeof(HealthInstallerTools), nameof(HealthInstallerTools.UninstallHealthMonitoring))]
+    [InlineData(typeof(MaintenancePlanTools), nameof(MaintenancePlanTools.ExecuteMaintenancePlan))]
     public void DestructiveTool_LastParam_ShouldBeConfirmBoolDefaultFalse(Type toolType, string methodName)
     {
         var method = toolType.GetMethod(methodName, BindingFlags.Public | BindingFlags.Static);
@@ -123,5 +127,103 @@ public class ConfirmGateTests
         await MigrationTools.MigrationLogResize(cm, executor, "Target", 1024, confirm: true);
 
         await executor.Received(1).ResizeLogAsync("conn", 1024, Arg.Any<CancellationToken>());
+    }
+
+    [Fact(DisplayName = "delete_connection: confirm=false 不應刪除並回摘要")]
+    public void DeleteConnection_ConfirmFalse_ShouldReturnSummaryWithoutExecuting()
+    {
+        var cm = Substitute.For<IConnectionManager>();
+        cm.GetAllProfiles().Returns(new[] { SampleProfile("MyConn") });
+
+        var result = ConnectionCrudTools.DeleteConnection(cm, "MyConn", confirm: false);
+
+        cm.DidNotReceive().DeleteProfile(Arg.Any<Guid>());
+        result.Should().Contain("confirm:true");
+        result.Should().Contain("MyConn");
+    }
+
+    [Fact(DisplayName = "delete_connection: confirm=true 應刪除")]
+    public void DeleteConnection_ConfirmTrue_ShouldExecute()
+    {
+        var profile = SampleProfile("MyConn");
+        var cm = Substitute.For<IConnectionManager>();
+        cm.GetAllProfiles().Returns(new[] { profile });
+
+        var result = ConnectionCrudTools.DeleteConnection(cm, "MyConn", confirm: true);
+
+        cm.Received(1).DeleteProfile(profile.Id);
+        result.Should().Contain("已刪除");
+    }
+
+    [Fact(DisplayName = "delete_agent_job: confirm=false 不應刪除並回摘要")]
+    public async Task DeleteAgentJob_ConfirmFalse_ShouldReturnSummaryWithoutExecuting()
+    {
+        var service = Substitute.For<IAgentJobService>();
+        var jobId = Guid.NewGuid().ToString();
+
+        var result = await AgentJobTools.DeleteAgentJob(service, jobId, confirm: false);
+
+        await service.DidNotReceive().DeleteJobAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>());
+        result.Should().Contain("confirm:true");
+    }
+
+    [Fact(DisplayName = "delete_agent_job: confirm=true 應刪除")]
+    public async Task DeleteAgentJob_ConfirmTrue_ShouldExecute()
+    {
+        var service = Substitute.For<IAgentJobService>();
+        var jobId = Guid.NewGuid();
+
+        await AgentJobTools.DeleteAgentJob(service, jobId.ToString(), confirm: true);
+
+        await service.Received(1).DeleteJobAsync(jobId, Arg.Any<CancellationToken>());
+    }
+
+    [Fact(DisplayName = "uninstall_health_monitoring: confirm=false 不應移除並回摘要")]
+    public async Task UninstallHealth_ConfirmFalse_ShouldReturnSummaryWithoutExecuting()
+    {
+        var service = Substitute.For<IHealthMonitoringService>();
+
+        var result = await HealthInstallerTools.UninstallHealthMonitoring(service, confirm: false);
+
+        await service.DidNotReceive().UninstallAsync(
+            Arg.Any<UninstallOptions>(), Arg.Any<IProgress<InstallProgress>>(), Arg.Any<CancellationToken>());
+        result.Should().Contain("confirm:true");
+    }
+
+    [Fact(DisplayName = "uninstall_health_monitoring: confirm=true 應移除")]
+    public async Task UninstallHealth_ConfirmTrue_ShouldExecute()
+    {
+        var service = Substitute.For<IHealthMonitoringService>();
+        service.UninstallAsync(Arg.Any<UninstallOptions>(), Arg.Any<IProgress<InstallProgress>>(), Arg.Any<CancellationToken>())
+            .Returns(new UninstallResult(true));
+
+        await HealthInstallerTools.UninstallHealthMonitoring(service, confirm: true);
+
+        await service.Received(1).UninstallAsync(
+            Arg.Any<UninstallOptions>(), Arg.Any<IProgress<InstallProgress>>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact(DisplayName = "execute_maintenance_plan: confirm=false 不應呼叫任何服務並回摘要")]
+    public async Task ExecuteMaintenancePlan_ConfirmFalse_ShouldReturnSummaryWithoutExecuting()
+    {
+        var service = Substitute.For<IMaintenancePlanService>();
+
+        var result = await MaintenancePlanTools.ExecuteMaintenancePlan(
+            service, "AppDb", "/bak", "/restore", "AppDb_Test", "sa", "pwd", confirm: false);
+
+        service.ReceivedCalls().Should().BeEmpty();
+        result.Should().Contain("confirm:true");
+        result.Should().Contain("AppDb");
+    }
+
+    [Fact(DisplayName = "execute_maintenance_plan: confirm=true 應執行計劃")]
+    public async Task ExecuteMaintenancePlan_ConfirmTrue_ShouldExecute()
+    {
+        var service = Substitute.For<IMaintenancePlanService>();
+
+        await MaintenancePlanTools.ExecuteMaintenancePlan(
+            service, "AppDb", "/bak", "/restore", "AppDb_Test", "sa", "pwd", confirm: true);
+
+        service.ReceivedCalls().Should().NotBeEmpty();
     }
 }

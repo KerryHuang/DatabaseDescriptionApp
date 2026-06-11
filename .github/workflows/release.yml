@@ -210,6 +210,54 @@ jobs:
           path: Releases/*
           retention-days: 30
 
+  build-cli:
+    name: 建置 CLI 單一執行檔
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { runtime: win-x64,   artifact: Specurai.Cli-win-x64.zip }
+          - { runtime: osx-arm64, artifact: Specurai.Cli-osx-arm64.tar.gz }
+          - { runtime: osx-x64,   artifact: Specurai.Cli-osx-x64.tar.gz }
+          - { runtime: linux-x64, artifact: Specurai.Cli-linux-x64.tar.gz }
+    steps:
+      - name: 檢出程式碼
+        uses: actions/checkout@v4
+      - name: 設定 .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+      - name: 取得版本號
+        id: get-version
+        shell: bash
+        run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+      - name: 發布 CLI
+        run: >
+          dotnet publish src/Specurai.Cli -c Release
+          -r ${{ matrix.runtime }} --self-contained
+          -p:PublishSingleFile=true
+          -p:PackAsTool=false
+          -p:Version=${{ steps.get-version.outputs.version }}
+          -o cli-publish
+      - name: 打包（Windows）
+        if: contains(matrix.runtime, 'win')
+        shell: bash
+        run: |
+          mkdir -p Releases
+          (cd cli-publish && zip -r ../Releases/${{ matrix.artifact }} .)
+      - name: 打包（macOS / Linux）
+        if: "!contains(matrix.runtime, 'win')"
+        run: |
+          mkdir -p Releases
+          (cd cli-publish && chmod +x Specurai.Cli && tar czf ../Releases/${{ matrix.artifact }} .)
+      - name: 上傳安裝包
+        uses: actions/upload-artifact@v4
+        with:
+          name: cli-${{ matrix.runtime }}
+          path: Releases/*
+          retention-days: 30
+
   publish-nuget:
     name: 發布 NuGet 套件
     runs-on: ubuntu-latest
@@ -258,7 +306,7 @@ jobs:
 
   create-release:
     name: 建立 GitHub Release
-    needs: [build-windows, build-macos, build-linux, build-mcp-server]
+    needs: [build-windows, build-macos, build-linux, build-mcp-server, build-cli]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -280,6 +328,10 @@ jobs:
           cp artifacts/mcp-server-osx-arm64/* release-files/ 2>/dev/null || true
           cp artifacts/mcp-server-osx-x64/* release-files/ 2>/dev/null || true
           cp artifacts/mcp-server-linux-x64/* release-files/ 2>/dev/null || true
+          cp artifacts/cli-win-x64/*   release-files/ 2>/dev/null || true
+          cp artifacts/cli-osx-arm64/* release-files/ 2>/dev/null || true
+          cp artifacts/cli-osx-x64/*   release-files/ 2>/dev/null || true
+          cp artifacts/cli-linux-x64/* release-files/ 2>/dev/null || true
           ls -la release-files/
           # 確保 macOS MCP Server 獨立執行檔存在（Mac 使用者主要安裝路徑）
           for artifact in Specurai.McpServer-osx-arm64.tar.gz Specurai.McpServer-osx-x64.tar.gz; do

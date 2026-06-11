@@ -97,13 +97,17 @@ public static class AgentJobTools
         }
     }
 
-    [McpServerTool, Description("刪除指定的 Agent Job（⚠️ 破壞性操作，無法復原）")]
+    [McpServerTool, Description("刪除指定的 Agent Job（⚠️ 破壞性操作，無法復原；預設僅回摘要，需 confirm:true 才實際執行）")]
     public static async Task<string> DeleteAgentJob(
         IAgentJobService agentJobService,
-        [Description("Job ID")] string jobId)
+        [Description("Job ID")] string jobId,
+        [Description("是否實際執行（預設 false 僅回摘要）")] bool confirm = false)
     {
         try
         {
+            if (!confirm)
+                return $"將刪除 Agent Job [{jobId}]。加 confirm:true 執行。";
+
             await agentJobService.DeleteJobAsync(Guid.Parse(jobId));
             return "已刪除 Agent Job。";
         }

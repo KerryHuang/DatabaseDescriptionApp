@@ -30,14 +30,23 @@ public static class HealthInstallerTools
         }
     }
 
-    [McpServerTool, Description("移除健康監控系統（⚠️ 破壞性操作）")]
+    [McpServerTool, Description("移除健康監控系統（⚠️ 破壞性操作；預設僅回摘要，需 confirm:true 才實際執行）")]
     public static async Task<string> UninstallHealthMonitoring(
         IHealthMonitoringService healthService,
         [Description("是否保留歷史資料（預設 false）")] bool keepHistoryData = false,
-        [Description("僅移除排程 Job（預設 false）")] bool removeJobsOnly = false)
+        [Description("僅移除排程 Job（預設 false）")] bool removeJobsOnly = false,
+        [Description("是否實際執行（預設 false 僅回摘要）")] bool confirm = false)
     {
         try
         {
+            if (!confirm)
+            {
+                var scope = removeJobsOnly
+                    ? "僅移除排程 Job"
+                    : (keepHistoryData ? "移除健康監控系統但保留歷史資料" : "移除健康監控系統（含歷史資料）");
+                return $"將{scope}。加 confirm:true 執行。";
+            }
+
             var options = new UninstallOptions(keepHistoryData, removeJobsOnly);
             var result = await healthService.UninstallAsync(options);
             return result.Success

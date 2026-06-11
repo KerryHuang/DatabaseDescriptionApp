@@ -83,7 +83,7 @@ public static class MaintenancePlanTools
         }
     }
 
-    [McpServerTool, Description("執行維護計劃（⚠️ 破壞性操作，會修改資料庫設定和建立排程）")]
+    [McpServerTool, Description("執行維護計劃（⚠️ 破壞性操作，會修改資料庫設定和建立排程；預設僅回摘要，需 confirm:true 才實際執行）")]
     public static async Task<string> ExecuteMaintenancePlan(
         IMaintenancePlanService maintenancePlanService,
         [Description("資料庫名稱")] string databaseName,
@@ -93,10 +93,14 @@ public static class MaintenancePlanTools
         [Description("登入帳號")] string loginName,
         [Description("登入密碼")] string loginPassword,
         [Description("備份時間（HHMMSS 格式）")] int backupTime = 230000,
-        [Description("還原時間（HHMMSS 格式）")] int restoreTime = 10000)
+        [Description("還原時間（HHMMSS 格式）")] int restoreTime = 10000,
+        [Description("是否實際執行（預設 false 僅回摘要）")] bool confirm = false)
     {
         try
         {
+            if (!confirm)
+                return $"將對資料庫 [{databaseName}] 執行維護計劃（建立備份/還原排程、修改資料庫設定）。加 confirm:true 執行。";
+
             var config = BuildConfig(databaseName, backupPath, restorePath,
                 testDatabaseName, loginName, loginPassword, backupTime, restoreTime);
             var checkResults = await maintenancePlanService.CheckStepsAsync(config);

@@ -13,5 +13,6 @@
     <Project Path="tests/Specurai.Domain.Tests/Specurai.Domain.Tests.csproj" />
     <Project Path="tests/Specurai.Infrastructure.Tests/Specurai.Infrastructure.Tests.csproj" />
     <Project Path="tests/Specurai.Cli.Tests/Specurai.Cli.Tests.csproj" />
+    <Project Path="tests/Specurai.McpServer.Tests/Specurai.McpServer.Tests.csproj" />
   </Folder>
 </Solution>

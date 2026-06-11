@@ -66,11 +66,11 @@ public static class MigrationTools
         IConnectionManager connectionManager,
         ISchemaMigrationService migrationService,
         [Description("目標連線名稱")] string target,
-        [Description("基準連線名稱（不指定則用目前連線）")] string? @base = null)
+        [Description("基準連線名稱（不指定則用目前連線）")] string? baseConnection = null)
     {
         try
         {
-            var (baseProfile, targetProfile, error) = ResolveProfiles(connectionManager, @base, target);
+            var (baseProfile, targetProfile, error) = ResolveProfiles(connectionManager, baseConnection, target);
             if (error != null) return error;
 
             var baseConn = connectionManager.BuildConnectionString(baseProfile!);
@@ -114,11 +114,11 @@ public static class MigrationTools
         ISqlScriptGenerator scriptGenerator,
         ISchemaMigrationExecutor executor,
         [Description("目標連線名稱")] string target,
-        [Description("基準連線名稱（不指定則用目前連線）")] string? @base = null)
+        [Description("基準連線名稱（不指定則用目前連線）")] string? baseConnection = null)
     {
         try
         {
-            var (baseProfile, targetProfile, error) = ResolveProfiles(connectionManager, @base, target);
+            var (baseProfile, targetProfile, error) = ResolveProfiles(connectionManager, baseConnection, target);
             if (error != null) return error;
 
             var baseConn = connectionManager.BuildConnectionString(baseProfile!);
@@ -145,12 +145,12 @@ public static class MigrationTools
         ISqlScriptGenerator scriptGenerator,
         ISchemaMigrationExecutor executor,
         [Description("目標連線名稱")] string target,
-        [Description("基準連線名稱（不指定則用目前連線）")] string? @base = null,
+        [Description("基準連線名稱（不指定則用目前連線）")] string? baseConnection = null,
         [Description("Migration 成功後將目標 LDF 調整到指定 MB（可選）")] int? logResizeMb = null)
     {
         try
         {
-            var (baseProfile, targetProfile, error) = ResolveProfiles(connectionManager, @base, target);
+            var (baseProfile, targetProfile, error) = ResolveProfiles(connectionManager, baseConnection, target);
             if (error != null) return error;
 
             var baseConn = connectionManager.BuildConnectionString(baseProfile!);
@@ -184,12 +184,12 @@ public static class MigrationTools
         ISchemaMigrationService migrationService,
         ISqlScriptGenerator scriptGenerator,
         [Description("目標連線名稱")] string target,
-        [Description("基準連線名稱（不指定則用目前連線）")] string? @base = null,
+        [Description("基準連線名稱（不指定則用目前連線）")] string? baseConnection = null,
         [Description("是否包含高風險項目（預設 false；高風險僅供預覽，不會被 dry-run/apply 執行）")] bool includeHighRisk = false)
     {
         try
         {
-            var (baseProfile, targetProfile, error) = ResolveProfiles(connectionManager, @base, target);
+            var (baseProfile, targetProfile, error) = ResolveProfiles(connectionManager, baseConnection, target);
             if (error != null) return error;
 
             var baseConn = connectionManager.BuildConnectionString(baseProfile!);

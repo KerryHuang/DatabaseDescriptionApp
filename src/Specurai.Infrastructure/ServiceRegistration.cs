@@ -34,6 +34,12 @@ public static class ServiceRegistration
             new SqlQueryRepository(() => sp.GetRequiredService<IConnectionManager>().GetCurrentConnectionString()));
         services.AddSingleton<IColumnTypeRepository>(sp =>
             new ColumnTypeRepository(() => sp.GetRequiredService<IConnectionManager>().GetCurrentConnectionString()));
+        services.AddSingleton<IDatabaseRecoveryModelRepository>(sp =>
+            new DatabaseRecoveryModelRepository(() => sp.GetRequiredService<IConnectionManager>().GetCurrentConnectionString()));
+
+        // Application - Recovery Model（三端共用：Desktop / Cli / McpServer）
+        services.AddSingleton<IDatabaseRecoveryModelService>(sp =>
+            new DatabaseRecoveryModelService(sp.GetRequiredService<IDatabaseRecoveryModelRepository>()));
 
         // Application - 核心查詢服務
         services.AddSingleton<ITableQueryService, TableQueryService>();

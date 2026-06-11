@@ -62,13 +62,7 @@ sealed class Program
         services.AddSingleton<IExternalSourceSettings, ExternalSourceSettings>();
         services.AddSingleton<IExternalConnectionSource, InventoryConnectionSource>();
 
-        // Recovery Model
-        services.AddSingleton<IDatabaseRecoveryModelRepository>(sp =>
-            new DatabaseRecoveryModelRepository(
-                () => sp.GetRequiredService<IConnectionManager>().GetCurrentConnectionString()));
-        services.AddSingleton<IDatabaseRecoveryModelService>(sp =>
-            new DatabaseRecoveryModelService(
-                sp.GetRequiredService<IDatabaseRecoveryModelRepository>()));
+        // Recovery Model（service/repository 已移至 AddSpecuraiCore 三端共用，此處僅註冊 ViewModel）
         services.AddTransient<RecoveryModelDocumentViewModel>(sp =>
             new RecoveryModelDocumentViewModel(
                 sp.GetRequiredService<IDatabaseRecoveryModelService>()));

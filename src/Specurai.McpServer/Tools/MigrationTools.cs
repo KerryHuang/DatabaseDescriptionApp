@@ -138,7 +138,7 @@ public static class MigrationTools
         }
     }
 
-    [McpServerTool, Description("實際執行 Migration（⚠️ 破壞性操作：會對目標庫套用 Schema 變更，GO 分批 + idempotent；已排除高風險）")]
+    [McpServerTool, Description("實際執行 Migration（⚠️ 破壞性操作：會對目標庫套用 Schema 變更，GO 分批 + idempotent；已排除高風險；預設僅回摘要含將套用的差異數，需 confirm:true 才實際執行）")]
     public static async Task<string> MigrationApply(
         IConnectionManager connectionManager,
         ISchemaMigrationService migrationService,
@@ -146,7 +146,8 @@ public static class MigrationTools
         ISchemaMigrationExecutor executor,
         [Description("目標連線名稱")] string target,
         [Description("基準連線名稱（不指定則用目前連線）")] string? baseConnection = null,
-        [Description("Migration 成功後將目標 LDF 調整到指定 MB（可選）")] int? logResizeMb = null)
+        [Description("Migration 成功後將目標 LDF 調整到指定 MB（可選）")] int? logResizeMb = null,
+        [Description("是否實際執行（預設 false 僅回摘要）")] bool confirm = false)
     {
         try
         {
@@ -160,6 +161,9 @@ public static class MigrationTools
             var script = GenerateScript(scriptGenerator, analysis, includeHighRisk: false);
             if (script.Differences.Count == 0)
                 return "沒有可執行的差異（高風險已排除）。";
+
+            if (!confirm)
+                return $"將對 {analysis.TargetSchema.ConnectionName} 套用 {script.Differences.Count} 項變更（高風險已排除）。加 confirm:true 執行。";
 
             var report = await executor.ExecuteAsync(script, targetConn, dryRun: false);
             var result = ReportToObject(report, "Migration");
@@ -208,12 +212,13 @@ public static class MigrationTools
         }
     }
 
-    [McpServerTool, Description("調整目標庫 transaction log（LDF）大小（⚠️ 變更資料庫檔案：縮小走 CHECKPOINT + SHRINKFILE，放大走預擴）")]
+    [McpServerTool, Description("調整目標庫 transaction log（LDF）大小（⚠️ 變更資料庫檔案：縮小走 CHECKPOINT + SHRINKFILE，放大走預擴；預設僅回摘要，需 confirm:true 才實際執行）")]
     public static async Task<string> MigrationLogResize(
         IConnectionManager connectionManager,
         ISchemaMigrationExecutor executor,
         [Description("目標連線名稱")] string target,
-        [Description("目標 LDF 大小（MB），須介於 64 ~ 102400")] int sizeMb)
+        [Description("目標 LDF 大小（MB），須介於 64 ~ 102400")] int sizeMb,
+        [Description("是否實際執行（預設 false 僅回摘要）")] bool confirm = false)
     {
         try
         {
@@ -224,6 +229,9 @@ public static class MigrationTools
 
             if (sizeMb < 64 || sizeMb > 102400)
                 return "sizeMb 必須介於 64 ~ 102400 之間。";
+
+            if (!confirm)
+                return $"將把 [{target}] 的 LDF 調整為 {sizeMb} MB。加 confirm:true 執行。";
 
             var targetConn = connectionManager.BuildConnectionString(targetProfile);
             var rr = await executor.ResizeLogAsync(targetConn, sizeMb);

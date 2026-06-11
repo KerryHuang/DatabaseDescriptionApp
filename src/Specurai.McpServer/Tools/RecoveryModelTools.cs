@@ -27,17 +27,21 @@ public static class RecoveryModelTools
         }
     }
 
-    [McpServerTool, Description("設定指定資料庫的 Recovery Model（⚠️ 變更資料庫設定，會影響交易記錄行為）")]
+    [McpServerTool, Description("設定指定資料庫的 Recovery Model（⚠️ 變更資料庫設定，會影響交易記錄行為；預設僅回摘要，需 confirm:true 才實際執行）")]
     public static async Task<string> SetRecoveryModel(
         IDatabaseRecoveryModelService service,
         [Description("資料庫名稱")] string database,
-        [Description("Recovery Model：FULL / SIMPLE / BULK_LOGGED")] string model)
+        [Description("Recovery Model：FULL / SIMPLE / BULK_LOGGED")] string model,
+        [Description("是否實際執行（預設 false 僅回摘要）")] bool confirm = false)
     {
         try
         {
             var normalized = model.ToUpperInvariant().Replace("-", "_");
             if (normalized is not ("FULL" or "SIMPLE" or "BULK_LOGGED"))
                 return "Model 必須為 FULL / SIMPLE / BULK_LOGGED。";
+
+            if (!confirm)
+                return $"將把 [{database}] 的 Recovery Model 設為 {normalized}。加 confirm:true 執行。";
 
             await service.SaveChangesAsync(new[] { (database, normalized) });
             return $"已設定 [{database}] 的 Recovery Model = {normalized}。";

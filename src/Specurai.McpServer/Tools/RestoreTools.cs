@@ -13,7 +13,7 @@ namespace Specurai.McpServer.Tools;
 [McpServerToolType]
 public static class RestoreTools
 {
-    [McpServerTool, Description("從備份檔案還原資料庫（⚠️ 破壞性操作：overwrite 模式會覆蓋現有資料庫，無法復原）")]
+    [McpServerTool, Description("從備份檔案還原資料庫（⚠️ 破壞性操作：overwrite 模式會覆蓋現有資料庫，無法復原；預設僅回摘要，需 confirm:true 才實際執行）")]
     public static async Task<string> RestoreRun(
         IConnectionManager connectionManager,
         IBackupService backupService,
@@ -21,7 +21,8 @@ public static class RestoreTools
         [Description("還原模式：overwrite（覆蓋現有）/ new（建立新資料庫，預設 overwrite）")] string mode = "overwrite",
         [Description("目標資料庫名稱（mode=new 時必填）")] string? target = null,
         [Description("資料檔路徑（mode=new 時可指定，SQL Server 伺服器端路徑）")] string? dataPath = null,
-        [Description("日誌檔路徑（mode=new 時可指定，SQL Server 伺服器端路徑）")] string? logPath = null)
+        [Description("日誌檔路徑（mode=new 時可指定，SQL Server 伺服器端路徑）")] string? logPath = null,
+        [Description("是否實際執行（預設 false 僅回摘要）")] bool confirm = false)
     {
         try
         {
@@ -48,6 +49,13 @@ public static class RestoreTools
                 WithRecovery = true,
                 ShowProgress = false
             };
+
+            if (!confirm)
+            {
+                var overwriteNote = restoreMode == RestoreMode.OverwriteExisting
+                    ? "；overwrite 會覆蓋現有資料庫，無法復原" : "";
+                return $"將從 {path} 還原到 {target ?? profile.Database}（模式 {restoreMode}{overwriteNote}）。加 confirm:true 執行。";
+            }
 
             // 還原需連到 master 資料庫
             var masterProfile = new ConnectionProfile

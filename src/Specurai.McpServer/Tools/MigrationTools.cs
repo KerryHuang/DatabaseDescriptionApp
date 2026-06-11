@@ -163,7 +163,10 @@ public static class MigrationTools
                 return "沒有可執行的差異（高風險已排除）。";
 
             if (!confirm)
-                return $"將對 {analysis.TargetSchema.ConnectionName} 套用 {script.Differences.Count} 項變更（高風險已排除）。加 confirm:true 執行。";
+            {
+                var resizeNote = logResizeMb.HasValue ? $"，並將 LDF 調整為 {logResizeMb} MB" : "";
+                return $"將對 {analysis.TargetSchema.ConnectionName} 套用 {script.Differences.Count} 項變更（高風險已排除）{resizeNote}。加 confirm:true 執行。";
+            }
 
             var report = await executor.ExecuteAsync(script, targetConn, dryRun: false);
             var result = ReportToObject(report, "Migration");

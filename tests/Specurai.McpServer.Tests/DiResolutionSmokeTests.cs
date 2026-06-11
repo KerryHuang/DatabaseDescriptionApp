@@ -12,6 +12,8 @@ public class DiResolutionSmokeTests
         member.GetCustomAttributes(inherit: false)
             .Any(a => a.GetType().Name == attributeName);
 
+    // 涵蓋邊界：僅檢查 [McpServerTool] 方法「直接參數」中的 Specurai.* 介面注入；
+    // 不涵蓋經由 resolver/helper 間接取得的相依（目前所有注入皆為直接參數）。
     [Fact(DisplayName = "所有 MCP 工具注入的 Specurai 服務都應能由 AddSpecuraiCore 解析")]
     public void AllMcpToolInjectedServices_ShouldBeResolvable()
     {

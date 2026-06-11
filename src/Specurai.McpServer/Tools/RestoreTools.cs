@@ -17,11 +17,11 @@ public static class RestoreTools
     public static async Task<string> RestoreRun(
         IConnectionManager connectionManager,
         IBackupService backupService,
-        [Description("備份檔案路徑")] string path,
+        [Description("備份檔案路徑（SQL Server 伺服器端路徑）")] string path,
         [Description("還原模式：overwrite（覆蓋現有）/ new（建立新資料庫，預設 overwrite）")] string mode = "overwrite",
         [Description("目標資料庫名稱（mode=new 時必填）")] string? target = null,
-        [Description("資料檔路徑（mode=new 時可指定）")] string? dataPath = null,
-        [Description("日誌檔路徑（mode=new 時可指定）")] string? logPath = null)
+        [Description("資料檔路徑（mode=new 時可指定，SQL Server 伺服器端路徑）")] string? dataPath = null,
+        [Description("日誌檔路徑（mode=new 時可指定，SQL Server 伺服器端路徑）")] string? logPath = null)
     {
         try
         {

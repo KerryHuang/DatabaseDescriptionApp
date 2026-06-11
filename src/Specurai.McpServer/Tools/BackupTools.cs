@@ -45,7 +45,7 @@ public static class BackupTools
             {
                 var verify = await backupService.VerifyBackupAsync(connStr, path);
                 if (!verify.IsValid)
-                    return $"備份已建立但驗證失敗：{verify.ErrorMessage}";
+                    return $"備份已建立但驗證失敗：{verify.ErrorMessage}\n{JsonSerializer.Serialize(info, JsonOptions)}";
             }
 
             return JsonSerializer.Serialize(info, JsonOptions);

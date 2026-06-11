@@ -1,3 +1,4 @@
+using System.Reflection;
 using FluentAssertions;
 using NSubstitute;
 using Specurai.Application.Services;
@@ -9,6 +10,23 @@ namespace Specurai.McpServer.Tests;
 
 public class ConfirmGateTests
 {
+    [Theory(DisplayName = "破壞性工具最後一個參數應為 confirm（bool，預設 false）")]
+    [InlineData(typeof(RecoveryModelTools), nameof(RecoveryModelTools.SetRecoveryModel))]
+    [InlineData(typeof(RestoreTools), nameof(RestoreTools.RestoreRun))]
+    [InlineData(typeof(MigrationTools), nameof(MigrationTools.MigrationApply))]
+    [InlineData(typeof(MigrationTools), nameof(MigrationTools.MigrationLogResize))]
+    public void DestructiveTool_LastParam_ShouldBeConfirmBoolDefaultFalse(Type toolType, string methodName)
+    {
+        var method = toolType.GetMethod(methodName, BindingFlags.Public | BindingFlags.Static);
+        method.Should().NotBeNull();
+
+        var last = method!.GetParameters().Last();
+        last.Name.Should().Be("confirm");
+        last.ParameterType.Should().Be(typeof(bool));
+        last.HasDefaultValue.Should().BeTrue();
+        last.DefaultValue.Should().Be(false);
+    }
+
     private static ConnectionProfile SampleProfile(string name = "目前連線") => new()
     {
         Name = name,

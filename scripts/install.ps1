@@ -10,20 +10,34 @@ $root = Join-Path $env:LOCALAPPDATA 'Programs\Specurai'
 
 function Resolve-Tag {
     if ($Version) { if ($Version.StartsWith('v')) { return $Version } else { return "v$Version" } }
-    return (Invoke-RestMethod "https://api.github.com/repos/$repo/releases/latest").tag_name
+    $t = (Invoke-RestMethod "https://api.github.com/repos/$repo/releases/latest").tag_name
+    if (-not $t) { throw "找不到最新版本（可能尚無 Release 或 GitHub API 限流）。請用 -Version 指定版本。" }
+    return $t
 }
 
 function Install-Asset($tag, $asset, $exeName, $finalName, $subdir) {
     $url = "https://github.com/$repo/releases/download/$tag/$asset"
     $tmpZip = Join-Path $env:TEMP $asset
+    $tmpDir = Join-Path $env:TEMP ("specurai-" + [System.Guid]::NewGuid().ToString('N'))
     $dest = Join-Path $root $subdir
     Write-Host "下載 $asset ($tag)..."
-    Invoke-WebRequest -Uri $url -OutFile $tmpZip
-    if (Test-Path $dest) { Remove-Item $dest -Recurse -Force }
-    New-Item -ItemType Directory -Force -Path $dest | Out-Null
-    Expand-Archive -Path $tmpZip -DestinationPath $dest -Force
+    $oldProgress = $ProgressPreference
+    $ProgressPreference = 'SilentlyContinue'   # 關閉進度條以加速大檔下載
+    try {
+        try { Invoke-WebRequest -Uri $url -OutFile $tmpZip }
+        catch { throw "下載失敗（版本 $tag 可能無此資產 $asset）：$($_.Exception.Message)" }
+    } finally { $ProgressPreference = $oldProgress }
+
+    New-Item -ItemType Directory -Force -Path $tmpDir | Out-Null
+    Expand-Archive -Path $tmpZip -DestinationPath $tmpDir -Force
     Remove-Item $tmpZip
-    Move-Item (Join-Path $dest $exeName) (Join-Path $dest $finalName) -Force
+    Move-Item (Join-Path $tmpDir $exeName) (Join-Path $tmpDir $finalName) -Force
+    if (-not (Test-Path (Join-Path $tmpDir $finalName))) { throw "解壓後找不到執行檔 $finalName" }
+
+    # 下載/解壓成功後才置換舊版本（避免升級失敗殘留破損狀態）
+    New-Item -ItemType Directory -Force -Path $root | Out-Null
+    if (Test-Path $dest) { Remove-Item $dest -Recurse -Force }
+    Move-Item $tmpDir $dest -Force
     Write-Host "已安裝 $finalName 至 $dest"
     return $dest
 }

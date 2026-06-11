@@ -290,7 +290,19 @@ curl -fsSL https://raw.githubusercontent.com/KerryHuang/DatabaseDescriptionApp/m
 specurai --help
 ```
 
-更新＝重跑上述指令。要連 MCP 一起裝：Windows 加 `-WithMcp`、macOS/Linux 加 `--with-mcp`。
+更新＝重跑上述指令。
+
+**要連 MCP 一起裝**（pipe 模式無法直接帶旗標，需用下列傳參寫法）：
+
+Windows（PowerShell）：
+```powershell
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/KerryHuang/DatabaseDescriptionApp/master/scripts/install.ps1))) -WithMcp
+```
+
+macOS / Linux：
+```bash
+curl -fsSL https://raw.githubusercontent.com/KerryHuang/DatabaseDescriptionApp/master/scripts/install.sh | bash -s -- --with-mcp
+```
 
 ### 方式二：dotnet tool（需 .NET 8 SDK）
 

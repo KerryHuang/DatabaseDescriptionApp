@@ -30,7 +30,8 @@ public class ColumnTypeRepository : IColumnTypeRepository
                 SCHEMA_NAME(t.schema_id) AS SchemaName,
                 t.name AS TableName,
                 TYPE_NAME(c.user_type_id) AS BaseType,
-                c.max_length AS MaxLength,
+                CASE WHEN TYPE_NAME(c.user_type_id) IN ('nvarchar','nchar') AND c.max_length > 0
+                     THEN c.max_length / 2 ELSE c.max_length END AS MaxLength,
                 c.precision AS Precision,
                 c.scale AS Scale,
                 c.is_nullable AS IsNullable,
@@ -453,7 +454,8 @@ public class ColumnTypeRepository : IColumnTypeRepository
                 SCHEMA_NAME(t.schema_id) AS SchemaName,
                 t.name AS TableName,
                 TYPE_NAME(c.user_type_id) AS BaseType,
-                c.max_length AS MaxLength,
+                CASE WHEN TYPE_NAME(c.user_type_id) IN ('nvarchar','nchar') AND c.max_length > 0
+                     THEN c.max_length / 2 ELSE c.max_length END AS MaxLength,
                 c.precision AS Precision,
                 c.scale AS Scale,
                 c.is_nullable AS IsNullable

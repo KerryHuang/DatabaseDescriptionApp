@@ -157,7 +157,7 @@ SELECT
         ELSE t.name
     END AS DataType,
     CASE
-        WHEN c.max_length > 0 THEN c.max_length
+        WHEN c.max_length > 0 THEN CASE WHEN t.name IN ('nchar', 'nvarchar') THEN c.max_length / 2 ELSE c.max_length END
         WHEN c.max_length = -1 THEN -1
         ELSE NULL
     END AS Length,

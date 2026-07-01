@@ -130,8 +130,10 @@ public class SqlQueryRepository : ISqlQueryRepository
                 'TABLE' AS ObjectType,
                 TYPE_NAME(c.user_type_id) +
                     CASE
-                        WHEN TYPE_NAME(c.user_type_id) IN ('varchar', 'nvarchar', 'char', 'nchar')
+                        WHEN TYPE_NAME(c.user_type_id) IN ('varchar', 'char')
                             THEN '(' + CASE WHEN c.max_length = -1 THEN 'MAX' ELSE CAST(c.max_length AS VARCHAR) END + ')'
+                        WHEN TYPE_NAME(c.user_type_id) IN ('nvarchar', 'nchar')
+                            THEN '(' + CASE WHEN c.max_length = -1 THEN 'MAX' ELSE CAST(c.max_length / 2 AS VARCHAR) END + ')'
                         WHEN TYPE_NAME(c.user_type_id) IN ('decimal', 'numeric')
                             THEN '(' + CAST(c.precision AS VARCHAR) + ',' + CAST(c.scale AS VARCHAR) + ')'
                         ELSE ''
@@ -157,8 +159,10 @@ public class SqlQueryRepository : ISqlQueryRepository
                 'VIEW' AS ObjectType,
                 TYPE_NAME(c.user_type_id) +
                     CASE
-                        WHEN TYPE_NAME(c.user_type_id) IN ('varchar', 'nvarchar', 'char', 'nchar')
+                        WHEN TYPE_NAME(c.user_type_id) IN ('varchar', 'char')
                             THEN '(' + CASE WHEN c.max_length = -1 THEN 'MAX' ELSE CAST(c.max_length AS VARCHAR) END + ')'
+                        WHEN TYPE_NAME(c.user_type_id) IN ('nvarchar', 'nchar')
+                            THEN '(' + CASE WHEN c.max_length = -1 THEN 'MAX' ELSE CAST(c.max_length / 2 AS VARCHAR) END + ')'
                         WHEN TYPE_NAME(c.user_type_id) IN ('decimal', 'numeric')
                             THEN '(' + CAST(c.precision AS VARCHAR) + ',' + CAST(c.scale AS VARCHAR) + ')'
                         ELSE ''
@@ -184,8 +188,10 @@ public class SqlQueryRepository : ISqlQueryRepository
                 'PROCEDURE' AS ObjectType,
                 TYPE_NAME(p.user_type_id) +
                     CASE
-                        WHEN TYPE_NAME(p.user_type_id) IN ('varchar', 'nvarchar', 'char', 'nchar')
+                        WHEN TYPE_NAME(p.user_type_id) IN ('varchar', 'char')
                             THEN '(' + CASE WHEN p.max_length = -1 THEN 'MAX' ELSE CAST(p.max_length AS VARCHAR) END + ')'
+                        WHEN TYPE_NAME(p.user_type_id) IN ('nvarchar', 'nchar')
+                            THEN '(' + CASE WHEN p.max_length = -1 THEN 'MAX' ELSE CAST(p.max_length / 2 AS VARCHAR) END + ')'
                         WHEN TYPE_NAME(p.user_type_id) IN ('decimal', 'numeric')
                             THEN '(' + CAST(p.precision AS VARCHAR) + ',' + CAST(p.scale AS VARCHAR) + ')'
                         ELSE ''
@@ -213,8 +219,10 @@ public class SqlQueryRepository : ISqlQueryRepository
                 END AS ObjectType,
                 TYPE_NAME(p.user_type_id) +
                     CASE
-                        WHEN TYPE_NAME(p.user_type_id) IN ('varchar', 'nvarchar', 'char', 'nchar')
+                        WHEN TYPE_NAME(p.user_type_id) IN ('varchar', 'char')
                             THEN '(' + CASE WHEN p.max_length = -1 THEN 'MAX' ELSE CAST(p.max_length AS VARCHAR) END + ')'
+                        WHEN TYPE_NAME(p.user_type_id) IN ('nvarchar', 'nchar')
+                            THEN '(' + CASE WHEN p.max_length = -1 THEN 'MAX' ELSE CAST(p.max_length / 2 AS VARCHAR) END + ')'
                         WHEN TYPE_NAME(p.user_type_id) IN ('decimal', 'numeric')
                             THEN '(' + CAST(p.precision AS VARCHAR) + ',' + CAST(p.scale AS VARCHAR) + ')'
                         ELSE ''

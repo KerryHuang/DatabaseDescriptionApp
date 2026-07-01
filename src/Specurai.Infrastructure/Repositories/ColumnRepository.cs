@@ -66,6 +66,8 @@ SELECT
         WHEN b.DATA_TYPE IN ('char', 'varchar', 'binary', 'varbinary')
             THEN b.DATA_TYPE + '(' + CASE WHEN b.CHARACTER_MAXIMUM_LENGTH = -1 THEN 'MAX'
                  ELSE CAST(b.CHARACTER_MAXIMUM_LENGTH AS VARCHAR) END + ')'
+        -- INFORMATION_SCHEMA 的 CHARACTER_MAXIMUM_LENGTH 已是字元數（nvarchar(50) → 50），毋須 / 2；
+        -- 只有取自 sys.columns.max_length 的查詢（回傳位元組數）才需除以 2。
         WHEN b.DATA_TYPE IN ('nchar', 'nvarchar')
             THEN b.DATA_TYPE + '(' + CASE WHEN b.CHARACTER_MAXIMUM_LENGTH = -1 THEN 'MAX'
                  ELSE CAST(b.CHARACTER_MAXIMUM_LENGTH AS VARCHAR) END + ')'
@@ -191,6 +193,8 @@ SELECT
         WHEN a.DATA_TYPE IN ('char', 'varchar', 'binary', 'varbinary')
             THEN a.DATA_TYPE + '(' + CASE WHEN a.CHARACTER_MAXIMUM_LENGTH = -1 THEN 'MAX'
                  ELSE CAST(a.CHARACTER_MAXIMUM_LENGTH AS VARCHAR) END + ')'
+        -- INFORMATION_SCHEMA 的 CHARACTER_MAXIMUM_LENGTH 已是字元數（nvarchar(50) → 50），毋須 / 2；
+        -- 只有取自 sys.columns.max_length 的查詢（回傳位元組數）才需除以 2。
         WHEN a.DATA_TYPE IN ('nchar', 'nvarchar')
             THEN a.DATA_TYPE + '(' + CASE WHEN a.CHARACTER_MAXIMUM_LENGTH = -1 THEN 'MAX'
                  ELSE CAST(a.CHARACTER_MAXIMUM_LENGTH AS VARCHAR) END + ')'

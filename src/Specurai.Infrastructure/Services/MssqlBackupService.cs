@@ -534,7 +534,11 @@ public class MssqlBackupService : IBackupService
 
         try
         {
-            return await QueryVolumesModernAsync(connection, cancellationToken);
+            var modern = await QueryVolumesModernAsync(connection, cancellationToken);
+            // 現代 DMV 存在但回傳空清單（例如 Linux 無「固定磁碟」列）時，改走平台 fallback
+            if (modern.Count > 0)
+                return modern;
+            return await QueryVolumesFallbackAsync(connection, cancellationToken);
         }
         catch (SqlException)
         {

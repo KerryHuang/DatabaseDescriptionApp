@@ -102,8 +102,17 @@ public partial class ServerFolderBrowserViewModel : ObservableObject
     private static string ParentOf(string fullPath)
     {
         var sep = ServerPathHelper.GetSeparator(fullPath);
-        var idx = fullPath.TrimEnd(sep).LastIndexOf(sep);
-        return idx <= 0 ? fullPath : fullPath[..idx];
+        var trimmed = fullPath.TrimEnd(sep);
+        var idx = trimmed.LastIndexOf(sep);
+        if (idx < 0) return fullPath;
+
+        var parent = trimmed[..idx];
+        // 磁碟根目錄（例如 "D:"）補回分隔字元 → "D:\"
+        if (parent.Length == 2 && char.IsLetter(parent[0]) && parent[1] == ':')
+            return parent + sep;
+        // Unix 根目錄
+        if (parent.Length == 0) return sep.ToString();
+        return parent;
     }
 
     [RelayCommand]

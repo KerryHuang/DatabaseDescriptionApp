@@ -94,4 +94,20 @@ public class ServerFolderBrowserViewModelTests
         vm.SelectedPath.Should().Be("D:\\SQLBackup");
         vm.FileName.Should().Be("old.bak");
     }
+
+    [Fact]
+    public void SelectFileNode_磁碟根目錄檔案_保留分隔字元()
+    {
+        var vm = new ServerFolderBrowserViewModel(BuildService(), "cs", "my.bak");
+        var loader = new System.Func<string, Task<IReadOnlyList<ServerDirectoryEntry>>>(
+            _ => Task.FromResult<IReadOnlyList<ServerDirectoryEntry>>(new List<ServerDirectoryEntry>()));
+        var fileNode = new ServerFolderNode(
+            new ServerDirectoryEntry { Name = "old.bak", FullPath = "D:\\old.bak", IsDirectory = false },
+            loader);
+
+        vm.SelectedNode = fileNode;
+
+        vm.SelectedPath.Should().Be("D:\\");
+        vm.FileName.Should().Be("old.bak");
+    }
 }

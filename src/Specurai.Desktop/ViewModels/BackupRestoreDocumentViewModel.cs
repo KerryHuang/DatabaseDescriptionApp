@@ -5,11 +5,14 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Specurai.Application.Services;
+using Specurai.Desktop.Views;
+using Specurai.Domain;
 using Specurai.Domain.Entities;
 using Specurai.Domain.Enums;
 using Specurai.Domain.Interfaces;
@@ -68,6 +71,15 @@ public partial class BackupRestoreDocumentViewModel : DocumentViewModel
         new BackupTypeItem(BackupType.Differential, "差異備份"),
         new BackupTypeItem(BackupType.TransactionLog, "交易記錄備份")
     ];
+
+    /// <summary>伺服器磁碟區清單</summary>
+    public ObservableCollection<ServerVolumeInfo> ServerVolumes { get; } = [];
+
+    [ObservableProperty]
+    private bool _isLoadingVolumes;
+
+    [ObservableProperty]
+    private string _volumesMessage = string.Empty;
 
     #endregion
 
@@ -271,6 +283,7 @@ public partial class BackupRestoreDocumentViewModel : DocumentViewModel
             CurrentServerName = value.Server;
             UpdateLastBackupInfo(value.Id);
             GenerateDefaultBackupPath();
+            _ = LoadServerVolumesAsync();
         }
         else
         {
@@ -312,45 +325,27 @@ public partial class BackupRestoreDocumentViewModel : DocumentViewModel
         if (SelectedProfile == null || _connectionManager == null || _backupService == null) return;
 
         var fileName = $"{SelectedProfile.Database}_{DateTime.Now:yyyyMMdd_HHmmss}.bak";
-
-        // 嘗試取得 SQL Server 的預設備份目錄
         var connectionString = _connectionManager.GetConnectionString(SelectedProfile.Id);
+
         if (!string.IsNullOrEmpty(connectionString))
         {
             try
             {
-                var defaultPath = await GetSqlServerDefaultBackupPathAsync(connectionString);
+                var defaultPath = await _backupService.GetServerDefaultBackupPathAsync(connectionString);
                 if (!string.IsNullOrEmpty(defaultPath))
                 {
-                    // 使用伺服器端的預設備份目錄
-                    BackupPath = Path.Combine(defaultPath, fileName);
+                    BackupPath = ServerPathHelper.Combine(defaultPath, fileName);
                     return;
                 }
             }
             catch
             {
-                // 忽略錯誤，使用預設路徑
+                // 忽略錯誤，改僅帶入檔名
             }
         }
 
-        // 如果無法取得伺服器路徑，使用常見的預設路徑格式
-        BackupPath = $@"C:\Backup\{fileName}";
-    }
-
-    /// <summary>
-    /// 取得 SQL Server 的預設備份目錄
-    /// </summary>
-    private static async Task<string?> GetSqlServerDefaultBackupPathAsync(string connectionString)
-    {
-        await using var connection = new Microsoft.Data.SqlClient.SqlConnection(connectionString);
-        await connection.OpenAsync();
-
-        // 查詢 SQL Server 的預設備份目錄
-        await using var command = new Microsoft.Data.SqlClient.SqlCommand(
-            @"SELECT SERVERPROPERTY('InstanceDefaultBackupPath') AS DefaultBackupPath", connection);
-
-        var result = await command.ExecuteScalarAsync();
-        return result?.ToString();
+        // 查不到伺服器預設路徑：僅留檔名，待使用者以「瀏覽」選擇資料夾
+        BackupPath = fileName;
     }
 
     #endregion
@@ -445,27 +440,71 @@ public partial class BackupRestoreDocumentViewModel : DocumentViewModel
         !string.IsNullOrWhiteSpace(BackupPath) &&
         !IsProcessing;
 
+    /// <summary>載入伺服器磁碟空間清單</summary>
+    private async Task LoadServerVolumesAsync()
+    {
+        ServerVolumes.Clear();
+        VolumesMessage = string.Empty;
+
+        if (_backupService == null || _connectionManager == null || SelectedProfile == null)
+            return;
+
+        var connectionString = _connectionManager.GetConnectionString(SelectedProfile.Id);
+        if (string.IsNullOrEmpty(connectionString))
+            return;
+
+        try
+        {
+            IsLoadingVolumes = true;
+            var volumes = await _backupService.GetServerVolumesAsync(connectionString);
+            foreach (var v in volumes)
+                ServerVolumes.Add(v);
+            if (ServerVolumes.Count == 0)
+                VolumesMessage = "無磁碟資訊";
+        }
+        catch (Exception ex)
+        {
+            VolumesMessage = $"無法取得磁碟資訊：{ex.Message}";
+        }
+        finally
+        {
+            IsLoadingVolumes = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task RefreshVolumesAsync() => await LoadServerVolumesAsync();
+
     [RelayCommand]
     private async Task BrowseBackupPathAsync()
     {
-        var storageProvider = App.GetStorageProvider();
-        if (storageProvider == null) return;
-
-        var file = await storageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+        if (_backupService == null || _connectionManager == null || SelectedProfile == null)
         {
-            Title = "選擇備份儲存位置",
-            SuggestedFileName = Path.GetFileName(BackupPath),
-            FileTypeChoices =
-            [
-                new FilePickerFileType("SQL Server 備份檔") { Patterns = ["*.bak"] },
-                new FilePickerFileType("所有檔案") { Patterns = ["*.*"] }
-            ]
-        });
-
-        if (file != null)
-        {
-            BackupPath = file.Path.LocalPath;
+            StatusMessage = "請先選擇連線";
+            return;
         }
+
+        var connectionString = _connectionManager.GetConnectionString(SelectedProfile.Id);
+        if (string.IsNullOrEmpty(connectionString))
+        {
+            StatusMessage = "無法取得連線字串";
+            return;
+        }
+
+        var initialFileName = string.IsNullOrWhiteSpace(BackupPath)
+            ? $"{SelectedProfile.Database}_{DateTime.Now:yyyyMMdd_HHmmss}.bak"
+            : ServerPathHelper.GetFileName(BackupPath);
+
+        var dialogViewModel = new ServerFolderBrowserViewModel(_backupService, connectionString, initialFileName);
+        var dialog = new ServerFolderBrowserWindow(dialogViewModel);
+
+        var owner = (Avalonia.Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)
+            ?.MainWindow;
+        if (owner == null) return;
+
+        var confirmed = await dialog.ShowDialog<bool>(owner);
+        if (confirmed && !string.IsNullOrEmpty(dialogViewModel.ResultPath))
+            BackupPath = dialogViewModel.ResultPath;
     }
 
     #endregion

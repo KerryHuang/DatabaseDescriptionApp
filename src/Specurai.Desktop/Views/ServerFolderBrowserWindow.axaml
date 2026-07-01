@@ -1,0 +1,53 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Specurai.Desktop.ViewModels"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="560" d:DesignHeight="520"
+        x:Class="Specurai.Desktop.Views.ServerFolderBrowserWindow"
+        x:DataType="vm:ServerFolderBrowserViewModel"
+        Title="尋找備份資料夾" Width="560" Height="520"
+        WindowStartupLocation="CenterOwner">
+
+    <Design.DataContext>
+        <vm:ServerFolderBrowserViewModel/>
+    </Design.DataContext>
+
+    <Grid RowDefinitions="Auto,*,Auto,Auto" Margin="14">
+        <TextBlock Grid.Row="0" Text="選取資料夾：" Margin="0,0,0,6"/>
+
+        <Border Grid.Row="1" BorderBrush="Gray" BorderThickness="1" CornerRadius="4">
+            <TreeView ItemsSource="{Binding RootNodes}"
+                      SelectedItem="{Binding SelectedNode}">
+                <TreeView.ItemTemplate>
+                    <TreeDataTemplate ItemsSource="{Binding Children}" x:DataType="vm:ServerFolderNode">
+                        <StackPanel Orientation="Horizontal" Spacing="5">
+                            <TextBlock Text="{Binding IsDirectory, Converter={x:Static vm:FolderIconConverter.Instance}}"/>
+                            <TextBlock Text="{Binding Name}"/>
+                        </StackPanel>
+                    </TreeDataTemplate>
+                </TreeView.ItemTemplate>
+                <TreeView.Styles>
+                    <Style Selector="TreeViewItem" x:DataType="vm:ServerFolderNode">
+                        <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}"/>
+                    </Style>
+                </TreeView.Styles>
+            </TreeView>
+        </Border>
+
+        <Grid Grid.Row="2" ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto" Margin="0,12,0,0">
+            <TextBlock Grid.Row="0" Grid.Column="0" Text="選取的路徑：" VerticalAlignment="Center" Margin="0,0,10,6"/>
+            <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding SelectedPath}" IsReadOnly="True" Margin="0,0,0,6"/>
+
+            <TextBlock Grid.Row="1" Grid.Column="0" Text="檔案名稱：" VerticalAlignment="Center" Margin="0,0,10,6"/>
+            <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding FileName}" Margin="0,0,0,6"/>
+
+            <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding ErrorMessage}" Foreground="#E06C6C" FontSize="12"/>
+        </Grid>
+
+        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10" Margin="0,12,0,0">
+            <Button Content="確定" Command="{Binding ConfirmCommand}" MinWidth="80"/>
+            <Button Content="取消" Command="{Binding CancelCommand}" MinWidth="80"/>
+        </StackPanel>
+    </Grid>
+</Window>

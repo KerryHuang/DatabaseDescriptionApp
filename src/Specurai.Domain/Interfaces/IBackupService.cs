@@ -92,6 +92,28 @@ public interface IBackupService
     /// </summary>
     /// <param name="backupId">備份 ID</param>
     void RemoveFromHistory(Guid backupId);
+
+    /// <summary>
+    /// 取得伺服器各磁碟區的空間資訊（跨 Windows／Linux）
+    /// </summary>
+    Task<IReadOnlyList<ServerVolumeInfo>> GetServerVolumesAsync(
+        string connectionString,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 列出伺服器端指定路徑下一層的資料夾與備份檔（path 為空時回傳各磁碟根節點）
+    /// </summary>
+    Task<IReadOnlyList<ServerDirectoryEntry>> ListServerDirectoryAsync(
+        string connectionString,
+        string path,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 取得 SQL Server 的預設備份目錄；查不到時回傳 null
+    /// </summary>
+    Task<string?> GetServerDefaultBackupPathAsync(
+        string connectionString,
+        CancellationToken cancellationToken = default);
 }
 
 /// <summary>

@@ -1,8 +1,10 @@
 using System.Data;
+using System.Linq;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using Microsoft.Data.SqlClient;
+using Specurai.Domain;
 using Specurai.Domain.Entities;
 using Specurai.Domain.Enums;
 using Specurai.Domain.Interfaces;
@@ -516,6 +518,191 @@ public class MssqlBackupService : IBackupService
         {
             return null;
         }
+    }
+
+    #endregion
+
+    #region 伺服器磁碟與目錄查詢
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<ServerVolumeInfo>> GetServerVolumesAsync(
+        string connectionString,
+        CancellationToken cancellationToken = default)
+    {
+        await using var connection = new SqlConnection(connectionString);
+        await connection.OpenAsync(cancellationToken);
+
+        try
+        {
+            var modern = await QueryVolumesModernAsync(connection, cancellationToken);
+            // 現代 DMV 存在但回傳空清單（例如 Linux 無「固定磁碟」列）時，改走平台 fallback
+            if (modern.Count > 0)
+                return modern;
+            return await QueryVolumesFallbackAsync(connection, cancellationToken);
+        }
+        catch (SqlException)
+        {
+            // 舊版 SQL Server 無 sys.dm_os_enumerate_fixed_drives，改走平台 fallback
+            return await QueryVolumesFallbackAsync(connection, cancellationToken);
+        }
+    }
+
+    // SQL 2019 CU2+：一次取得所有固定磁碟 + 可用 + 總量
+    private static async Task<IReadOnlyList<ServerVolumeInfo>> QueryVolumesModernAsync(
+        SqlConnection connection, CancellationToken ct)
+    {
+        const string sql = @"
+SELECT d.fixed_drive_path      AS Name,
+       d.free_space_in_bytes   AS FreeBytes,
+       v.total_bytes           AS TotalBytes,
+       v.logical_volume_name   AS Label
+FROM sys.dm_os_enumerate_fixed_drives AS d
+OUTER APPLY (
+    SELECT TOP 1 vs.total_bytes, vs.logical_volume_name
+    FROM sys.master_files AS mf
+    CROSS APPLY sys.dm_os_volume_stats(mf.database_id, mf.file_id) AS vs
+    WHERE vs.volume_mount_point = d.fixed_drive_path
+) AS v
+ORDER BY d.fixed_drive_path;";
+
+        await using var cmd = new SqlCommand(sql, connection);
+        await using var reader = await cmd.ExecuteReaderAsync(ct);
+        return await ReadVolumesAsync(reader, ct);
+    }
+
+    // Fallback：先偵測平台，Windows 用 xp_fixeddrives、Linux 用 dm_os_volume_stats
+    private static async Task<IReadOnlyList<ServerVolumeInfo>> QueryVolumesFallbackAsync(
+        SqlConnection connection, CancellationToken ct)
+    {
+        var platform = await GetHostPlatformAsync(connection, ct);
+        if (string.Equals(platform, "Linux", StringComparison.OrdinalIgnoreCase))
+            return await QueryVolumesFromVolumeStatsAsync(connection, ct);
+        return await QueryVolumesFromFixedDrivesAsync(connection, ct);
+    }
+
+    private static async Task<string> GetHostPlatformAsync(SqlConnection connection, CancellationToken ct)
+    {
+        try
+        {
+            await using var cmd = new SqlCommand("SELECT host_platform FROM sys.dm_os_host_info", connection);
+            var result = await cmd.ExecuteScalarAsync(ct);
+            return result?.ToString() ?? "Windows";
+        }
+        catch
+        {
+            return "Windows"; // dm_os_host_info 不存在（SQL 2016 以前）→ 視為 Windows
+        }
+    }
+
+    private static async Task<IReadOnlyList<ServerVolumeInfo>> QueryVolumesFromFixedDrivesAsync(
+        SqlConnection connection, CancellationToken ct)
+    {
+        var result = new List<ServerVolumeInfo>();
+        await using var cmd = new SqlCommand("EXEC master.dbo.xp_fixeddrives", connection);
+        await using var reader = await cmd.ExecuteReaderAsync(ct);
+        while (await reader.ReadAsync(ct))
+        {
+            var drive = reader.GetValue(0)?.ToString() ?? string.Empty;
+            var freeMb = Convert.ToInt64(reader.GetValue(1));
+            result.Add(new ServerVolumeInfo
+            {
+                Name = $"{drive}:\\",
+                FreeBytes = freeMb * 1024 * 1024,
+                TotalBytes = null
+            });
+        }
+        return result;
+    }
+
+    private static async Task<IReadOnlyList<ServerVolumeInfo>> QueryVolumesFromVolumeStatsAsync(
+        SqlConnection connection, CancellationToken ct)
+    {
+        const string sql = @"
+SELECT DISTINCT vs.volume_mount_point AS Name,
+       vs.available_bytes             AS FreeBytes,
+       vs.total_bytes                 AS TotalBytes,
+       vs.logical_volume_name         AS Label
+FROM sys.master_files AS mf
+CROSS APPLY sys.dm_os_volume_stats(mf.database_id, mf.file_id) AS vs
+ORDER BY vs.volume_mount_point;";
+
+        await using var cmd = new SqlCommand(sql, connection);
+        await using var reader = await cmd.ExecuteReaderAsync(ct);
+        return await ReadVolumesAsync(reader, ct);
+    }
+
+    // 共用讀取：欄位順序固定為 Name, FreeBytes, TotalBytes, Label
+    private static async Task<IReadOnlyList<ServerVolumeInfo>> ReadVolumesAsync(
+        SqlDataReader reader, CancellationToken ct)
+    {
+        var list = new List<ServerVolumeInfo>();
+        while (await reader.ReadAsync(ct))
+        {
+            list.Add(new ServerVolumeInfo
+            {
+                Name = reader.GetString(0),
+                FreeBytes = reader.GetInt64(1),
+                TotalBytes = await reader.IsDBNullAsync(2, ct) ? null : reader.GetInt64(2),
+                Label = await reader.IsDBNullAsync(3, ct) ? null : reader.GetString(3)
+            });
+        }
+        return list;
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<ServerDirectoryEntry>> ListServerDirectoryAsync(
+        string connectionString,
+        string path,
+        CancellationToken cancellationToken = default)
+    {
+        // 根層：以各磁碟作為資料夾節點
+        if (string.IsNullOrEmpty(path))
+        {
+            var volumes = await GetServerVolumesAsync(connectionString, cancellationToken);
+            return volumes.Select(v => new ServerDirectoryEntry
+            {
+                Name = v.Name,
+                FullPath = v.Name,
+                IsDirectory = true
+            }).ToList();
+        }
+
+        await using var connection = new SqlConnection(connectionString);
+        await connection.OpenAsync(cancellationToken);
+
+        // xp_dirtree 'path', 1, 1 → 單層、含檔案；欄位：subdirectory, depth, file(1=檔案)
+        await using var cmd = new SqlCommand("EXEC master.sys.xp_dirtree @path, 1, 1", connection);
+        cmd.Parameters.AddWithValue("@path", path);
+        await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
+
+        var entries = new List<ServerDirectoryEntry>();
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            var name = reader.GetValue(0)?.ToString() ?? string.Empty;
+            var isFile = Convert.ToInt32(reader.GetValue(2)) == 1;
+            if (isFile && !ServerPathHelper.IsBackupFile(name)) continue; // 僅顯示 .bak/.trn
+            entries.Add(new ServerDirectoryEntry
+            {
+                Name = name,
+                FullPath = ServerPathHelper.Combine(path, name),
+                IsDirectory = !isFile
+            });
+        }
+        // 資料夾在前、檔案在後，各自依名稱排序
+        return entries.OrderByDescending(e => e.IsDirectory).ThenBy(e => e.Name).ToList();
+    }
+
+    /// <inheritdoc />
+    public async Task<string?> GetServerDefaultBackupPathAsync(
+        string connectionString,
+        CancellationToken cancellationToken = default)
+    {
+        await using var connection = new SqlConnection(connectionString);
+        await connection.OpenAsync(cancellationToken);
+        await using var cmd = new SqlCommand(
+            "SELECT SERVERPROPERTY('InstanceDefaultBackupPath')", connection);
+        var result = await cmd.ExecuteScalarAsync(cancellationToken);
+        return result is null || result == DBNull.Value ? null : result.ToString();
     }
 
     #endregion

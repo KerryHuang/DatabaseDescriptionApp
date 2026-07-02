@@ -38,6 +38,12 @@ public interface IMaintenancePlanService
     Task<string> GetRecoveryModelAsync(string databaseName, CancellationToken ct = default);
 
     /// <summary>
+    /// 取得目前連線伺服器上的使用者資料庫名稱清單（供維護計劃選取目標／還原資料庫）
+    /// </summary>
+    /// <param name="ct">取消權杖</param>
+    Task<IReadOnlyList<string>> GetServerDatabasesAsync(CancellationToken ct = default);
+
+    /// <summary>
     /// 產生預覽 SQL
     /// </summary>
     /// <param name="config">維護計劃設定</param>

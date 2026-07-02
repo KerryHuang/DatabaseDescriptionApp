@@ -482,6 +482,24 @@ public class MaintenancePlanServiceTests
 
     #endregion
 
+    #region GetServerDatabasesAsync
+
+    [Fact]
+    public async Task GetServerDatabasesAsync_有資料庫_應回傳repository清單()
+    {
+        // Arrange
+        var expected = new List<string> { "AlphaDB", "BetaDB" };
+        _dbInfoRepo.GetDatabaseNamesAsync(Arg.Any<CancellationToken>()).Returns(expected);
+
+        // Act
+        var result = await _sut.GetServerDatabasesAsync();
+
+        // Assert
+        result.Should().BeEquivalentTo(expected);
+    }
+
+    #endregion
+
     #region GeneratePreviewSqlAsync
 
     [Fact]

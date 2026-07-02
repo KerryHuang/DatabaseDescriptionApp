@@ -496,6 +496,7 @@ public class MaintenancePlanServiceTests
 
         // Assert
         result.Should().BeEquivalentTo(expected);
+        await _dbInfoRepo.Received(1).GetDatabaseNamesAsync(Arg.Any<CancellationToken>());
     }
 
     #endregion

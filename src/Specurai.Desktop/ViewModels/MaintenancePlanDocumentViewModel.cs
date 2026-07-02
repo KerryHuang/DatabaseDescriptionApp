@@ -404,12 +404,20 @@ public partial class MaintenancePlanDocumentViewModel : DocumentViewModel
     {
         if (_planService == null) return;
 
+        // 在任何 await 前擷取目前選取的目標庫名：非同步載入期間 ComboBox 綁定
+        // 可能因清單尚空而把 SelectedItem 歸零並回寫 null 至 DatabaseName，
+        // 清單就緒後需據此還原選取。
+        var previouslySelected = DatabaseName;
+
         try
         {
             var databases = await _planService.GetServerDatabasesAsync();
             AvailableDatabases.Clear();
             foreach (var db in databases)
                 AvailableDatabases.Add(db);
+
+            if (!string.IsNullOrEmpty(previouslySelected) && AvailableDatabases.Contains(previouslySelected))
+                DatabaseName = previouslySelected;
         }
         catch
         {

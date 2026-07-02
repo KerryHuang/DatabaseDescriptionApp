@@ -6,7 +6,7 @@
         mc:Ignorable="d" d:DesignWidth="560" d:DesignHeight="520"
         x:Class="Specurai.Desktop.Views.ServerFolderBrowserWindow"
         x:DataType="vm:ServerFolderBrowserViewModel"
-        Title="尋找備份資料夾" Width="560" Height="520"
+        Title="{Binding Title}" Width="560" Height="520"
         WindowStartupLocation="CenterOwner">
 
     <Design.DataContext>
@@ -39,8 +39,10 @@
             <TextBlock Grid.Row="0" Grid.Column="0" Text="選取的路徑：" VerticalAlignment="Center" Margin="0,0,10,6"/>
             <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding SelectedPath}" IsReadOnly="True" Margin="0,0,0,6"/>
 
-            <TextBlock Grid.Row="1" Grid.Column="0" Text="檔案名稱：" VerticalAlignment="Center" Margin="0,0,10,6"/>
-            <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding FileName}" Margin="0,0,0,6"/>
+            <TextBlock Grid.Row="1" Grid.Column="0" Text="檔案名稱：" VerticalAlignment="Center" Margin="0,0,10,6"
+                       IsVisible="{Binding ShowFileName}"/>
+            <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding FileName}" Margin="0,0,0,6"
+                     IsVisible="{Binding ShowFileName}"/>
 
             <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding ErrorMessage}" Foreground="#E06C6C" FontSize="12"/>
         </Grid>

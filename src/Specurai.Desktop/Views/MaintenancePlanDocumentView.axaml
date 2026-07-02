@@ -206,15 +206,23 @@
                         <Grid ColumnDefinitions="*,16,*">
                             <StackPanel Grid.Column="0" Spacing="4">
                                 <TextBlock Text="備份路徑"/>
-                                <TextBox Text="{Binding BackupPath}"
-                                         IsReadOnly="{Binding !IsPathCustom}"
-                                         Watermark="例如: D:\SQLBackup\"/>
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <TextBox Grid.Column="0" Text="{Binding BackupPath}"
+                                             IsReadOnly="{Binding !IsPathCustom}"
+                                             Watermark="例如: D:\SQLBackup\"/>
+                                    <Button Grid.Column="1" Content="瀏覽…" Command="{Binding BrowseBackupPathCommand}"
+                                            Margin="6,0,0,0" ToolTip.Tip="瀏覽 SQL Server 伺服器端資料夾"/>
+                                </Grid>
                             </StackPanel>
                             <StackPanel Grid.Column="2" Spacing="4">
                                 <TextBlock Text="還原路徑"/>
-                                <TextBox Text="{Binding RestorePath}"
-                                         IsReadOnly="{Binding !IsPathCustom}"
-                                         Watermark="例如: D:\sql_data\"/>
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <TextBox Grid.Column="0" Text="{Binding RestorePath}"
+                                             IsReadOnly="{Binding !IsPathCustom}"
+                                             Watermark="例如: D:\sql_data\"/>
+                                    <Button Grid.Column="1" Content="瀏覽…" Command="{Binding BrowseRestorePathCommand}"
+                                            Margin="6,0,0,0" ToolTip.Tip="瀏覽 SQL Server 伺服器端資料夾"/>
+                                </Grid>
                             </StackPanel>
                         </Grid>
 

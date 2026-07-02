@@ -10,6 +10,9 @@ using Specurai.Application.Models;
 using Specurai.Application.Services;
 using Specurai.Domain.Entities;
 using Specurai.Domain.Enums;
+using Specurai.Domain.Interfaces;
+using Avalonia.Controls.ApplicationLifetimes;
+using Specurai.Desktop.Views;
 
 namespace Specurai.Desktop.ViewModels;
 
@@ -22,6 +25,7 @@ public partial class MaintenancePlanDocumentViewModel : DocumentViewModel
     private readonly IMaintenancePlanService? _planService;
     private readonly IMaintenancePlanSqlGenerator? _sqlGenerator;
     private readonly IConnectionManager? _connectionManager;
+    private readonly IBackupService? _backupService;
     private CancellationTokenSource? _executionCts;
 
     public override string DocumentType => "MaintenancePlan";
@@ -282,12 +286,14 @@ public partial class MaintenancePlanDocumentViewModel : DocumentViewModel
         IAgentJobService jobService,
         IMaintenancePlanService planService,
         IMaintenancePlanSqlGenerator sqlGenerator,
-        IConnectionManager connectionManager)
+        IConnectionManager connectionManager,
+        IBackupService backupService)
     {
         _jobService = jobService;
         _planService = planService;
         _sqlGenerator = sqlGenerator;
         _connectionManager = connectionManager;
+        _backupService = backupService;
 
         Title = "維護計劃";
         Icon = "🔧";
@@ -316,6 +322,81 @@ public partial class MaintenancePlanDocumentViewModel : DocumentViewModel
 
         // 進入頁面時自動載入 Job 清單
         _ = LoadJobsAsync();
+        _ = DetectServerPlatformAsync();
+    }
+
+    #endregion
+
+    #region 伺服器路徑瀏覽
+
+    /// <summary>開啟伺服器資料夾瀏覽對話框以選取備份路徑</summary>
+    [RelayCommand]
+    private async Task BrowseBackupPathAsync() => await BrowsePathAsync(isBackup: true);
+
+    /// <summary>開啟伺服器資料夾瀏覽對話框以選取還原路徑</summary>
+    [RelayCommand]
+    private async Task BrowseRestorePathAsync() => await BrowsePathAsync(isBackup: false);
+
+    private async Task BrowsePathAsync(bool isBackup)
+    {
+        if (_backupService == null || _connectionManager == null)
+        {
+            StatusMessage = "請先選擇連線";
+            return;
+        }
+
+        var profile = _connectionManager.GetCurrentProfile();
+        if (profile == null)
+        {
+            StatusMessage = "請先選擇連線";
+            return;
+        }
+
+        var connectionString = _connectionManager.GetConnectionString(profile.Id);
+        if (string.IsNullOrEmpty(connectionString))
+        {
+            StatusMessage = "無法取得連線字串";
+            return;
+        }
+
+        var initialFolder = isBackup ? BackupPath : RestorePath;
+        var dialogViewModel = new ServerFolderBrowserViewModel(
+            _backupService, connectionString, folderOnly: true, initialFolder: initialFolder);
+        var dialog = new ServerFolderBrowserWindow(dialogViewModel);
+
+        var owner = (Avalonia.Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)
+            ?.MainWindow;
+        if (owner == null) return;
+
+        var confirmed = await dialog.ShowDialog<bool>(owner);
+        if (confirmed && !string.IsNullOrEmpty(dialogViewModel.ResultPath))
+        {
+            if (isBackup) BackupPath = dialogViewModel.ResultPath;
+            else RestorePath = dialogViewModel.ResultPath;
+        }
+    }
+
+    /// <summary>偵測目前連線伺服器平台，成功則帶入「平台」下拉（使用者仍可覆寫）</summary>
+    public async Task DetectServerPlatformAsync()
+    {
+        if (_backupService == null || _connectionManager == null) return;
+
+        var profile = _connectionManager.GetCurrentProfile();
+        if (profile == null) return;
+
+        var connectionString = _connectionManager.GetConnectionString(profile.Id);
+        if (string.IsNullOrEmpty(connectionString)) return;
+
+        try
+        {
+            var platform = await _backupService.GetServerPlatformAsync(connectionString);
+            if (!string.IsNullOrEmpty(platform) && PlatformOptions.Contains(platform))
+                SelectedPlatform = platform;
+        }
+        catch
+        {
+            // 偵測失敗維持預設平台
+        }
     }
 
     #endregion

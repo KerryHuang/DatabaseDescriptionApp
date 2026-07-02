@@ -73,7 +73,8 @@ sealed class Program
                 sp.GetRequiredService<IAgentJobService>(),
                 sp.GetRequiredService<IMaintenancePlanService>(),
                 sp.GetRequiredService<IMaintenancePlanSqlGenerator>(),
-                sp.GetRequiredService<IConnectionManager>()));
+                sp.GetRequiredService<IConnectionManager>(),
+                sp.GetRequiredService<IBackupService>()));
 
         // ViewModels
         services.AddTransient<MainWindowViewModel>(sp =>

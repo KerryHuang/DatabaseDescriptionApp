@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -17,6 +18,7 @@ public partial class ServerFolderBrowserViewModel : ObservableObject
 {
     private readonly IBackupService? _backupService;
     private readonly string _connectionString;
+    private readonly bool _folderOnly;
 
     public ObservableCollection<ServerFolderNode> RootNodes { get; } = [];
 
@@ -32,7 +34,13 @@ public partial class ServerFolderBrowserViewModel : ObservableObject
     [ObservableProperty]
     private string _errorMessage = string.Empty;
 
-    /// <summary>確定後的完整路徑（資料夾 + 檔名）</summary>
+    /// <summary>視窗標題</summary>
+    public string Title { get; }
+
+    /// <summary>是否顯示「檔案名稱」欄（folder-only 模式隱藏）</summary>
+    public bool ShowFileName => !_folderOnly;
+
+    /// <summary>確定後的完整路徑（檔案模式為資料夾+檔名；folder-only 為資料夾）</summary>
     public string? ResultPath { get; private set; }
 
     /// <summary>要求關閉視窗：true = 確定、false = 取消</summary>
@@ -42,14 +50,24 @@ public partial class ServerFolderBrowserViewModel : ObservableObject
     public ServerFolderBrowserViewModel()
     {
         _connectionString = string.Empty;
+        Title = "尋找備份資料夾";
     }
 
     /// <summary>執行時建構函式</summary>
-    public ServerFolderBrowserViewModel(IBackupService backupService, string connectionString, string initialFileName)
+    public ServerFolderBrowserViewModel(
+        IBackupService backupService,
+        string connectionString,
+        string initialFileName = "",
+        bool folderOnly = false,
+        string initialFolder = "")
     {
         _backupService = backupService;
         _connectionString = connectionString;
         _fileName = initialFileName;
+        _folderOnly = folderOnly;
+        Title = folderOnly ? "選擇伺服器資料夾" : "尋找備份資料夾";
+        if (folderOnly && !string.IsNullOrEmpty(initialFolder))
+            _selectedPath = initialFolder.TrimEnd('\\', '/');
     }
 
     /// <summary>載入根節點（各磁碟）</summary>
@@ -74,7 +92,9 @@ public partial class ServerFolderBrowserViewModel : ObservableObject
         if (_backupService is null) return [];
         try
         {
-            return await _backupService.ListServerDirectoryAsync(_connectionString, path);
+            var entries = await _backupService.ListServerDirectoryAsync(_connectionString, path);
+            // folder-only 模式：只顯示資料夾
+            return _folderOnly ? entries.Where(e => e.IsDirectory).ToList() : entries;
         }
         catch (Exception ex)
         {
@@ -118,12 +138,14 @@ public partial class ServerFolderBrowserViewModel : ObservableObject
     [RelayCommand]
     private void Confirm()
     {
-        if (string.IsNullOrWhiteSpace(SelectedPath) || string.IsNullOrWhiteSpace(FileName))
+        if (string.IsNullOrWhiteSpace(SelectedPath) || (!_folderOnly && string.IsNullOrWhiteSpace(FileName)))
         {
-            ErrorMessage = "請選擇資料夾並輸入檔案名稱";
+            ErrorMessage = _folderOnly ? "請選擇資料夾" : "請選擇資料夾並輸入檔案名稱";
             return;
         }
-        ResultPath = ServerPathHelper.Combine(SelectedPath, FileName);
+        ResultPath = _folderOnly
+            ? ServerPathHelper.EnsureTrailingSeparator(SelectedPath)
+            : ServerPathHelper.Combine(SelectedPath, FileName);
         RequestClose?.Invoke(true);
     }
 

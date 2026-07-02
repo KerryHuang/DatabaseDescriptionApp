@@ -110,4 +110,67 @@ public class ServerFolderBrowserViewModelTests
         vm.SelectedPath.Should().Be("D:\\");
         vm.FileName.Should().Be("old.bak");
     }
+
+    [Fact]
+    public void FolderOnly_ShowFileName為false()
+    {
+        var vm = new ServerFolderBrowserViewModel(BuildService(), "cs", folderOnly: true);
+        vm.ShowFileName.Should().BeFalse();
+        vm.Title.Should().Be("選擇伺服器資料夾");
+    }
+
+    [Fact]
+    public void FileMode_ShowFileName為true()
+    {
+        var vm = new ServerFolderBrowserViewModel(BuildService(), "cs", "my.bak");
+        vm.ShowFileName.Should().BeTrue();
+        vm.Title.Should().Be("尋找備份資料夾");
+    }
+
+    [Fact]
+    public async Task FolderOnly_展開節點只保留資料夾()
+    {
+        var vm = new ServerFolderBrowserViewModel(BuildService(), "cs", folderOnly: true);
+        await vm.LoadRootAsync();
+        var dNode = vm.RootNodes[1]; // D:\
+        await dNode.LoadChildrenAsync();
+        dNode.Children.Should().OnlyContain(c => c.IsDirectory);
+        dNode.Children.Should().ContainSingle(c => c.Name == "SQLBackup");
+    }
+
+    [Fact]
+    public void FolderOnly_Confirm回傳帶結尾分隔字元的資料夾()
+    {
+        var vm = new ServerFolderBrowserViewModel(BuildService(), "cs", folderOnly: true)
+        {
+            SelectedPath = "D:\\SQLBackup"
+        };
+        bool? closed = null;
+        vm.RequestClose += ok => closed = ok;
+
+        vm.ConfirmCommand.Execute(null);
+
+        vm.ResultPath.Should().Be("D:\\SQLBackup\\");
+        closed.Should().BeTrue();
+    }
+
+    [Fact]
+    public void FolderOnly_未選資料夾_錯誤不關閉()
+    {
+        var vm = new ServerFolderBrowserViewModel(BuildService(), "cs", folderOnly: true);
+        bool closed = false;
+        vm.RequestClose += _ => closed = true;
+
+        vm.ConfirmCommand.Execute(null);
+
+        vm.ErrorMessage.Should().NotBeEmpty();
+        closed.Should().BeFalse();
+    }
+
+    [Fact]
+    public void FolderOnly_initialFolder預帶SelectedPath且去尾分隔字元()
+    {
+        var vm = new ServerFolderBrowserViewModel(BuildService(), "cs", folderOnly: true, initialFolder: "D:\\SQLBackup\\");
+        vm.SelectedPath.Should().Be("D:\\SQLBackup");
+    }
 }

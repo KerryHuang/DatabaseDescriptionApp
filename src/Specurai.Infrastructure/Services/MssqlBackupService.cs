@@ -705,5 +705,31 @@ ORDER BY vs.volume_mount_point;";
         return result is null || result == DBNull.Value ? null : result.ToString();
     }
 
+    /// <inheritdoc />
+    public async Task<string?> GetServerPlatformAsync(
+        string connectionString,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync(cancellationToken);
+            await using var cmd = new SqlCommand("SELECT host_platform FROM sys.dm_os_host_info", connection);
+            var result = await cmd.ExecuteScalarAsync(cancellationToken);
+            var raw = result?.ToString();
+            if (string.IsNullOrEmpty(raw)) return null;
+            return raw switch
+            {
+                "Windows" => "Windows",
+                "Linux" => "Linux",
+                _ => "其他"
+            };
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     #endregion
 }

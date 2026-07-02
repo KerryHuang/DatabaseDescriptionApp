@@ -114,6 +114,13 @@ public interface IBackupService
     Task<string?> GetServerDefaultBackupPathAsync(
         string connectionString,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 偵測伺服器作業系統平台，回傳 "Windows"/"Linux"/"其他"；取不到時為 null
+    /// </summary>
+    Task<string?> GetServerPlatformAsync(
+        string connectionString,
+        CancellationToken cancellationToken = default);
 }
 
 /// <summary>

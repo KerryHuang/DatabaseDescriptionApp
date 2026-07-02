@@ -187,11 +187,11 @@
                     <StackPanel IsVisible="{Binding IsStep1Visible}" Spacing="10">
                         <TextBlock Text="步驟 1：基本設定" FontSize="18" FontWeight="Bold"/>
 
-                        <!-- 第一列：資料庫名稱 + 平台 -->
+                        <!-- 第一列：目標資料庫 + 平台 -->
                         <Grid ColumnDefinitions="*,16,Auto">
                             <StackPanel Grid.Column="0" Spacing="4">
-                                <TextBlock Text="資料庫名稱"/>
-                                <TextBox Text="{Binding DatabaseName}" IsReadOnly="{Binding !IsDatabaseNameEditable}"
+                                <TextBlock Text="目標資料庫"/>
+                                <TextBox Text="{Binding DatabaseName}" IsReadOnly="False"
                                          Watermark="自動從目前連線取得"/>
                             </StackPanel>
                             <StackPanel Grid.Column="2" Spacing="4">
@@ -226,9 +226,9 @@
                             </StackPanel>
                         </Grid>
 
-                        <!-- 第三列：測試資料庫名稱 -->
+                        <!-- 第三列：還原資料庫 -->
                         <StackPanel Spacing="4">
-                            <TextBlock Text="測試資料庫名稱"/>
+                            <TextBlock Text="還原資料庫"/>
                             <TextBox Text="{Binding TestDatabaseName}"/>
                         </StackPanel>
 

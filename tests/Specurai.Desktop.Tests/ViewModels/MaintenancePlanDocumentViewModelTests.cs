@@ -3,6 +3,7 @@ using NSubstitute;
 using Specurai.Application.Services;
 using Specurai.Desktop.ViewModels;
 using Specurai.Domain.Entities;
+using Specurai.Domain.Interfaces;
 
 namespace Specurai.Desktop.Tests.ViewModels;
 
@@ -15,6 +16,7 @@ public class MaintenancePlanDocumentViewModelTests
     private readonly IMaintenancePlanService _planService;
     private readonly IMaintenancePlanSqlGenerator _sqlGenerator;
     private readonly IConnectionManager _connectionManager;
+    private readonly IBackupService _backupService;
 
     public MaintenancePlanDocumentViewModelTests()
     {
@@ -22,6 +24,7 @@ public class MaintenancePlanDocumentViewModelTests
         _planService = Substitute.For<IMaintenancePlanService>();
         _sqlGenerator = Substitute.For<IMaintenancePlanSqlGenerator>();
         _connectionManager = Substitute.For<IConnectionManager>();
+        _backupService = Substitute.For<IBackupService>();
     }
 
     #region 建構函式測試
@@ -60,7 +63,7 @@ public class MaintenancePlanDocumentViewModelTests
 
         // Act
         var vm = new MaintenancePlanDocumentViewModel(
-            _jobService, _planService, _sqlGenerator, _connectionManager);
+            _jobService, _planService, _sqlGenerator, _connectionManager, _backupService);
 
         // Assert
         vm.DatabaseName.Should().Be("TestDB");
@@ -75,7 +78,7 @@ public class MaintenancePlanDocumentViewModelTests
 
         // Act
         var vm = new MaintenancePlanDocumentViewModel(
-            _jobService, _planService, _sqlGenerator, _connectionManager);
+            _jobService, _planService, _sqlGenerator, _connectionManager, _backupService);
 
         // Assert
         vm.DatabaseName.Should().BeEmpty();
@@ -130,7 +133,7 @@ public class MaintenancePlanDocumentViewModelTests
         _jobService.GetJobsAsync(Arg.Any<CancellationToken>()).Returns(jobs);
         _connectionManager.GetCurrentProfile().Returns((ConnectionProfile?)null);
         var vm = new MaintenancePlanDocumentViewModel(
-            _jobService, _planService, _sqlGenerator, _connectionManager);
+            _jobService, _planService, _sqlGenerator, _connectionManager, _backupService);
 
         // Act
         await vm.LoadJobsCommand.ExecuteAsync(null);
@@ -154,7 +157,7 @@ public class MaintenancePlanDocumentViewModelTests
         _jobService.GetJobsAsync(Arg.Any<CancellationToken>()).Returns(new List<AgentJobInfo>());
         _connectionManager.GetCurrentProfile().Returns((ConnectionProfile?)null);
         var vm = new MaintenancePlanDocumentViewModel(
-            _jobService, _planService, _sqlGenerator, _connectionManager)
+            _jobService, _planService, _sqlGenerator, _connectionManager, _backupService)
         {
             SelectedJob = job,
             ConfirmDeleteCallback = () => Task.FromResult(true)
@@ -181,7 +184,7 @@ public class MaintenancePlanDocumentViewModelTests
         _jobService.GetJobsAsync(Arg.Any<CancellationToken>()).Returns(new List<AgentJobInfo> { job });
         _connectionManager.GetCurrentProfile().Returns((ConnectionProfile?)null);
         var vm = new MaintenancePlanDocumentViewModel(
-            _jobService, _planService, _sqlGenerator, _connectionManager)
+            _jobService, _planService, _sqlGenerator, _connectionManager, _backupService)
         {
             SelectedJob = job
         };
@@ -221,7 +224,7 @@ public class MaintenancePlanDocumentViewModelTests
         // Arrange
         _connectionManager.GetCurrentProfile().Returns((ConnectionProfile?)null);
         var vm = new MaintenancePlanDocumentViewModel(
-            _jobService, _planService, _sqlGenerator, _connectionManager)
+            _jobService, _planService, _sqlGenerator, _connectionManager, _backupService)
         {
             DatabaseName = "TestDB",
             BackupPath = @"C:\Backup\",
@@ -246,7 +249,7 @@ public class MaintenancePlanDocumentViewModelTests
         // Arrange
         _connectionManager.GetCurrentProfile().Returns((ConnectionProfile?)null);
         var vm = new MaintenancePlanDocumentViewModel(
-            _jobService, _planService, _sqlGenerator, _connectionManager)
+            _jobService, _planService, _sqlGenerator, _connectionManager, _backupService)
         {
             DatabaseName = "TestDB",
             BackupPath = @"C:\Backup\",
@@ -272,7 +275,7 @@ public class MaintenancePlanDocumentViewModelTests
         // Arrange
         _connectionManager.GetCurrentProfile().Returns((ConnectionProfile?)null);
         var vm = new MaintenancePlanDocumentViewModel(
-            _jobService, _planService, _sqlGenerator, _connectionManager);
+            _jobService, _planService, _sqlGenerator, _connectionManager, _backupService);
 
         // Assert
         vm.NextStepCommand.CanExecute(null).Should().BeFalse();

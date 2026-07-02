@@ -322,6 +322,7 @@ public partial class MaintenancePlanDocumentViewModel : DocumentViewModel
 
         // 進入頁面時自動載入 Job 清單
         _ = LoadJobsAsync();
+        _ = DetectServerPlatformAsync();
     }
 
     #endregion
@@ -372,6 +373,29 @@ public partial class MaintenancePlanDocumentViewModel : DocumentViewModel
         {
             if (isBackup) BackupPath = dialogViewModel.ResultPath;
             else RestorePath = dialogViewModel.ResultPath;
+        }
+    }
+
+    /// <summary>偵測目前連線伺服器平台，成功則帶入「平台」下拉（使用者仍可覆寫）</summary>
+    public async Task DetectServerPlatformAsync()
+    {
+        if (_backupService == null || _connectionManager == null) return;
+
+        var profile = _connectionManager.GetCurrentProfile();
+        if (profile == null) return;
+
+        var connectionString = _connectionManager.GetConnectionString(profile.Id);
+        if (string.IsNullOrEmpty(connectionString)) return;
+
+        try
+        {
+            var platform = await _backupService.GetServerPlatformAsync(connectionString);
+            if (!string.IsNullOrEmpty(platform) && PlatformOptions.Contains(platform))
+                SelectedPlatform = platform;
+        }
+        catch
+        {
+            // 偵測失敗維持預設平台
         }
     }
 

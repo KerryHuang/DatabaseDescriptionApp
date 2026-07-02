@@ -34,4 +34,14 @@ public class ServerPathHelperTests
     {
         ServerPathHelper.IsBackupFile(name).Should().Be(expected);
     }
+
+    [Theory]
+    [InlineData("D:\\SQLBackup", "D:\\SQLBackup\\")]
+    [InlineData("D:\\SQLBackup\\", "D:\\SQLBackup\\")]
+    [InlineData("/var/opt/mssql/backup", "/var/opt/mssql/backup/")]
+    [InlineData("/var/opt/mssql/backup/", "/var/opt/mssql/backup/")]
+    public void EnsureTrailingSeparator_補上或維持結尾分隔字元(string path, string expected)
+    {
+        ServerPathHelper.EnsureTrailingSeparator(path).Should().Be(expected);
+    }
 }

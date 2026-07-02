@@ -33,4 +33,11 @@ public static class ServerPathHelper
     public static bool IsBackupFile(string name) =>
         name.EndsWith(".bak", StringComparison.OrdinalIgnoreCase) ||
         name.EndsWith(".trn", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>確保路徑結尾帶該平台的分隔字元。</summary>
+    public static string EnsureTrailingSeparator(string path)
+    {
+        var sep = GetSeparator(path);
+        return path.EndsWith(sep) ? path : path + sep;
+    }
 }

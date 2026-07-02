@@ -187,12 +187,14 @@
                     <StackPanel IsVisible="{Binding IsStep1Visible}" Spacing="10">
                         <TextBlock Text="步驟 1：基本設定" FontSize="18" FontWeight="Bold"/>
 
-                        <!-- 第一列：資料庫名稱 + 平台 -->
+                        <!-- 第一列：目標資料庫 + 平台 -->
                         <Grid ColumnDefinitions="*,16,Auto">
                             <StackPanel Grid.Column="0" Spacing="4">
-                                <TextBlock Text="資料庫名稱"/>
-                                <TextBox Text="{Binding DatabaseName}" IsReadOnly="{Binding !IsDatabaseNameEditable}"
-                                         Watermark="自動從目前連線取得"/>
+                                <TextBlock Text="目標資料庫"/>
+                                <ComboBox ItemsSource="{Binding AvailableDatabases}"
+                                          SelectedItem="{Binding DatabaseName}"
+                                          HorizontalAlignment="Stretch"
+                                          PlaceholderText="從伺服器選擇資料庫"/>
                             </StackPanel>
                             <StackPanel Grid.Column="2" Spacing="4">
                                 <TextBlock Text="平台"/>
@@ -226,10 +228,13 @@
                             </StackPanel>
                         </Grid>
 
-                        <!-- 第三列：測試資料庫名稱 -->
+                        <!-- 第三列：還原資料庫 -->
                         <StackPanel Spacing="4">
-                            <TextBlock Text="測試資料庫名稱"/>
-                            <TextBox Text="{Binding TestDatabaseName}"/>
+                            <TextBlock Text="還原資料庫"/>
+                            <AutoCompleteBox Text="{Binding TestDatabaseName}"
+                                             ItemsSource="{Binding AvailableDatabases}"
+                                             FilterMode="Contains"
+                                             Watermark="可選既有庫或輸入新測試庫名"/>
                         </StackPanel>
 
                         <!-- 第四列：登入帳號 + 登入密碼 -->

@@ -109,9 +109,6 @@ public partial class MaintenancePlanDocumentViewModel : DocumentViewModel
     /// <summary>路徑是否為自訂</summary>
     public bool IsPathCustom => SelectedPlatform == "其他";
 
-    /// <summary>資料庫名稱是否可編輯（平台為「其他」時允許手動輸入）</summary>
-    public bool IsDatabaseNameEditable => SelectedPlatform == "其他";
-
     /// <summary>平台選項清單</summary>
     public IReadOnlyList<string> PlatformOptions { get; } = ["Windows", "Linux", "其他"];
 
@@ -129,7 +126,6 @@ public partial class MaintenancePlanDocumentViewModel : DocumentViewModel
                 break;
         }
         OnPropertyChanged(nameof(IsPathCustom));
-        OnPropertyChanged(nameof(IsDatabaseNameEditable));
     }
 
     [ObservableProperty]
@@ -267,6 +263,9 @@ public partial class MaintenancePlanDocumentViewModel : DocumentViewModel
     /// <summary>執行日誌</summary>
     public ObservableCollection<string> ExecutionLog { get; } = [];
 
+    /// <summary>目前連線伺服器上的使用者資料庫清單（供目標／還原資料庫下拉）</summary>
+    public ObservableCollection<string> AvailableDatabases { get; } = [];
+
     #endregion
 
     #region 建構函式
@@ -323,6 +322,7 @@ public partial class MaintenancePlanDocumentViewModel : DocumentViewModel
         // 進入頁面時自動載入 Job 清單
         _ = LoadJobsAsync();
         _ = DetectServerPlatformAsync();
+        _ = LoadAvailableDatabasesAsync();
     }
 
     #endregion
@@ -396,6 +396,32 @@ public partial class MaintenancePlanDocumentViewModel : DocumentViewModel
         catch
         {
             // 偵測失敗維持預設平台
+        }
+    }
+
+    /// <summary>載入目前連線伺服器上的資料庫清單，供下拉選取。</summary>
+    public async Task LoadAvailableDatabasesAsync()
+    {
+        if (_planService == null) return;
+
+        // 在任何 await 前擷取目前選取的目標庫名：非同步載入期間 ComboBox 綁定
+        // 可能因清單尚空而把 SelectedItem 歸零並回寫 null 至 DatabaseName，
+        // 清單就緒後需據此還原選取。
+        var previouslySelected = DatabaseName;
+
+        try
+        {
+            var databases = await _planService.GetServerDatabasesAsync();
+            AvailableDatabases.Clear();
+            foreach (var db in databases)
+                AvailableDatabases.Add(db);
+
+            if (!string.IsNullOrEmpty(previouslySelected) && AvailableDatabases.Contains(previouslySelected))
+                DatabaseName = previouslySelected;
+        }
+        catch
+        {
+            // 載入失敗維持空清單，欄位仍可（還原欄）手動輸入
         }
     }
 

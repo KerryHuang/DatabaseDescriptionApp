@@ -47,6 +47,10 @@ public class MaintenancePlanService : IMaintenancePlanService
         => _dbInfoRepo.GetRecoveryModelAsync(databaseName, ct);
 
     /// <inheritdoc />
+    public Task<IReadOnlyList<string>> GetServerDatabasesAsync(CancellationToken ct = default)
+        => _dbInfoRepo.GetDatabaseNamesAsync(ct);
+
+    /// <inheritdoc />
     public async Task<IReadOnlyList<StepCheckResult>> CheckStepsAsync(MaintenancePlanConfig config, CancellationToken ct = default)
     {
         var results = new List<StepCheckResult>();

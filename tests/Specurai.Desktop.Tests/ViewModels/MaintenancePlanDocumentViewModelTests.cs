@@ -67,7 +67,7 @@ public class MaintenancePlanDocumentViewModelTests
 
         // Assert
         vm.DatabaseName.Should().Be("TestDB");
-        vm.TestDatabaseName.Should().Be("TestDB-test");
+        vm.TestDatabaseName.Should().Be("TestDB");
     }
 
     [Fact]
@@ -282,7 +282,7 @@ public class MaintenancePlanDocumentViewModelTests
     }
 
     [Fact]
-    public void TestDatabaseName_應自動帶入()
+    public void TestDatabaseName_應自動帶入與目標資料庫一致()
     {
         // Arrange
         var vm = new MaintenancePlanDocumentViewModel();
@@ -291,7 +291,7 @@ public class MaintenancePlanDocumentViewModelTests
         vm.DatabaseName = "WayDoSoft01";
 
         // Assert
-        vm.TestDatabaseName.Should().Be("WayDoSoft01-test");
+        vm.TestDatabaseName.Should().Be("WayDoSoft01");
     }
 
     #endregion

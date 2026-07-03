@@ -231,20 +231,6 @@ public class MaintenancePlanServiceTests
         results[0].CurrentStatus.Should().Contain("TestDB");
     }
 
-    [Fact]
-    public async Task CheckStepsAsync_還原Job不存在_應標記未存在()
-    {
-        // Arrange
-        var config = CreateConfig([MaintenancePlanStep.CreateRestoreJob]);
-        _dbInfoRepo.AgentJobExistsAsync("TestDB_FullRestore", Arg.Any<CancellationToken>()).Returns(false);
-
-        // Act
-        var results = await _sut.CheckStepsAsync(config);
-
-        // Assert
-        results[0].AlreadyExists.Should().BeFalse();
-    }
-
     #endregion
 
     #region ExecutePlanAsync
@@ -255,19 +241,16 @@ public class MaintenancePlanServiceTests
         // Arrange
         var config = CreateConfig([
             MaintenancePlanStep.SetRecoveryModel,
-            MaintenancePlanStep.CreateBackupJob,
-            MaintenancePlanStep.CreateRestoreJob
+            MaintenancePlanStep.CreateBackupJob
         ]);
         var checkResults = new List<StepCheckResult>
         {
             new() { Step = MaintenancePlanStep.SetRecoveryModel, AlreadyExists = false, CurrentStatus = "FULL", AvailableActions = ["執行"], SelectedAction = "執行" },
-            new() { Step = MaintenancePlanStep.CreateBackupJob, AlreadyExists = false, CurrentStatus = "不存在", AvailableActions = ["建立"], SelectedAction = "建立" },
-            new() { Step = MaintenancePlanStep.CreateRestoreJob, AlreadyExists = false, CurrentStatus = "不存在", AvailableActions = ["建立"], SelectedAction = "建立" }
+            new() { Step = MaintenancePlanStep.CreateBackupJob, AlreadyExists = false, CurrentStatus = "不存在", AvailableActions = ["建立"], SelectedAction = "建立" }
         };
 
         _sqlGenerator.GenerateStepSql(MaintenancePlanStep.SetRecoveryModel, config, "執行").Returns("SQL1");
         _sqlGenerator.GenerateStepSql(MaintenancePlanStep.CreateBackupJob, config, "建立").Returns("SQL2");
-        _sqlGenerator.GenerateStepSql(MaintenancePlanStep.CreateRestoreJob, config, "建立").Returns("SQL3");
 
         var progressMessages = new List<string>();
         var progress = Substitute.For<IProgress<string>>();
@@ -279,8 +262,25 @@ public class MaintenancePlanServiceTests
         // Assert
         await _dbInfoRepo.Received(1).ExecuteSqlWithTransactionAsync("SQL1", Arg.Any<CancellationToken>());
         await _dbInfoRepo.Received(1).ExecuteSqlAsync("SQL2", Arg.Any<CancellationToken>());
-        await _dbInfoRepo.Received(1).ExecuteSqlAsync("SQL3", Arg.Any<CancellationToken>());
         progressMessages.Should().NotBeEmpty();
+    }
+
+    [Fact]
+    public async Task ExecutePlanAsync_不再單獨執行還原Job()
+    {
+        // Arrange
+        var checkResults = new List<StepCheckResult>
+        {
+            new() { Step = MaintenancePlanStep.CreateBackupJob, SelectedAction = "執行", AlreadyExists = false, CurrentStatus = "", AvailableActions = ["執行", "跳過"] }
+        };
+        _sqlGenerator.GenerateStepSql(MaintenancePlanStep.CreateBackupJob, Arg.Any<MaintenancePlanConfig>(), Arg.Any<string>())
+            .Returns("-- backup sql");
+
+        // Act
+        await _sut.ExecutePlanAsync(CreateConfig([MaintenancePlanStep.CreateBackupJob]), checkResults);
+
+        // Assert：不對還原步驟產生 SQL
+        _sqlGenerator.DidNotReceive().GenerateStepSql(MaintenancePlanStep.CreateRestoreJob, Arg.Any<MaintenancePlanConfig>(), Arg.Any<string>());
     }
 
     [Fact]

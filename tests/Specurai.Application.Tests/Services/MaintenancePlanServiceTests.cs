@@ -266,24 +266,6 @@ public class MaintenancePlanServiceTests
     }
 
     [Fact]
-    public async Task ExecutePlanAsync_不再單獨執行還原Job()
-    {
-        // Arrange
-        var checkResults = new List<StepCheckResult>
-        {
-            new() { Step = MaintenancePlanStep.CreateBackupJob, SelectedAction = "執行", AlreadyExists = false, CurrentStatus = "", AvailableActions = ["執行", "跳過"] }
-        };
-        _sqlGenerator.GenerateStepSql(MaintenancePlanStep.CreateBackupJob, Arg.Any<MaintenancePlanConfig>(), Arg.Any<string>())
-            .Returns("-- backup sql");
-
-        // Act
-        await _sut.ExecutePlanAsync(CreateConfig([MaintenancePlanStep.CreateBackupJob]), checkResults);
-
-        // Assert：不對還原步驟產生 SQL
-        _sqlGenerator.DidNotReceive().GenerateStepSql(MaintenancePlanStep.CreateRestoreJob, Arg.Any<MaintenancePlanConfig>(), Arg.Any<string>());
-    }
-
-    [Fact]
     public async Task ExecutePlanAsync_已存在的步驟_應跳過()
     {
         // Arrange

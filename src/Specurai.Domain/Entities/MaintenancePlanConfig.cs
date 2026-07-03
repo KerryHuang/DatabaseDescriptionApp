@@ -15,6 +15,7 @@ public class MaintenancePlanConfig
     public required string LoginName { get; init; }
     public required string LoginPassword { get; init; }
     public required int BackupTime { get; init; }
+    /// <summary>還原時間（已不用於排程；還原併入備份 Job 的第二步）</summary>
     public required int RestoreTime { get; init; }
     public required IReadOnlyList<MaintenancePlanStep> SelectedSteps { get; init; }
     public int RetentionDays { get; init; } = 7;

@@ -621,7 +621,7 @@ public partial class MaintenancePlanDocumentViewModel : DocumentViewModel
                 TestDatabaseName = TestDatabaseName,
                 LoginName = LoginName,
                 LoginPassword = LoginPassword,
-                BackupTime = (int)(BackupTime.Hours * 10000 + BackupTime.Minutes * 100),
+                BackupTime = ToHhmmss(BackupTime),
                 RestoreTime = 0,
                 SelectedSteps = Enum.GetValues<MaintenancePlanStep>().ToList()
             };
@@ -775,13 +775,16 @@ public partial class MaintenancePlanDocumentViewModel : DocumentViewModel
             TestDatabaseName = TestDatabaseName,
             LoginName = LoginName,
             LoginPassword = LoginPassword,
-            BackupTime = (int)BackupTime.TotalHours,
+            BackupTime = ToHhmmss(BackupTime),
             RestoreTime = 0,
             RetentionDays = RetentionDays,
             RecoveryModel = _currentRecoveryModel,
             SelectedSteps = GetSelectedSteps()
         };
     }
+
+    /// <summary>將 TimeSpan 轉換為 SQL Agent 排程使用的 HHMMSS 整數格式（例如 2:30 → 23000）</summary>
+    private static int ToHhmmss(TimeSpan t) => t.Hours * 10000 + t.Minutes * 100;
 
     /// <summary>取得已勾選的步驟</summary>
     private List<MaintenancePlanStep> GetSelectedSteps()

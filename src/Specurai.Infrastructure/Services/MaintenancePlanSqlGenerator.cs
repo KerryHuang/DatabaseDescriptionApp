@@ -22,7 +22,6 @@ public class MaintenancePlanSqlGenerator : IMaintenancePlanSqlGenerator
             MaintenancePlanStep.CreateLoginAndUser => GenerateCreateLoginAndUser(config, action),
             MaintenancePlanStep.AddToDbOwner => GenerateAddToDbOwner(config),
             MaintenancePlanStep.CreateBackupJob => GenerateCreateBackupJob(config, action),
-            MaintenancePlanStep.CreateRestoreJob => GenerateCreateRestoreJob(config, action),
             MaintenancePlanStep.AdjustAutoGrowth => string.Empty,
             MaintenancePlanStep.PreExpandDataFile => string.Empty,
             MaintenancePlanStep.CreateCheckDbJob => GenerateCreateCheckDbJobSql(config, action),
@@ -124,22 +123,7 @@ public class MaintenancePlanSqlGenerator : IMaintenancePlanSqlGenerator
             sb.AppendLine();
         }
 
-        // 步驟 6：還原排程
-        var restoreStep = activeResults.FirstOrDefault(r => r.Step == MaintenancePlanStep.CreateRestoreJob);
-        if (restoreStep is not null)
-        {
-            sb.AppendLine($"PRINT N'===== 建立還原排程 (開始) =====';");
-            sb.AppendLine("BEGIN TRY");
-            sb.AppendLine(GenerateStepSql(restoreStep.Step, config, restoreStep.SelectedAction));
-            sb.AppendLine($"    PRINT N'===== 建立還原排程 (完成) =====';");
-            sb.AppendLine("END TRY");
-            sb.AppendLine("BEGIN CATCH");
-            sb.AppendLine("    PRINT N'##### 建立還原排程發生錯誤 #####';");
-            sb.AppendLine("    PRINT ERROR_MESSAGE();");
-            sb.AppendLine("END CATCH;");
-            sb.AppendLine("GO");
-            sb.AppendLine();
-        }
+        // 註：還原已併入備份 Job 成為 Step 2（預設不觸發），不再產生獨立還原排程區塊。
 
         sb.AppendLine("PRINT N'維護計劃設定完成。';");
         return sb.ToString();
@@ -380,6 +364,8 @@ public class MaintenancePlanSqlGenerator : IMaintenancePlanSqlGenerator
         var jobName = $"{config.DatabaseName}_{config.RecoveryModel}Backup";
         var escapedJobName = EscapeSingleQuote(jobName);
         var backupPath = EscapeSingleQuote(config.BackupPath);
+        var testDbName = EscapeSingleQuote(config.TestDatabaseName);
+        var restorePath = EscapeSingleQuote(config.RestorePath);
 
         sb.AppendLine("USE [msdb];");
         sb.AppendLine();
@@ -399,7 +385,7 @@ public class MaintenancePlanSqlGenerator : IMaintenancePlanSqlGenerator
         sb.AppendLine($"EXEC dbo.sp_add_job");
         sb.AppendLine($"    @job_name    = N'{escapedJobName}',");
         sb.AppendLine($"    @enabled     = 1,");
-        sb.AppendLine($"    @description = N'[Specurai] 每日對 {dbName} 做完整備份，保留 {config.RetentionDays} 天';");
+        sb.AppendLine($"    @description = N'[Specurai] 每日對 {dbName} 做完整備份（含還原步驟，預設停用），保留 {config.RetentionDays} 天';");
         sb.AppendLine();
 
         // 備份步驟命令（@command 內的字串用 '' 代表單引號）
@@ -441,56 +427,10 @@ public class MaintenancePlanSqlGenerator : IMaintenancePlanSqlGenerator
         sb.AppendLine($"';");
         sb.AppendLine();
 
-        // 建立排程
-        sb.AppendLine($"-- 建立排程: 每日 {config.BackupTime / 10000:D2}:{config.BackupTime % 10000 / 100:D2} 執行");
-        sb.AppendLine($"EXEC dbo.sp_add_jobschedule");
-        sb.AppendLine($"    @job_name          = N'{escapedJobName}',");
-        sb.AppendLine($"    @name              = N'{EscapeSingleQuote(jobName)}_Schedule',");
-        sb.AppendLine($"    @freq_type         = 4,");
-        sb.AppendLine($"    @freq_interval     = 1,");
-        sb.AppendLine($"    @active_start_time = {config.BackupTime};");
-        sb.AppendLine();
-
-        // 指定本機執行
-        sb.AppendLine($"-- 指定 Job 在本機伺服器執行");
-        sb.AppendLine($"EXEC dbo.sp_add_jobserver");
-        sb.AppendLine($"    @job_name = N'{escapedJobName}';");
-
-        return sb.ToString();
-    }
-
-    private static string GenerateCreateRestoreJob(MaintenancePlanConfig config, string? action)
-    {
-        var sb = new StringBuilder();
-        var dbName = EscapeSingleQuote(config.DatabaseName);
-        var testDbName = EscapeSingleQuote(config.TestDatabaseName);
-        var jobName = $"{config.DatabaseName}_FullRestore";
-        var escapedJobName = EscapeSingleQuote(jobName);
-        var restorePath = EscapeSingleQuote(config.RestorePath);
-        var backupPath = EscapeSingleQuote(config.BackupPath);
-
-        sb.AppendLine("USE [msdb];");
-        sb.AppendLine();
-
-        if (action == "刪除重建")
-        {
-            sb.AppendLine($"-- 刪除現有的 Job: [{jobName}]");
-            sb.AppendLine($"IF EXISTS (SELECT 1 FROM msdb.dbo.sysjobs WHERE name = N'{escapedJobName}')");
-            sb.AppendLine($"    EXEC dbo.sp_delete_job");
-            sb.AppendLine($"        @job_name = N'{escapedJobName}',");
-            sb.AppendLine($"        @delete_unused_schedule = 1;");
-            sb.AppendLine();
-        }
-
-        // 建立 Job
-        sb.AppendLine($"-- 建立 Job: [{jobName}]");
-        sb.AppendLine($"EXEC dbo.sp_add_job");
-        sb.AppendLine($"    @job_name    = N'{escapedJobName}',");
-        sb.AppendLine($"    @enabled     = 1,");
-        sb.AppendLine($"    @description = N'[Specurai] 每日將 {dbName} 還原到 {testDbName}';");
-        sb.AppendLine();
-
-        // 還原步驟命令
+        // 說明：Step 1 成功後預設「結束並回報成功」，故 Step 2（還原）預設不執行。
+        // 欲啟用每日還原：在 SSMS 將 Step 1 的「成功時動作」改為「移至下一步」。
+        sb.AppendLine($"-- 說明：Step 1 成功後預設結束並回報成功，Step 2（還原）預設不執行。");
+        sb.AppendLine($"-- 欲啟用每日還原：於 SSMS 將 Step 1「成功時動作」改為「移至下一步」。");
         sb.AppendLine($"-- 新增 Step: Restore Full to {testDbName}");
         sb.AppendLine($"EXEC dbo.sp_add_jobstep");
         sb.AppendLine($"    @job_name       = N'{escapedJobName}',");
@@ -531,13 +471,13 @@ public class MaintenancePlanSqlGenerator : IMaintenancePlanSqlGenerator
         sb.AppendLine();
 
         // 建立排程
-        sb.AppendLine($"-- 建立排程: 每日 {config.RestoreTime / 10000:D2}:{config.RestoreTime % 10000 / 100:D2} 執行");
+        sb.AppendLine($"-- 建立排程: 每日 {config.BackupTime / 10000:D2}:{config.BackupTime % 10000 / 100:D2} 執行");
         sb.AppendLine($"EXEC dbo.sp_add_jobschedule");
         sb.AppendLine($"    @job_name          = N'{escapedJobName}',");
         sb.AppendLine($"    @name              = N'{EscapeSingleQuote(jobName)}_Schedule',");
         sb.AppendLine($"    @freq_type         = 4,");
         sb.AppendLine($"    @freq_interval     = 1,");
-        sb.AppendLine($"    @active_start_time = {config.RestoreTime};");
+        sb.AppendLine($"    @active_start_time = {config.BackupTime};");
         sb.AppendLine();
 
         // 指定本機執行
@@ -593,9 +533,6 @@ public class MaintenancePlanSqlGenerator : IMaintenancePlanSqlGenerator
         sb.AppendLine();
         sb.AppendLine("-- 每日備份排程時間（HHMMSS 格式，例如 20000 = 02:00:00）");
         sb.AppendLine($"DECLARE @BackupTime INT = {config.BackupTime};");
-        sb.AppendLine();
-        sb.AppendLine("-- 每日還原排程時間（HHMMSS 格式，例如 30000 = 03:00:00）");
-        sb.AppendLine($"DECLARE @RestoreTime INT = {config.RestoreTime};");
         sb.AppendLine();
         sb.AppendLine("-- 資料庫復原模式（用於備份 Job 命名）");
         sb.AppendLine($"DECLARE @RecoveryModel NVARCHAR(20) = N'{EscapeSingleQuote(config.RecoveryModel)}';");
@@ -893,7 +830,7 @@ public class MaintenancePlanSqlGenerator : IMaintenancePlanSqlGenerator
             sb.AppendLine("    EXEC dbo.sp_add_job");
             sb.AppendLine("        @job_name    = @jobName,");
             sb.AppendLine("        @enabled     = 1,");
-            sb.AppendLine("        @description = N'[Specurai] 每日完整備份';");
+            sb.AppendLine("        @description = N'[Specurai] 每日完整備份（含還原步驟，預設停用）';");
             sb.AppendLine();
 
             // 備份步驟命令（使用動態 SQL 建構 @command）
@@ -928,68 +865,8 @@ public class MaintenancePlanSqlGenerator : IMaintenancePlanSqlGenerator
             sb.AppendLine("        @command        = @backupCmd;");
             sb.AppendLine();
 
-            sb.AppendLine("    -- 建立排程");
-            sb.AppendLine("    DECLARE @scheduleName NVARCHAR(256) = @jobName + N'_Schedule';");
-            sb.AppendLine("    EXEC dbo.sp_add_jobschedule");
-            sb.AppendLine("        @job_name          = @jobName,");
-            sb.AppendLine("        @name              = @scheduleName,");
-            sb.AppendLine("        @freq_type         = 4,");
-            sb.AppendLine("        @freq_interval     = 1,");
-            sb.AppendLine("        @active_start_time = @BackupTime;");
-            sb.AppendLine();
-
-            sb.AppendLine("    -- 指定本機執行");
-            sb.AppendLine("    EXEC dbo.sp_add_jobserver @job_name = @jobName;");
-            sb.AppendLine();
-            sb.AppendLine($"PRINT N'===== 步驟 {stepNumber}: 建立備份排程 (完成) =====';");
-            sb.AppendLine("END TRY");
-            sb.AppendLine("BEGIN CATCH");
-            sb.AppendLine($"    PRINT N'##### 步驟 {stepNumber} 發生錯誤 #####';");
-            sb.AppendLine("    PRINT ERROR_MESSAGE();");
-            sb.AppendLine("END CATCH;");
-            sb.AppendLine("GO");
-            sb.AppendLine();
-        }
-
-        // 步驟 6: 建立還原排程 Job
-        var restoreStep = activeResults.FirstOrDefault(r => r.Step == MaintenancePlanStep.CreateRestoreJob);
-        if (restoreStep is not null)
-        {
-            stepNumber++;
-            var isRecreate = restoreStep.SelectedAction == "刪除重建";
-            sb.AppendLine("-- ============================================================");
-            sb.AppendLine($"-- 步驟 {stepNumber}: 建立每日還原排程 Job");
-            sb.AppendLine("-- 說明: 建立 SQL Agent Job，每日在指定時間將備份還原到測試資料庫，");
-            sb.AppendLine("--       以驗證備份完整性");
-            sb.AppendLine("-- ============================================================");
-            sb.AppendLine($"PRINT N'===== 步驟 {stepNumber}: 建立還原排程 (開始) =====';");
-            sb.AppendLine("BEGIN TRY");
-            sb.AppendLine("    USE [msdb];");
-            sb.AppendLine();
-            sb.AppendLine("    DECLARE @restoreJobName NVARCHAR(256) = @DatabaseName + N'_FullRestore';");
-            sb.AppendLine();
-
-            if (isRecreate)
-            {
-                sb.AppendLine("    -- 若 Job 已存在，先刪除");
-                sb.AppendLine("    IF EXISTS (SELECT 1 FROM msdb.dbo.sysjobs WHERE name = @restoreJobName)");
-                sb.AppendLine("    BEGIN");
-                sb.AppendLine("        PRINT N'  刪除現有 Job: ' + @restoreJobName;");
-                sb.AppendLine("        EXEC dbo.sp_delete_job @job_name = @restoreJobName, @delete_unused_schedule = 1;");
-                sb.AppendLine("    END");
-                sb.AppendLine();
-            }
-
-            sb.AppendLine("    -- 建立 Job");
-            sb.AppendLine("    PRINT N'  建立 Job: ' + @restoreJobName;");
-            sb.AppendLine("    EXEC dbo.sp_add_job");
-            sb.AppendLine("        @job_name    = @restoreJobName,");
-            sb.AppendLine("        @enabled     = 1,");
-            sb.AppendLine("        @description = N'[Specurai] 每日將備份還原到測試資料庫';");
-            sb.AppendLine();
-
-            // 還原步驟命令
-            sb.AppendLine("    -- 建立還原步驟的命令");
+            sb.AppendLine("    -- 說明：Step 1 成功後預設結束並回報成功，Step 2（還原）預設不執行。");
+            sb.AppendLine("    -- 欲啟用每日還原：於 SSMS 將 Step 1「成功時動作」改為「移至下一步」。");
             sb.AppendLine("    DECLARE @restoreCmd NVARCHAR(MAX) = N'");
             sb.AppendLine("BEGIN TRY");
             sb.AppendLine("    DECLARE @today     NVARCHAR(8)  = CONVERT(VARCHAR(8), GETDATE(), 112);");
@@ -1016,9 +893,8 @@ public class MaintenancePlanSqlGenerator : IMaintenancePlanSqlGenerator
             sb.AppendLine("    THROW;");
             sb.AppendLine("END CATCH';");
             sb.AppendLine();
-
             sb.AppendLine("    EXEC dbo.sp_add_jobstep");
-            sb.AppendLine("        @job_name       = @restoreJobName,");
+            sb.AppendLine("        @job_name       = @jobName,");
             sb.AppendLine("        @step_name      = N'Restore Full',");
             sb.AppendLine("        @subsystem      = N'TSQL',");
             sb.AppendLine("        @on_success_action = 1,");
@@ -1027,19 +903,19 @@ public class MaintenancePlanSqlGenerator : IMaintenancePlanSqlGenerator
             sb.AppendLine();
 
             sb.AppendLine("    -- 建立排程");
-            sb.AppendLine("    DECLARE @restoreScheduleName NVARCHAR(256) = @restoreJobName + N'_Schedule';");
+            sb.AppendLine("    DECLARE @scheduleName NVARCHAR(256) = @jobName + N'_Schedule';");
             sb.AppendLine("    EXEC dbo.sp_add_jobschedule");
-            sb.AppendLine("        @job_name          = @restoreJobName,");
-            sb.AppendLine("        @name              = @restoreScheduleName,");
+            sb.AppendLine("        @job_name          = @jobName,");
+            sb.AppendLine("        @name              = @scheduleName,");
             sb.AppendLine("        @freq_type         = 4,");
             sb.AppendLine("        @freq_interval     = 1,");
-            sb.AppendLine("        @active_start_time = @RestoreTime;");
+            sb.AppendLine("        @active_start_time = @BackupTime;");
             sb.AppendLine();
 
             sb.AppendLine("    -- 指定本機執行");
-            sb.AppendLine("    EXEC dbo.sp_add_jobserver @job_name = @restoreJobName;");
+            sb.AppendLine("    EXEC dbo.sp_add_jobserver @job_name = @jobName;");
             sb.AppendLine();
-            sb.AppendLine($"PRINT N'===== 步驟 {stepNumber}: 建立還原排程 (完成) =====';");
+            sb.AppendLine($"PRINT N'===== 步驟 {stepNumber}: 建立備份排程 (完成) =====';");
             sb.AppendLine("END TRY");
             sb.AppendLine("BEGIN CATCH");
             sb.AppendLine($"    PRINT N'##### 步驟 {stepNumber} 發生錯誤 #####';");
@@ -1065,7 +941,6 @@ public class MaintenancePlanSqlGenerator : IMaintenancePlanSqlGenerator
         MaintenancePlanStep.CreateLoginAndUser => "建立登入帳號與使用者",
         MaintenancePlanStep.AddToDbOwner => "加入 db_owner 角色",
         MaintenancePlanStep.CreateBackupJob => "建立備份排程",
-        MaintenancePlanStep.CreateRestoreJob => "建立還原排程",
         _ => step.ToString()
     };
 

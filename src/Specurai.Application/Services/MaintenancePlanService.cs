@@ -69,7 +69,6 @@ public class MaintenancePlanService : IMaintenancePlanService
                 MaintenancePlanStep.CreateLoginAndUser => await CheckLoginAndUserAsync(config, ct),
                 MaintenancePlanStep.AddToDbOwner => await CheckDbOwnerAsync(config, ct),
                 MaintenancePlanStep.CreateBackupJob => await CheckJobAsync(config, MaintenancePlanStep.CreateBackupJob, $"{config.DatabaseName}_{await GetRecoveryModel()}Backup", ct),
-                MaintenancePlanStep.CreateRestoreJob => await CheckJobAsync(config, MaintenancePlanStep.CreateRestoreJob, $"{config.DatabaseName}_FullRestore", ct),
                 MaintenancePlanStep.AdjustAutoGrowth => await CheckAutoGrowthAsync(config, ct),
                 MaintenancePlanStep.PreExpandDataFile => await CheckPreExpandAsync(config, ct),
                 MaintenancePlanStep.CreateCheckDbJob => await CheckJobAsync(config, MaintenancePlanStep.CreateCheckDbJob, $"{config.DatabaseName}_CheckDb", ct),
@@ -175,18 +174,6 @@ public class MaintenancePlanService : IMaintenancePlanService
             var sql = _sqlGenerator.GenerateStepSql(MaintenancePlanStep.CreateCheckDbJob, config, checkDbStep.SelectedAction);
             await _dbInfoRepo.ExecuteSqlAsync(sql, ct);
             progress?.Report("完整性檢查排程建立完成。");
-        }
-
-        ct.ThrowIfCancellationRequested();
-
-        // 交易群組 3：還原 Job
-        var restoreStep = checkResults.FirstOrDefault(r => r.Step == MaintenancePlanStep.CreateRestoreJob && r.SelectedAction != "跳過");
-        if (restoreStep != null)
-        {
-            progress?.Report("正在建立還原排程...");
-            var sql = _sqlGenerator.GenerateStepSql(MaintenancePlanStep.CreateRestoreJob, config, restoreStep.SelectedAction);
-            await _dbInfoRepo.ExecuteSqlAsync(sql, ct);
-            progress?.Report("還原排程建立完成。");
         }
 
         progress?.Report("維護計劃執行完成。");

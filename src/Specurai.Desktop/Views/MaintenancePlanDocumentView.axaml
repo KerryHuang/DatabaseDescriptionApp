@@ -249,17 +249,13 @@
                             </StackPanel>
                         </Grid>
 
-                        <!-- 第五列：備份時間 + 還原時間 + 保留天數 -->
-                        <Grid ColumnDefinitions="*,16,*,16,Auto">
+                        <!-- 第五列：備份時間 + 保留天數 -->
+                        <Grid ColumnDefinitions="*,16,Auto">
                             <StackPanel Grid.Column="0" Spacing="4">
                                 <TextBlock Text="備份時間"/>
                                 <TimePicker SelectedTime="{Binding BackupTime}"/>
                             </StackPanel>
                             <StackPanel Grid.Column="2" Spacing="4">
-                                <TextBlock Text="還原時間"/>
-                                <TimePicker SelectedTime="{Binding RestoreTime}"/>
-                            </StackPanel>
-                            <StackPanel Grid.Column="4" Spacing="4">
                                 <TextBlock Text="保留天數"/>
                                 <NumericUpDown Value="{Binding RetentionDays}" Minimum="1" Maximum="365"
                                                Width="100" FormatString="0"/>
@@ -320,7 +316,7 @@
                             </Grid>
                             <Grid ColumnDefinitions="*,*">
                                 <CheckBox Grid.Column="0" IsChecked="{Binding IsCreateBackupJobSelected}"
-                                          Content="建立每日全備份排程"/>
+                                          Content="建立每日全備份排程（含還原步驟，預設停用）"/>
                                 <TextBlock Grid.Column="1" Text="{Binding BackupJobStatus}"
                                            VerticalAlignment="Center" Opacity="0.6" FontSize="12"/>
                             </Grid>
@@ -328,12 +324,6 @@
                                 <CheckBox Grid.Column="0" IsChecked="{Binding IsCreateCheckDbJobSelected}"
                                           Content="建立每週完整性檢查排程"/>
                                 <TextBlock Grid.Column="1" Text="{Binding CheckDbJobStatus}"
-                                           VerticalAlignment="Center" Opacity="0.6" FontSize="12"/>
-                            </Grid>
-                            <Grid ColumnDefinitions="*,*">
-                                <CheckBox Grid.Column="0" IsChecked="{Binding IsCreateRestoreJobSelected}"
-                                          Content="建立每日還原排程（選填）"/>
-                                <TextBlock Grid.Column="1" Text="{Binding RestoreJobStatus}"
                                            VerticalAlignment="Center" Opacity="0.6" FontSize="12"/>
                             </Grid>
                         </StackPanel>

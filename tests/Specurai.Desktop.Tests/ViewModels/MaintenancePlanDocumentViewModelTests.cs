@@ -209,13 +209,11 @@ public class MaintenancePlanDocumentViewModelTests
         // Assert
         vm.LoginName.Should().Be("mis");
         vm.BackupTime.Should().Be(new TimeSpan(2, 0, 0));
-        vm.RestoreTime.Should().Be(new TimeSpan(3, 0, 0));
         vm.IsSetRecoveryModelSelected.Should().BeTrue();
         vm.IsRenameLogicalFilesSelected.Should().BeTrue();
         vm.IsCreateLoginAndUserSelected.Should().BeTrue();
         vm.IsAddToDbOwnerSelected.Should().BeTrue();
         vm.IsCreateBackupJobSelected.Should().BeTrue();
-        vm.IsCreateRestoreJobSelected.Should().BeFalse();
     }
 
     [Fact]

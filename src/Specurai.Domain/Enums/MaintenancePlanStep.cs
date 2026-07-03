@@ -20,7 +20,5 @@ public enum MaintenancePlanStep
     /// <summary>建立每日全備份排程</summary>
     CreateBackupJob,
     /// <summary>建立每週完整性檢查排程（DBCC CHECKDB）</summary>
-    CreateCheckDbJob,
-    /// <summary>建立每日還原排程</summary>
-    CreateRestoreJob
+    CreateCheckDbJob
 }

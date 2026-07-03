@@ -431,10 +431,8 @@ public partial class MaintenancePlanDocumentViewModel : DocumentViewModel
 
     partial void OnDatabaseNameChanged(string value)
     {
-        if (!string.IsNullOrEmpty(value))
-            TestDatabaseName = $"{value}-test";
-        else
-            TestDatabaseName = string.Empty;
+        // 還原資料庫預設與目標資料庫一致（使用者仍可於還原欄手動修改）
+        TestDatabaseName = value;
     }
 
     #endregion

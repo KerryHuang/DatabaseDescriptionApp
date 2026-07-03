@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using FluentAssertions;
 using Specurai.Application.Models;
 using Specurai.Domain.Entities;
@@ -22,7 +23,8 @@ public class MaintenancePlanSqlGeneratorTests
         string restorePath = @"D:\Data\",
         int backupTime = 230000,
         int restoreTime = 10000,
-        int retentionDays = 7) => new()
+        int retentionDays = 7,
+        string recoveryModel = "FULL") => new()
     {
         DatabaseName = database,
         TestDatabaseName = testDatabase,
@@ -33,6 +35,7 @@ public class MaintenancePlanSqlGeneratorTests
         BackupTime = backupTime,
         RestoreTime = restoreTime,
         RetentionDays = retentionDays,
+        RecoveryModel = recoveryModel,
         SelectedSteps = Enum.GetValues<MaintenancePlanStep>().ToList()
     };
 
@@ -121,16 +124,35 @@ public class MaintenancePlanSqlGeneratorTests
         deleteIndex.Should().BeLessThan(addIndex);
     }
 
-    #endregion
-
-    #region CreateRestoreJob
-
     [Fact]
-    public void GenerateStepSql_CreateRestoreJob_應包含RESTORE_DATABASE()
+    public void GenerateCreateBackupJob_合併還原_應產生單一Job雙步驟且還原預設不觸發()
     {
-        var sql = _sut.GenerateStepSql(MaintenancePlanStep.CreateRestoreJob, CreateConfig());
+        // Arrange
+        var config = CreateConfig(
+            database: "WayDoSoft01",
+            recoveryModel: "SIMPLE",
+            backupPath: @"D:\SQLBackup\",
+            restorePath: @"D:\sql_data\",
+            testDatabase: "WayDoSoft01",
+            backupTime: 20000);
 
-        sql.Should().Contain("RESTORE DATABASE");
+        // Act
+        var sql = _sut.GenerateStepSql(MaintenancePlanStep.CreateBackupJob, config, null);
+
+        // Assert：單一 Job
+        sql.Should().Contain("WayDoSoft01_SIMPLEBackup");
+        sql.Should().NotContain("_FullRestore");
+        // 兩個步驟
+        sql.Should().Contain("Full Backup");
+        sql.Should().Contain("Restore Full to");
+        Regex.Matches(sql, "sp_add_jobstep").Count.Should().Be(2);
+        // 單一排程，時間為 BackupTime
+        Regex.Matches(sql, "sp_add_jobschedule").Count.Should().Be(1);
+        sql.Should().Contain("@active_start_time = 20000");
+        // Step 1 成功即結束（還原預設不觸發）
+        sql.Should().Contain("@on_success_action = 1");
+        // 啟用還原的說明註解
+        sql.Should().Contain("移至下一步");
     }
 
     #endregion
@@ -155,6 +177,20 @@ public class MaintenancePlanSqlGeneratorTests
         sql.Should().NotContain("ALTER DATABASE");
         sql.Should().NotContain("CREATE LOGIN");
         sql.Should().NotContain("sp_add_job");
+    }
+
+    [Fact]
+    public void GenerateFullSql_備份步驟_應合併還原為單一Job雙步驟且不含獨立還原排程()
+    {
+        var results = CreateAllCheckResults("執行");
+        var sql = _sut.GenerateFullSql(CreateConfig(), results);
+
+        sql.Should().NotContain("_FullRestore");
+        sql.Should().NotContain("@active_start_time = @RestoreTime");
+        // 不再產生獨立還原排程區塊（避免產出空的區段標頭）
+        sql.Should().NotContain("建立還原排程");
+        sql.Should().Contain("Restore Full");
+        Regex.Matches(sql, "sp_add_jobstep").Count.Should().BeGreaterThanOrEqualTo(2);
     }
 
     #endregion

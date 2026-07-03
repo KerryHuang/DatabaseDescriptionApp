@@ -42,7 +42,7 @@ public static class MaintenancePlanTools
         [Description("登入帳號")] string loginName,
         [Description("登入密碼")] string loginPassword,
         [Description("備份時間（HHMMSS 格式，如 230000）")] int backupTime = 230000,
-        [Description("還原時間（HHMMSS 格式，如 10000）")] int restoreTime = 10000)
+        [Description("已忽略（還原併入每日備份 Job 的第二步，於備份時間執行；保留以相容舊呼叫）")] int restoreTime = 10000)
     {
         try
         {
@@ -67,7 +67,7 @@ public static class MaintenancePlanTools
         [Description("登入帳號")] string loginName,
         [Description("登入密碼")] string loginPassword,
         [Description("備份時間（HHMMSS 格式）")] int backupTime = 230000,
-        [Description("還原時間（HHMMSS 格式）")] int restoreTime = 10000)
+        [Description("已忽略（還原併入每日備份 Job 的第二步，於備份時間執行；保留以相容舊呼叫）")] int restoreTime = 10000)
     {
         try
         {
@@ -93,13 +93,13 @@ public static class MaintenancePlanTools
         [Description("登入帳號")] string loginName,
         [Description("登入密碼")] string loginPassword,
         [Description("備份時間（HHMMSS 格式）")] int backupTime = 230000,
-        [Description("還原時間（HHMMSS 格式）")] int restoreTime = 10000,
+        [Description("已忽略（還原併入每日備份 Job 的第二步，於備份時間執行；保留以相容舊呼叫）")] int restoreTime = 10000,
         [Description("是否實際執行（預設 false 僅回摘要）")] bool confirm = false)
     {
         try
         {
             if (!confirm)
-                return $"將對資料庫 [{databaseName}] 執行維護計劃（建立備份/還原排程、修改資料庫設定）。加 confirm:true 執行。";
+                return $"將對資料庫 [{databaseName}] 執行維護計劃（建立每日備份排程（含還原步驟，預設停用）、修改資料庫設定）。加 confirm:true 執行。";
 
             var config = BuildConfig(databaseName, backupPath, restorePath,
                 testDatabaseName, loginName, loginPassword, backupTime, restoreTime);

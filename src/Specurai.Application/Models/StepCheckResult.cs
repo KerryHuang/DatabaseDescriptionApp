@@ -34,7 +34,6 @@ public class StepCheckResult
         MaintenancePlanStep.AddToDbOwner => "加入 db_owner 角色",
         MaintenancePlanStep.CreateBackupJob => "建立備份排程",
         MaintenancePlanStep.CreateCheckDbJob => "建立完整性檢查排程",
-        MaintenancePlanStep.CreateRestoreJob => "建立還原排程",
         _ => Step.ToString()
     };
 }

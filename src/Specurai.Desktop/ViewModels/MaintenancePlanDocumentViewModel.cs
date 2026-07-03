@@ -142,9 +142,6 @@ public partial class MaintenancePlanDocumentViewModel : DocumentViewModel
     [ObservableProperty]
     private TimeSpan _backupTime = new(2, 0, 0);
 
-    [ObservableProperty]
-    private TimeSpan _restoreTime = new(3, 0, 0);
-
     /// <summary>備份保留天數</summary>
     [ObservableProperty]
     private int _retentionDays = 7;
@@ -170,9 +167,6 @@ public partial class MaintenancePlanDocumentViewModel : DocumentViewModel
 
     [ObservableProperty]
     private bool _isCreateBackupJobSelected = true;
-
-    [ObservableProperty]
-    private bool _isCreateRestoreJobSelected;
 
     [ObservableProperty]
     private bool _isAdjustAutoGrowthSelected = true;
@@ -206,9 +200,6 @@ public partial class MaintenancePlanDocumentViewModel : DocumentViewModel
 
     [ObservableProperty]
     private string _backupJobStatus = string.Empty;
-
-    [ObservableProperty]
-    private string _restoreJobStatus = string.Empty;
 
     [ObservableProperty]
     private string _adjustAutoGrowthStatus = string.Empty;
@@ -630,8 +621,8 @@ public partial class MaintenancePlanDocumentViewModel : DocumentViewModel
                 TestDatabaseName = TestDatabaseName,
                 LoginName = LoginName,
                 LoginPassword = LoginPassword,
-                BackupTime = (int)(BackupTime.Hours * 10000 + BackupTime.Minutes * 100),
-                RestoreTime = (int)(RestoreTime.Hours * 10000 + RestoreTime.Minutes * 100),
+                BackupTime = ToHhmmss(BackupTime),
+                RestoreTime = 0,
                 SelectedSteps = Enum.GetValues<MaintenancePlanStep>().ToList()
             };
 
@@ -665,11 +656,6 @@ public partial class MaintenancePlanDocumentViewModel : DocumentViewModel
                     case MaintenancePlanStep.CreateBackupJob:
                         BackupJobStatus = r.CurrentStatus;
                         IsCreateBackupJobSelected = !r.AlreadyExists;
-                        break;
-                    case MaintenancePlanStep.CreateRestoreJob:
-                        RestoreJobStatus = r.CurrentStatus;
-                        // 還原排程預設不勾選，除非已存在需要重建
-                        IsCreateRestoreJobSelected = false;
                         break;
                     case MaintenancePlanStep.AdjustAutoGrowth:
                         AdjustAutoGrowthStatus = r.CurrentStatus;
@@ -789,13 +775,16 @@ public partial class MaintenancePlanDocumentViewModel : DocumentViewModel
             TestDatabaseName = TestDatabaseName,
             LoginName = LoginName,
             LoginPassword = LoginPassword,
-            BackupTime = (int)BackupTime.TotalHours,
-            RestoreTime = (int)RestoreTime.TotalHours,
+            BackupTime = ToHhmmss(BackupTime),
+            RestoreTime = 0,
             RetentionDays = RetentionDays,
             RecoveryModel = _currentRecoveryModel,
             SelectedSteps = GetSelectedSteps()
         };
     }
+
+    /// <summary>將 TimeSpan 轉換為 SQL Agent 排程使用的 HHMMSS 整數格式（例如 2:30 → 23000）</summary>
+    private static int ToHhmmss(TimeSpan t) => t.Hours * 10000 + t.Minutes * 100;
 
     /// <summary>取得已勾選的步驟</summary>
     private List<MaintenancePlanStep> GetSelectedSteps()
@@ -810,7 +799,6 @@ public partial class MaintenancePlanDocumentViewModel : DocumentViewModel
         if (IsAddToDbOwnerSelected) steps.Add(MaintenancePlanStep.AddToDbOwner);
         if (IsCreateBackupJobSelected) steps.Add(MaintenancePlanStep.CreateBackupJob);
         if (IsCreateCheckDbJobSelected) steps.Add(MaintenancePlanStep.CreateCheckDbJob);
-        if (IsCreateRestoreJobSelected) steps.Add(MaintenancePlanStep.CreateRestoreJob);
         return steps;
     }
 

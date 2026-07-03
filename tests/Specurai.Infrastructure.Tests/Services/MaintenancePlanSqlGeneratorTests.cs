@@ -195,6 +195,35 @@ public class MaintenancePlanSqlGeneratorTests
 
     #endregion
 
+    #region GenerateExportSql
+
+    [Fact]
+    public void GenerateExportSql_備份步驟_應合併還原為單一Job雙步驟且排程使用BackupTime變數()
+    {
+        var results = new List<StepCheckResult>
+        {
+            new()
+            {
+                Step = MaintenancePlanStep.CreateBackupJob,
+                AlreadyExists = false,
+                CurrentStatus = "未設定",
+                AvailableActions = ["執行"],
+                SelectedAction = "執行"
+            }
+        };
+
+        var sql = _sut.GenerateExportSql(CreateConfig(), results);
+
+        sql.Should().Contain("Restore Full");
+        sql.Should().NotContain("_FullRestore");
+        sql.Should().NotContain("@RestoreTime");
+        sql.Should().Contain("@active_start_time = @BackupTime");
+        Regex.Matches(sql, "sp_add_jobstep").Count.Should().Be(2);
+        Regex.Matches(sql, "sp_add_jobschedule").Count.Should().Be(1);
+    }
+
+    #endregion
+
     private static List<StepCheckResult> CreateAllCheckResults(string action)
     {
         return Enum.GetValues<MaintenancePlanStep>().Select(step => new StepCheckResult

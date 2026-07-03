@@ -193,6 +193,7 @@ public static class MaintenanceCommand
         public string? LoginName { get; set; }
         public string? LoginPassword { get; set; }
         public int? BackupTime { get; set; }
+        // 已忽略：還原併入每日備份 Job 的第二步，於備份時間執行；保留此欄位以相容舊設定檔。
         public int? RestoreTime { get; set; }
         public string[]? SelectedSteps { get; set; }
         public int? RetentionDays { get; set; }

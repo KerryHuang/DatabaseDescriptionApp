@@ -200,6 +200,78 @@ public class SqlQueryDocumentViewModelTests
         vm.StatusMessage.Should().Contain("已切換至");
     }
 
+    [Fact]
+    public async Task SelectedProfile_選到與目前相同的設定檔_執行查詢應改用無連線字串版本以跟隨目前資料庫覆寫()
+    {
+        // 對應 Finding 1：選到的設定檔與 GetCurrentProfile 相同時，
+        // 不應釘住 GetConnectionString(profile.Id)（該設定檔的預設資料庫），
+        // 而應保持 null，讓 Repository 於執行當下透過 GetCurrentConnectionString()
+        // 重新解析，跟隨側邊欄「目前資料庫」覆寫。
+        // Arrange
+        var profile = new ConnectionProfile
+        {
+            Id = Guid.NewGuid(),
+            Name = "目前連線",
+            Server = "localhost",
+            Database = "DefaultDb"
+        };
+        _connectionManager.GetAllProfiles().Returns(new List<ConnectionProfile> { profile });
+        _connectionManager.GetCurrentProfile().Returns(profile);
+        _connectionManager.GetConnectionString(profile.Id)
+            .Returns("Server=localhost;Database=DefaultDb;");
+        _sqlQueryRepository.GetColumnDescriptionsAsync()
+            .Returns(new Dictionary<string, string>());
+
+        var dataTable = new DataTable();
+        dataTable.Columns.Add("Id", typeof(int));
+        _sqlQueryRepository.ExecuteQueryAsync(Arg.Any<string>()).Returns(dataTable);
+
+        var vm = new SqlQueryDocumentViewModel(_sqlQueryRepository, _connectionManager);
+
+        // Act：建構時已自動選到目前設定檔（觸發 OnSelectedProfileChanged）
+        vm.SqlText = "SELECT 1";
+        await vm.ExecuteQueryCommand.ExecuteAsync(null);
+
+        // Assert：查詢應呼叫「不含連線字串」的多載（跟隨目前資料庫覆寫），
+        // 而非帶入釘住的 profile 連線字串
+        await _sqlQueryRepository.Received(1).ExecuteQueryAsync("SELECT 1");
+        await _sqlQueryRepository.DidNotReceive().ExecuteQueryAsync(Arg.Any<string>(), Arg.Any<string>());
+    }
+
+    [Fact]
+    public void SelectedProfile_手動選擇不同設定檔_仍應釘住該設定檔的連線字串()
+    {
+        // Arrange
+        var currentProfile = new ConnectionProfile
+        {
+            Id = Guid.NewGuid(),
+            Name = "目前連線",
+            Server = "localhost",
+            Database = "DefaultDb"
+        };
+        var otherProfile = new ConnectionProfile
+        {
+            Id = Guid.NewGuid(),
+            Name = "其他連線",
+            Server = "otherhost",
+            Database = "OtherDb"
+        };
+        _connectionManager.GetAllProfiles().Returns(new List<ConnectionProfile> { currentProfile, otherProfile });
+        _connectionManager.GetCurrentProfile().Returns(currentProfile);
+        _connectionManager.GetConnectionString(otherProfile.Id)
+            .Returns("Server=otherhost;Database=OtherDb;");
+        _sqlQueryRepository.GetColumnDescriptionsAsync()
+            .Returns(new Dictionary<string, string>());
+
+        var vm = new SqlQueryDocumentViewModel(_sqlQueryRepository, _connectionManager);
+
+        // Act：手動選擇不同的設定檔
+        vm.SelectedProfile = otherProfile;
+
+        // Assert：應釘住該設定檔的連線字串
+        _connectionManager.Received().GetConnectionString(otherProfile.Id);
+    }
+
     #endregion
 
     #region ClearQueryCommand 測試

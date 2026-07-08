@@ -33,6 +33,8 @@ public static class ConnectionTools
             p.Database,
             AuthType = p.AuthType.ToString(),
             IsCurrent = current?.Id == p.Id,
+            // 目前使用中的資料庫（可能因 switch_database 而異於設定檔預設資料庫）
+            CurrentDatabase = current?.Id == p.Id ? connectionManager.GetCurrentDatabase() : null,
             p.IsDefault
         });
 

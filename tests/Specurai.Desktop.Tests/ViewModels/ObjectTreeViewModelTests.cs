@@ -376,6 +376,71 @@ public class ObjectTreeViewModelTests
         tablesGroup.Items.First().IsVisible.Should().BeTrue();
     }
 
+    [Fact]
+    public async Task SearchText_有符合項目_應自動展開該群組()
+    {
+        // Arrange
+        var tables = new List<TableInfo>
+        {
+            new() { Type = "BASE TABLE", Schema = "dbo", Name = "Users" },
+            new() { Type = "VIEW", Schema = "dbo", Name = "vw_Orders" }
+        };
+        _tableQueryService.GetAllTablesAsync(Arg.Any<CancellationToken>())
+            .Returns(tables);
+
+        var vm = new ObjectTreeViewModel(_tableQueryService, _connectionManager);
+        await vm.RefreshCommand.ExecuteAsync(null);
+
+        // Act
+        vm.SearchText = "user";
+
+        // Assert：有符合項目的群組自動展開，無符合的維持收合
+        vm.Groups.First(g => g.Name == "Tables").IsExpanded.Should().BeTrue();
+        vm.Groups.First(g => g.Name == "Views").IsExpanded.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task SearchText_清除後_群組應收合回預設()
+    {
+        // Arrange
+        var tables = new List<TableInfo>
+        {
+            new() { Type = "BASE TABLE", Schema = "dbo", Name = "Users" }
+        };
+        _tableQueryService.GetAllTablesAsync(Arg.Any<CancellationToken>())
+            .Returns(tables);
+
+        var vm = new ObjectTreeViewModel(_tableQueryService, _connectionManager);
+        await vm.RefreshCommand.ExecuteAsync(null);
+        vm.SearchText = "user";
+
+        // Act
+        vm.SearchText = "";
+
+        // Assert
+        vm.Groups.First(g => g.Name == "Tables").IsExpanded.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task RefreshCommand_載入後_群組應為收合狀態()
+    {
+        // Arrange
+        var tables = new List<TableInfo>
+        {
+            new() { Type = "BASE TABLE", Schema = "dbo", Name = "Users" }
+        };
+        _tableQueryService.GetAllTablesAsync(Arg.Any<CancellationToken>())
+            .Returns(tables);
+
+        var vm = new ObjectTreeViewModel(_tableQueryService, _connectionManager);
+
+        // Act
+        await vm.RefreshCommand.ExecuteAsync(null);
+
+        // Assert：載入完成後僅顯示群組標題，不自動展開
+        vm.Groups.Should().OnlyContain(g => !g.IsExpanded);
+    }
+
     #endregion
 
     #region SelectObjectCommand 測試
@@ -430,13 +495,13 @@ public class ObjectGroupViewModelTests
     }
 
     [Fact]
-    public void 初始狀態_IsExpanded應為True()
+    public void 初始狀態_IsExpanded應為False()
     {
         // Act
         var group = new ObjectGroupViewModel("Test", "TEST");
 
         // Assert
-        group.IsExpanded.Should().BeTrue();
+        group.IsExpanded.Should().BeFalse();
     }
 
     [Fact]

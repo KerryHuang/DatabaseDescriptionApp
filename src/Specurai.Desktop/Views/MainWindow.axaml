@@ -311,10 +311,11 @@
                                                FontWeight="{Binding NameFontWeight}"/>
                                 </StackPanel>
                             </TreeDataTemplate>
-                            <!-- 群組模板 -->
+                            <!-- 群組模板（比照 SSMS 以資料夾圖示呈現） -->
                             <TreeDataTemplate DataType="{x:Type vm:ObjectGroupViewModel}"
                                               ItemsSource="{Binding Items}">
                                 <StackPanel Orientation="Horizontal" Spacing="5">
+                                    <TextBlock Text="📁"/>
                                     <TextBlock Text="{Binding Name}" FontWeight="SemiBold"/>
                                     <TextBlock Text="{Binding VisibleCount, StringFormat='({0})'}"
                                                Foreground="Gray"/>

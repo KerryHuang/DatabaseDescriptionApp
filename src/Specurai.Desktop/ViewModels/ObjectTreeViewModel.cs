@@ -154,17 +154,21 @@ public partial class ObjectTreeViewModel : ViewModelBase
     private void FilterObjects()
     {
         var searchLower = SearchText.ToLowerInvariant();
+        var isSearching = !string.IsNullOrEmpty(searchLower);
 
         foreach (var group in Groups)
         {
             foreach (var item in group.Items)
             {
-                item.IsVisible = string.IsNullOrEmpty(searchLower) ||
+                item.IsVisible = !isSearching ||
                     item.Table.Schema.ToLowerInvariant().Contains(searchLower) ||
                     item.Table.Name.ToLowerInvariant().Contains(searchLower) ||
                     (item.Table.Description?.ToLowerInvariant().Contains(searchLower) ?? false);
             }
             group.UpdateVisibleCount();
+
+            // 搜尋時自動展開有符合項目的群組；未搜尋（含清除搜尋）時收合回預設
+            group.IsExpanded = isSearching && group.VisibleCount > 0;
         }
     }
 
@@ -193,8 +197,11 @@ public partial class ObjectGroupViewModel : ViewModelBase
     public string Name { get; }
     public string ObjectType { get; }
 
+    /// <summary>
+    /// 是否展開（預設收合，僅顯示群組標題；搜尋時自動展開有符合項目的群組）
+    /// </summary>
     [ObservableProperty]
-    private bool _isExpanded = true;
+    private bool _isExpanded;
 
     [ObservableProperty]
     private int _count;

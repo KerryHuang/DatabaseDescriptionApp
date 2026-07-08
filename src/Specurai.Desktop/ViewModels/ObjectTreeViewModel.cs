@@ -233,6 +233,17 @@ public partial class ObjectItemViewModel : ViewModelBase, IRecipient<TableDescri
 {
     public TableInfo Table { get; }
 
+    /// <summary>
+    /// 依物件類型顯示的圖示（資料表/檢視/預存程序/函數）
+    /// </summary>
+    public string Icon => Table.Type switch
+    {
+        "VIEW" => "👁",
+        "PROCEDURE" => "⚙",
+        "FUNCTION" => "🧮",
+        _ => "📄"
+    };
+
     [ObservableProperty]
     private bool _isVisible = true;
 

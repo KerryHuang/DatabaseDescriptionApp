@@ -109,4 +109,20 @@ public class DatabaseToolsTests
         result.Should().Contain("switch_connection");
         cm.DidNotReceive().SetCurrentDatabase(Arg.Any<string?>());
     }
+
+    [Fact(DisplayName = "switch_database: 資料庫清單為空應回傳找不到訊息且不含可用資料庫字樣")]
+    public async Task SwitchDatabase_DatabasesEmpty_ShouldReturnNotFoundWithoutDanglingLabel()
+    {
+        var cm = Substitute.For<IConnectionManager>();
+        cm.GetCurrentProfile().Returns(SampleProfile());
+        cm.GetDatabasesAsync(Arg.Any<CancellationToken>())
+            .Returns(new List<string>());
+
+        var result = await DatabaseTools.SwitchDatabase(cm, "AppDb");
+
+        cm.DidNotReceive().SetCurrentDatabase(Arg.Any<string?>());
+        result.Should().Contain("找不到");
+        result.Should().Contain("目前沒有使用者資料庫");
+        result.Should().NotContain("可用資料庫：");
+    }
 }

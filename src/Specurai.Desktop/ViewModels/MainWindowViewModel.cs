@@ -241,7 +241,6 @@ public partial class MainWindowViewModel : ViewModelBase
 
     private async void OnCurrentDatabaseChanged(object? sender, string? databaseName)
     {
-        StatusMessage = $"已切換至資料庫 {databaseName}";
         await LoadObjectsAsync();
     }
 

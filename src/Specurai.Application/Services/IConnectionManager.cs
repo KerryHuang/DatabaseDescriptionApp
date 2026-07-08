@@ -72,6 +72,34 @@ public interface IConnectionManager
     void RegisterTemporaryProfiles(IReadOnlyList<ConnectionProfile> profiles);
 
     /// <summary>
+    /// 取得目前生效的資料庫名稱（覆寫值優先，否則為目前設定檔的預設資料庫）
+    /// </summary>
+    string? GetCurrentDatabase();
+
+    /// <summary>
+    /// 設定目前資料庫覆寫（null 表示重設回設定檔預設資料庫）。
+    /// 僅存在於記憶體中不持久化；切換連線設定檔時自動清除。
+    /// </summary>
+    void SetCurrentDatabase(string? databaseName);
+
+    /// <summary>
+    /// 取得目前連線伺服器上的使用者資料庫清單（database_id > 4 且 ONLINE）。
+    /// 無目前設定檔時回傳空清單；連線或查詢失敗時擲出例外，由呼叫端決定 degrade 行為。
+    /// </summary>
+    Task<IReadOnlyList<string>> GetDatabasesAsync(CancellationToken ct = default);
+
+    /// <summary>
+    /// 取得指定連線設定檔伺服器上的使用者資料庫清單。
+    /// 連線或查詢失敗時擲出例外，由呼叫端決定 degrade 行為。
+    /// </summary>
+    Task<IReadOnlyList<string>> GetDatabasesAsync(ConnectionProfile profile, CancellationToken ct = default);
+
+    /// <summary>
+    /// 目前資料庫變更事件（參數為新的生效資料庫名稱）
+    /// </summary>
+    event EventHandler<string?>? CurrentDatabaseChanged;
+
+    /// <summary>
     /// 連線變更事件
     /// </summary>
     event EventHandler<ConnectionProfile?>? CurrentProfileChanged;

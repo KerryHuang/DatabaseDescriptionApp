@@ -14,12 +14,21 @@ public class ConnectionManager : IConnectionManager
     private List<ConnectionProfile> _profiles = [];
     private List<ConnectionProfile> _temporaryProfiles = [];
     private Guid? _currentProfileId;
+    private string? _currentDatabaseOverride;
 
     public event EventHandler<ConnectionProfile?>? CurrentProfileChanged;
+    public event EventHandler<string?>? CurrentDatabaseChanged;
 
-    public ConnectionManager()
+    public ConnectionManager() : this(GetConfigPath())
     {
-        _configPath = GetConfigPath();
+    }
+
+    /// <summary>
+    /// 指定設定檔路徑的建構函式（測試用）
+    /// </summary>
+    public ConnectionManager(string configPath)
+    {
+        _configPath = configPath;
         LoadProfiles();
     }
 
@@ -48,6 +57,8 @@ public class ConnectionManager : IConnectionManager
         if (profile != null)
         {
             _currentProfileId = profileId;
+            // 切換連線設定檔時重設資料庫覆寫，回到新設定檔的預設資料庫
+            _currentDatabaseOverride = null;
             CurrentProfileChanged?.Invoke(this, profile);
         }
     }
@@ -153,7 +164,62 @@ public class ConnectionManager : IConnectionManager
     public string? GetCurrentConnectionString()
     {
         var profile = GetCurrentProfile();
-        return profile != null ? BuildConnectionString(profile) : null;
+        if (profile == null)
+            return null;
+
+        var connectionString = BuildConnectionString(profile);
+        if (_currentDatabaseOverride == null)
+            return connectionString;
+
+        // 目前資料庫覆寫僅影響「目前連線」，不影響 BuildConnectionString / GetConnectionString(profileId)
+        var builder = new SqlConnectionStringBuilder(connectionString)
+        {
+            InitialCatalog = _currentDatabaseOverride
+        };
+        return builder.ConnectionString;
+    }
+
+    public string? GetCurrentDatabase()
+        => _currentDatabaseOverride ?? GetCurrentProfile()?.Database;
+
+    public void SetCurrentDatabase(string? databaseName)
+    {
+        var before = GetCurrentDatabase();
+        _currentDatabaseOverride = databaseName;
+        var after = GetCurrentDatabase();
+
+        // 生效資料庫沒變就不觸發事件，避免訂閱端重複載入
+        if (!string.Equals(before, after, StringComparison.OrdinalIgnoreCase))
+        {
+            CurrentDatabaseChanged?.Invoke(this, after);
+        }
+    }
+
+    public Task<IReadOnlyList<string>> GetDatabasesAsync(CancellationToken ct = default)
+    {
+        var profile = GetCurrentProfile();
+        if (profile == null)
+            return Task.FromResult<IReadOnlyList<string>>([]);
+
+        return GetDatabasesAsync(profile, ct);
+    }
+
+    public async Task<IReadOnlyList<string>> GetDatabasesAsync(ConnectionProfile profile, CancellationToken ct = default)
+    {
+        await using var connection = new SqlConnection(BuildConnectionString(profile));
+        await connection.OpenAsync(ct);
+        await using var command = connection.CreateCommand();
+        command.CommandText =
+            "SELECT name FROM sys.databases WHERE database_id > 4 AND state = 0 ORDER BY name";
+
+        var names = new List<string>();
+        await using var reader = await command.ExecuteReaderAsync(ct);
+        while (await reader.ReadAsync(ct))
+        {
+            names.Add(reader.GetString(0));
+        }
+
+        return names;
     }
 
     public string? GetConnectionString(Guid profileId)

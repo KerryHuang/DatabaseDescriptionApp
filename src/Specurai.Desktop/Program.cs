@@ -91,7 +91,10 @@ sealed class Program
                 sp.GetRequiredService<IConnectionManager>(),
                 sp.GetRequiredService<IExternalConnectionSource>(),
                 sp.GetRequiredService<IExternalSourceSettings>()));
-        services.AddTransient<ObjectTreeViewModel>();
+        services.AddTransient<ObjectTreeViewModel>(sp =>
+            new ObjectTreeViewModel(
+                sp.GetRequiredService<ITableQueryService>(),
+                sp.GetRequiredService<IConnectionManager>()));
         services.AddTransient<BackupRestoreDocumentViewModel>(sp =>
             new BackupRestoreDocumentViewModel(
                 sp.GetRequiredService<IBackupService>(),

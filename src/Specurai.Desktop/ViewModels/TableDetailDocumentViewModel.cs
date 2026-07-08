@@ -60,10 +60,17 @@ public partial class TableDetailDocumentViewModel : DocumentViewModel
     /// </summary>
     public Func<string, Task<bool>>? ConfirmSaveCallback { get; set; }
 
+    /// <summary>
+    /// 此分頁綁定的資料庫名稱（開啟當下的當前資料庫，用於分頁鍵與標題）
+    /// </summary>
+    public string? DatabaseName { get; }
+
     public override string DocumentType => "TableDetail";
 
     public override string DocumentKey => CurrentTable != null
-        ? $"{DocumentType}:{CurrentTable.Schema}.{CurrentTable.Name}"
+        ? DatabaseName != null
+            ? $"{DocumentType}:{DatabaseName}.{CurrentTable.Schema}.{CurrentTable.Name}"
+            : $"{DocumentType}:{CurrentTable.Schema}.{CurrentTable.Name}"
         : base.DocumentKey;
 
     public TableDetailDocumentViewModel()
@@ -73,11 +80,12 @@ public partial class TableDetailDocumentViewModel : DocumentViewModel
         Icon = "";
     }
 
-    public TableDetailDocumentViewModel(ITableQueryService tableQueryService, TableInfo table)
+    public TableDetailDocumentViewModel(ITableQueryService tableQueryService, TableInfo table, string? databaseName = null)
     {
         _tableQueryService = tableQueryService;
         CurrentTable = table;
-        Title = table.Name;
+        DatabaseName = databaseName;
+        Title = databaseName != null ? $"{table.Name} ({databaseName})" : table.Name;
         Icon = GetIconForType(table.Type);
         CanClose = true;
 

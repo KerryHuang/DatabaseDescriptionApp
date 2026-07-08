@@ -101,7 +101,7 @@ public partial class MainWindowViewModel : ViewModelBase
     /// 本屬性不觸發 PropertyChanged，每次存取即時讀取目前連線；呼叫方應在需要時主動讀取。
     /// </summary>
     public string? CurrentEnvironmentDatabase =>
-        _connectionManager?.GetCurrentProfile()?.Database;
+        _connectionManager?.GetCurrentDatabase();
 
     public MainWindowViewModel()
     {
@@ -128,6 +128,9 @@ public partial class MainWindowViewModel : ViewModelBase
 
         // 訂閱連線變更事件
         _connectionManager.CurrentProfileChanged += OnCurrentProfileChanged;
+
+        // 訂閱資料庫切換事件（側邊欄點選資料庫節點時觸發）
+        _connectionManager.CurrentDatabaseChanged += OnCurrentDatabaseChanged;
 
         // 訂閱選擇變更事件
         if (ObjectTree != null)
@@ -233,6 +236,12 @@ public partial class MainWindowViewModel : ViewModelBase
         await LoadObjectsAsync();
     }
 
+    private async void OnCurrentDatabaseChanged(object? sender, string? databaseName)
+    {
+        StatusMessage = $"已切換至資料庫 {databaseName}";
+        await LoadObjectsAsync();
+    }
+
     /// <summary>
     /// 當選擇資料表時，在 Documents 中開啟或切換到對應的 Tab
     /// </summary>
@@ -240,7 +249,10 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         if (table == null || _tableQueryService == null) return;
 
-        var tableKey = $"TableDetail:{table.Schema}.{table.Name}";
+        var databaseName = _connectionManager?.GetCurrentDatabase();
+        var tableKey = databaseName != null
+            ? $"TableDetail:{databaseName}.{table.Schema}.{table.Name}"
+            : $"TableDetail:{table.Schema}.{table.Name}";
 
         // 檢查是否已開啟
         var existing = Documents.OfType<TableDetailDocumentViewModel>()
@@ -252,7 +264,7 @@ public partial class MainWindowViewModel : ViewModelBase
         }
         else
         {
-            var doc = new TableDetailDocumentViewModel(_tableQueryService, table);
+            var doc = new TableDetailDocumentViewModel(_tableQueryService, table, databaseName);
             doc.ConfirmSaveCallback = ConfirmSaveCallback;
             doc.CloseRequested += OnDocumentCloseRequested;
             Documents.Add(doc);
@@ -288,7 +300,7 @@ public partial class MainWindowViewModel : ViewModelBase
 
             if (mainWindow?.StorageProvider is { } storageProvider)
             {
-                var databaseName = SelectedProfile?.Database ?? "Specurai";
+                var databaseName = _connectionManager?.GetCurrentDatabase() ?? "Specurai";
                 var file = await storageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
                 {
                     Title = "儲存 Excel 檔案",

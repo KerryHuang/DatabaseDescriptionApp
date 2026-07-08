@@ -330,6 +330,7 @@ public class MainWindowViewModelTests
     private MainWindowViewModel CreateVmWithCurrentProfile(ConnectionProfile? current)
     {
         _connectionManager.GetCurrentProfile().Returns(current);
+        _connectionManager.GetCurrentDatabase().Returns(current?.Database);
         return new MainWindowViewModel(
             _connectionManager,
             _exportService,

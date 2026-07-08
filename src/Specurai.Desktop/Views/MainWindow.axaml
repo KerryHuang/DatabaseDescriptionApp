@@ -298,10 +298,19 @@
 
                     <!-- 物件清單 -->
                     <TreeView x:Name="ObjectTreeView"
-                              ItemsSource="{Binding ObjectTree.Groups}" Margin="5"
+                              ItemsSource="{Binding ObjectTree.Databases}" Margin="5"
                               SelectionMode="Single"
                               SelectionChanged="OnTreeViewSelectionChanged">
                         <TreeView.DataTemplates>
+                            <!-- 資料庫節點模板 -->
+                            <TreeDataTemplate DataType="{x:Type vm:DatabaseNodeViewModel}"
+                                              ItemsSource="{Binding Groups}">
+                                <StackPanel Orientation="Horizontal" Spacing="5">
+                                    <TextBlock Text="🗄"/>
+                                    <TextBlock Text="{Binding Name}"
+                                               FontWeight="{Binding NameFontWeight}"/>
+                                </StackPanel>
+                            </TreeDataTemplate>
                             <!-- 群組模板 -->
                             <TreeDataTemplate DataType="{x:Type vm:ObjectGroupViewModel}"
                                               ItemsSource="{Binding Items}">
@@ -317,8 +326,8 @@
                             </DataTemplate>
                         </TreeView.DataTemplates>
                         <TreeView.Styles>
-                            <Style Selector="TreeViewItem">
-                                <Setter Property="IsExpanded" Value="True"/>
+                            <Style Selector="TreeViewItem" x:CompileBindings="False">
+                                <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}"/>
                             </Style>
                             <!-- 隱藏不可見的項目 -->
                             <Style Selector="TreeViewItem" x:DataType="vm:ObjectItemViewModel">

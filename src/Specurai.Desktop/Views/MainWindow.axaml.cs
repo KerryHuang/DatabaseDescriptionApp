@@ -54,6 +54,15 @@ public partial class MainWindow : Window
             return;
         }
 
+        if (e.AddedItems.Count > 0 && e.AddedItems[0] is DatabaseNodeViewModel dbNode)
+        {
+            if (DataContext is MainWindowViewModel vmDb)
+            {
+                vmDb.ObjectTree?.SelectDatabaseCommand.Execute(dbNode);
+            }
+            return;
+        }
+
         if (e.AddedItems.Count > 0 && e.AddedItems[0] is ObjectItemViewModel item)
         {
             if (DataContext is MainWindowViewModel vm)

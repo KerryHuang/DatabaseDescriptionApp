@@ -57,6 +57,7 @@ public static class Program
         // 註冊命令群組
         rootCommand.AddCommand(ConnCommand.Create());
         rootCommand.AddCommand(TablesCommand.Create());
+        rootCommand.AddCommand(DatabasesCommand.Create());
         rootCommand.AddCommand(DescribeCommand.Create());
         rootCommand.AddCommand(SqlCommand.Create());
         rootCommand.AddCommand(ExportCommand.Create());

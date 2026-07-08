@@ -225,7 +225,10 @@ public partial class MainWindowViewModel : ViewModelBase
             else
             {
                 var totalCount = ObjectTree.Groups.Sum(g => g.Count);
-                StatusMessage = $"已載入 {totalCount} 個物件";
+                var databaseName = _connectionManager?.GetCurrentDatabase();
+                StatusMessage = databaseName != null
+                    ? $"已載入 {databaseName}，共 {totalCount} 個物件"
+                    : $"已載入 {totalCount} 個物件";
             }
         }
     }

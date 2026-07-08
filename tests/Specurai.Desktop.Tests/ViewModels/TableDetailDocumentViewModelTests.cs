@@ -74,6 +74,36 @@ public class TableDetailDocumentViewModelTests
         vm.DocumentKey.Should().Be("TableDetail:dbo.Users");
     }
 
+    [Fact]
+    public void DocumentKey_有DatabaseName_應包含資料庫名稱()
+    {
+        // Arrange
+        var service = Substitute.For<ITableQueryService>();
+        var table = new TableInfo { Type = "BASE TABLE", Schema = "dbo", Name = "Users" };
+
+        // Act
+        var vm = new TableDetailDocumentViewModel(service, table, "MyDb");
+
+        // Assert
+        vm.DocumentKey.Should().Be("TableDetail:MyDb.dbo.Users");
+        vm.Title.Should().Be("Users (MyDb)");
+    }
+
+    [Fact]
+    public void DocumentKey_無DatabaseName_應維持原格式()
+    {
+        // Arrange
+        var service = Substitute.For<ITableQueryService>();
+        var table = new TableInfo { Type = "BASE TABLE", Schema = "dbo", Name = "Users" };
+
+        // Act
+        var vm = new TableDetailDocumentViewModel(service, table);
+
+        // Assert
+        vm.DocumentKey.Should().Be("TableDetail:dbo.Users");
+        vm.Title.Should().Be("Users");
+    }
+
     #endregion
 
     #region 屬性初始值測試

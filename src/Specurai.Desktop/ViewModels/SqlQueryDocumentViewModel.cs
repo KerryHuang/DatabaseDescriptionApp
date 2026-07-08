@@ -113,8 +113,22 @@ public partial class SqlQueryDocumentViewModel : DocumentViewModel
     {
         if (value != null && _connectionManager != null)
         {
-            // 只更新本地連線字串，不影響全域連線設定
-            _localConnectionString = _connectionManager.GetConnectionString(value.Id);
+            var currentProfile = _connectionManager.GetCurrentProfile();
+            if (currentProfile != null && currentProfile.Id == value.Id)
+            {
+                // 選到的仍是目前使用中的連線設定檔：不可釘住其預設資料庫的連線字串，
+                // 否則會蓋過側邊欄「目前資料庫覆寫」（GetCurrentConnectionString）。
+                // 保持 null，讓查詢在執行當下透過 Repository 的 Func<string?>
+                // 重新解析 GetCurrentConnectionString()，跟隨最新切換的資料庫。
+                _localConnectionString = null;
+            }
+            else
+            {
+                // 使用者手動選擇了「不同」的連線設定檔：屬於明確指定，
+                // 才釘住該設定檔的預設資料庫連線字串。
+                _localConnectionString = _connectionManager.GetConnectionString(value.Id);
+            }
+
             StatusMessage = $"已切換至：{value.Name}";
             _ = LoadColumnDescriptionsAsync();
         }

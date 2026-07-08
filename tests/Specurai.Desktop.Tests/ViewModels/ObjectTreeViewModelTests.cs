@@ -594,6 +594,24 @@ public class ObjectItemViewModelTests
         // Assert
         item.DisplayName.Should().Be("dbo.Users (使用者資料表)");
     }
+
+    [Theory]
+    [InlineData("BASE TABLE", "📄")]
+    [InlineData("VIEW", "👁")]
+    [InlineData("PROCEDURE", "⚙")]
+    [InlineData("FUNCTION", "🧮")]
+    [InlineData("UNKNOWN", "📄")]
+    public void Icon_依物件類型_應顯示對應圖示(string type, string expectedIcon)
+    {
+        // Arrange
+        var table = new TableInfo { Type = type, Schema = "dbo", Name = "Obj1" };
+
+        // Act
+        var item = new ObjectItemViewModel(table);
+
+        // Assert
+        item.Icon.Should().Be(expectedIcon);
+    }
 }
 
 /// <summary>

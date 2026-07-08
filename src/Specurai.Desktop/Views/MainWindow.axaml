@@ -321,9 +321,12 @@
                                                Foreground="Gray"/>
                                 </StackPanel>
                             </TreeDataTemplate>
-                            <!-- 項目模板 -->
+                            <!-- 項目模板（依物件類型顯示圖示） -->
                             <DataTemplate DataType="{x:Type vm:ObjectItemViewModel}">
-                                <TextBlock Text="{Binding DisplayName}"/>
+                                <StackPanel Orientation="Horizontal" Spacing="5">
+                                    <TextBlock Text="{Binding Icon}"/>
+                                    <TextBlock Text="{Binding DisplayName}"/>
+                                </StackPanel>
                             </DataTemplate>
                         </TreeView.DataTemplates>
                         <TreeView.Styles>

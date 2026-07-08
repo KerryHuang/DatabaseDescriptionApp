@@ -372,6 +372,7 @@ echo '[
 
 ```bash
 # 物件瀏覽
+specurai databases                            # 列出所有使用者資料庫
 specurai tables list                          # 列出所有物件
 specurai tables list --type TABLE             # 只列資料表
 specurai tables columns dbo.Users             # 欄位
@@ -440,6 +441,13 @@ specurai --json schema compare --base "正式" --target "測試"
 | `test_connection` | 測試連線 |
 | `add_connection` / `update_connection` / `delete_connection` | 連線 CRUD ⚠️ |
 | `export_connections` / `import_connections` | 匯出/匯入 JSON ⚠️（import） |
+
+**資料庫瀏覽**
+
+| 工具 | 說明 |
+|------|------|
+| `list_databases` | 列出使用者資料庫（標示目前使用中） |
+| `switch_database` | 切換目前使用的資料庫 |
 
 **資料表查詢**
 
@@ -510,6 +518,8 @@ specurai --json schema compare --base "正式" --target "測試"
 
 使用範例（在 Claude Code 中自然語言）：
 
+- 「列出所有資料庫」→ `list_databases`
+- 「切換資料庫」→ `switch_database`
 - 「列出所有資料表」→ `list_tables`
 - 「查看 Orders 表的欄位」→ `get_columns`
 - 「找出所有包含 Price 的欄位」→ `search_columns`

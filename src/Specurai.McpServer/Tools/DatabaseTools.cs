@@ -68,7 +68,11 @@ public static class DatabaseTools
         var target = databases.FirstOrDefault(d =>
             d.Equals(databaseName, StringComparison.OrdinalIgnoreCase));
         if (target == null)
-            return $"伺服器 {profile.Server} 上找不到使用者資料庫「{databaseName}」。可用資料庫：{string.Join("、", databases)}";
+        {
+            return databases.Count == 0
+                ? $"伺服器 {profile.Server} 上找不到使用者資料庫「{databaseName}」。伺服器上目前沒有使用者資料庫。"
+                : $"伺服器 {profile.Server} 上找不到使用者資料庫「{databaseName}」。可用資料庫：{string.Join("、", databases)}";
+        }
 
         connectionManager.SetCurrentDatabase(target);
         return $"已切換至資料庫「{target}」（{profile.Server}）";

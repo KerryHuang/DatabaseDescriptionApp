@@ -27,7 +27,7 @@ public class MainWindowViewModelTests
         _tableQueryService = Substitute.For<ITableQueryService>();
         _sqlQueryRepository = Substitute.For<ISqlQueryRepository>();
         _columnTypeRepository = Substitute.For<IColumnTypeRepository>();
-        _objectTree = new ObjectTreeViewModel(_tableQueryService);
+        _objectTree = new ObjectTreeViewModel(_tableQueryService, _connectionManager);
     }
 
     #region 建構函式測試

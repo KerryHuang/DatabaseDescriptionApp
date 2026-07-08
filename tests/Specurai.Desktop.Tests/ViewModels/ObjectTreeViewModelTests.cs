@@ -13,10 +13,15 @@ namespace Specurai.Desktop.Tests.ViewModels;
 public class ObjectTreeViewModelTests
 {
     private readonly ITableQueryService _tableQueryService;
+    private readonly IConnectionManager _connectionManager;
 
     public ObjectTreeViewModelTests()
     {
         _tableQueryService = Substitute.For<ITableQueryService>();
+        _connectionManager = Substitute.For<IConnectionManager>();
+        _connectionManager.GetDatabasesAsync(Arg.Any<CancellationToken>())
+            .Returns(new List<string> { "TestDb" });
+        _connectionManager.GetCurrentDatabase().Returns("TestDb");
     }
 
     #region 建構函式測試
@@ -33,10 +38,10 @@ public class ObjectTreeViewModelTests
     }
 
     [Fact]
-    public void Constructor_有TableQueryService_應建立四個群組()
+    public void Constructor_有服務參數_應建立四個群組()
     {
         // Act
-        var vm = new ObjectTreeViewModel(_tableQueryService);
+        var vm = new ObjectTreeViewModel(_tableQueryService, _connectionManager);
 
         // Assert
         vm.Groups.Should().HaveCount(4);
@@ -108,7 +113,7 @@ public class ObjectTreeViewModelTests
         _tableQueryService.GetAllTablesAsync(Arg.Any<CancellationToken>())
             .Returns(tables);
 
-        var vm = new ObjectTreeViewModel(_tableQueryService);
+        var vm = new ObjectTreeViewModel(_tableQueryService, _connectionManager);
 
         // Act
         await vm.RefreshCommand.ExecuteAsync(null);
@@ -132,7 +137,7 @@ public class ObjectTreeViewModelTests
                 return (IReadOnlyList<TableInfo>)new List<TableInfo>();
             });
 
-        var vm = new ObjectTreeViewModel(_tableQueryService);
+        var vm = new ObjectTreeViewModel(_tableQueryService, _connectionManager);
         vm.PropertyChanged += (s, e) =>
         {
             if (e.PropertyName == nameof(vm.IsLoading))
@@ -154,7 +159,7 @@ public class ObjectTreeViewModelTests
         _tableQueryService.GetAllTablesAsync(Arg.Any<CancellationToken>())
             .ThrowsAsync(new Exception("測試錯誤"));
 
-        var vm = new ObjectTreeViewModel(_tableQueryService);
+        var vm = new ObjectTreeViewModel(_tableQueryService, _connectionManager);
 
         // Act
         await vm.RefreshCommand.ExecuteAsync(null);
@@ -177,6 +182,101 @@ public class ObjectTreeViewModelTests
         vm.LastError.Should().Contain("未初始化");
     }
 
+    [Fact]
+    public async Task RefreshCommand_應載入資料庫節點清單()
+    {
+        // Arrange
+        _connectionManager.GetDatabasesAsync(Arg.Any<CancellationToken>())
+            .Returns(new List<string> { "Db1", "Db2", "Db3" });
+        _connectionManager.GetCurrentDatabase().Returns("Db2");
+        _tableQueryService.GetAllTablesAsync(Arg.Any<CancellationToken>())
+            .Returns(new List<TableInfo>());
+
+        var vm = new ObjectTreeViewModel(_tableQueryService, _connectionManager);
+
+        // Act
+        await vm.RefreshCommand.ExecuteAsync(null);
+
+        // Assert
+        vm.Databases.Should().HaveCount(3);
+        vm.Databases.Select(d => d.Name).Should().ContainInOrder("Db1", "Db2", "Db3");
+    }
+
+    [Fact]
+    public async Task RefreshCommand_當前資料庫節點_應標示為Current且展開並掛載群組()
+    {
+        // Arrange
+        _connectionManager.GetDatabasesAsync(Arg.Any<CancellationToken>())
+            .Returns(new List<string> { "Db1", "Db2" });
+        _connectionManager.GetCurrentDatabase().Returns("Db2");
+        _tableQueryService.GetAllTablesAsync(Arg.Any<CancellationToken>())
+            .Returns(new List<TableInfo>
+            {
+                new() { Type = "BASE TABLE", Schema = "dbo", Name = "Users" }
+            });
+
+        var vm = new ObjectTreeViewModel(_tableQueryService, _connectionManager);
+
+        // Act
+        await vm.RefreshCommand.ExecuteAsync(null);
+
+        // Assert
+        var current = vm.Databases.First(d => d.Name == "Db2");
+        current.IsCurrent.Should().BeTrue();
+        current.IsExpanded.Should().BeTrue();
+        current.Groups.Should().HaveCount(4);
+        current.Groups.First(g => g.Name == "Tables").Items.Should().HaveCount(1);
+
+        var other = vm.Databases.First(d => d.Name == "Db1");
+        other.IsCurrent.Should().BeFalse();
+        other.IsExpanded.Should().BeFalse();
+        other.Groups.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task RefreshCommand_當前資料庫不在清單中_應插入清單開頭()
+    {
+        // Arrange：連線設定檔預設資料庫可能不是使用者資料庫（例如 master）
+        _connectionManager.GetDatabasesAsync(Arg.Any<CancellationToken>())
+            .Returns(new List<string> { "Db1" });
+        _connectionManager.GetCurrentDatabase().Returns("master");
+        _tableQueryService.GetAllTablesAsync(Arg.Any<CancellationToken>())
+            .Returns(new List<TableInfo>());
+
+        var vm = new ObjectTreeViewModel(_tableQueryService, _connectionManager);
+
+        // Act
+        await vm.RefreshCommand.ExecuteAsync(null);
+
+        // Assert
+        vm.Databases.Select(d => d.Name).Should().ContainInOrder("master", "Db1");
+        vm.Databases.First(d => d.Name == "master").IsCurrent.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task RefreshCommand_資料庫列舉失敗_應degrade為僅顯示當前資料庫且物件照常載入()
+    {
+        // Arrange
+        _connectionManager.GetDatabasesAsync(Arg.Any<CancellationToken>())
+            .ThrowsAsync(new Exception("權限不足"));
+        _connectionManager.GetCurrentDatabase().Returns("DefaultDb");
+        _tableQueryService.GetAllTablesAsync(Arg.Any<CancellationToken>())
+            .Returns(new List<TableInfo>
+            {
+                new() { Type = "BASE TABLE", Schema = "dbo", Name = "Users" }
+            });
+
+        var vm = new ObjectTreeViewModel(_tableQueryService, _connectionManager);
+
+        // Act
+        await vm.RefreshCommand.ExecuteAsync(null);
+
+        // Assert
+        vm.LastError.Should().BeNull();
+        vm.Databases.Should().ContainSingle(d => d.Name == "DefaultDb" && d.IsCurrent);
+        vm.Groups.First(g => g.Name == "Tables").Items.Should().HaveCount(1);
+    }
+
     #endregion
 
     #region SearchText 過濾測試
@@ -194,7 +294,7 @@ public class ObjectTreeViewModelTests
         _tableQueryService.GetAllTablesAsync(Arg.Any<CancellationToken>())
             .Returns(tables);
 
-        var vm = new ObjectTreeViewModel(_tableQueryService);
+        var vm = new ObjectTreeViewModel(_tableQueryService, _connectionManager);
         await vm.RefreshCommand.ExecuteAsync(null);
 
         // Act
@@ -218,7 +318,7 @@ public class ObjectTreeViewModelTests
         _tableQueryService.GetAllTablesAsync(Arg.Any<CancellationToken>())
             .Returns(tables);
 
-        var vm = new ObjectTreeViewModel(_tableQueryService);
+        var vm = new ObjectTreeViewModel(_tableQueryService, _connectionManager);
         await vm.RefreshCommand.ExecuteAsync(null);
         vm.SearchText = "user";
 
@@ -242,7 +342,7 @@ public class ObjectTreeViewModelTests
         _tableQueryService.GetAllTablesAsync(Arg.Any<CancellationToken>())
             .Returns(tables);
 
-        var vm = new ObjectTreeViewModel(_tableQueryService);
+        var vm = new ObjectTreeViewModel(_tableQueryService, _connectionManager);
         await vm.RefreshCommand.ExecuteAsync(null);
 
         // Act
@@ -265,7 +365,7 @@ public class ObjectTreeViewModelTests
         _tableQueryService.GetAllTablesAsync(Arg.Any<CancellationToken>())
             .Returns(tables);
 
-        var vm = new ObjectTreeViewModel(_tableQueryService);
+        var vm = new ObjectTreeViewModel(_tableQueryService, _connectionManager);
         await vm.RefreshCommand.ExecuteAsync(null);
 
         // Act
@@ -428,5 +528,86 @@ public class ObjectItemViewModelTests
 
         // Assert
         item.DisplayName.Should().Be("dbo.Users (使用者資料表)");
+    }
+}
+
+/// <summary>
+/// SelectDatabaseCommand 與 DatabaseNodeViewModel 測試
+/// </summary>
+public class ObjectTreeDatabaseSelectionTests
+{
+    private readonly ITableQueryService _tableQueryService = Substitute.For<ITableQueryService>();
+    private readonly IConnectionManager _connectionManager = Substitute.For<IConnectionManager>();
+
+    public ObjectTreeDatabaseSelectionTests()
+    {
+        _connectionManager.GetDatabasesAsync(Arg.Any<CancellationToken>())
+            .Returns(new List<string> { "Db1", "Db2" });
+        _connectionManager.GetCurrentDatabase().Returns("Db1");
+        _tableQueryService.GetAllTablesAsync(Arg.Any<CancellationToken>())
+            .Returns(new List<TableInfo>());
+    }
+
+    [Fact]
+    public async Task SelectDatabaseCommand_點選非當前資料庫_應呼叫SetCurrentDatabase()
+    {
+        // Arrange
+        var vm = new ObjectTreeViewModel(_tableQueryService, _connectionManager);
+        await vm.RefreshCommand.ExecuteAsync(null);
+        var other = vm.Databases.First(d => d.Name == "Db2");
+
+        // Act
+        vm.SelectDatabaseCommand.Execute(other);
+
+        // Assert
+        _connectionManager.Received(1).SetCurrentDatabase("Db2");
+    }
+
+    [Fact]
+    public async Task SelectDatabaseCommand_點選當前資料庫_不應呼叫SetCurrentDatabase()
+    {
+        // Arrange
+        var vm = new ObjectTreeViewModel(_tableQueryService, _connectionManager);
+        await vm.RefreshCommand.ExecuteAsync(null);
+        var current = vm.Databases.First(d => d.Name == "Db1");
+
+        // Act
+        vm.SelectDatabaseCommand.Execute(current);
+
+        // Assert
+        _connectionManager.DidNotReceive().SetCurrentDatabase(Arg.Any<string?>());
+    }
+
+    [Fact]
+    public async Task 展開非當前資料庫節點_應觸發切換()
+    {
+        // Arrange
+        var vm = new ObjectTreeViewModel(_tableQueryService, _connectionManager);
+        await vm.RefreshCommand.ExecuteAsync(null);
+        var other = vm.Databases.First(d => d.Name == "Db2");
+
+        // Act：模擬使用者點選 TreeView 節點的展開箭頭
+        other.IsExpanded = true;
+
+        // Assert
+        _connectionManager.Received(1).SetCurrentDatabase("Db2");
+    }
+
+    [Fact]
+    public void DatabaseNodeViewModel_當前節點_字重應為Bold()
+    {
+        var node = new DatabaseNodeViewModel("Db1", isCurrent: true, groups: []);
+
+        node.NameFontWeight.Should().Be("Bold");
+        node.IsExpanded.Should().BeTrue();
+    }
+
+    [Fact]
+    public void DatabaseNodeViewModel_非當前節點_字重應為Normal()
+    {
+        var node = new DatabaseNodeViewModel("Db1", isCurrent: false, groups: []);
+
+        node.NameFontWeight.Should().Be("Normal");
+        node.IsExpanded.Should().BeFalse();
     }
 }

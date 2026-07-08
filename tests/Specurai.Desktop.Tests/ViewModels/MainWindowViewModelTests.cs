@@ -383,6 +383,54 @@ public class MainWindowViewModelTests
     }
 
     #endregion
+
+    #region 物件載入完成訊息含資料庫名稱
+
+    private MainWindowViewModel CreateVmForLoadObjects(ConnectionProfile profile, string? currentDatabase)
+    {
+        _connectionManager.GetAllProfiles().Returns(new List<ConnectionProfile> { profile });
+        _connectionManager.GetCurrentProfile().Returns(profile);
+        _connectionManager.GetCurrentDatabase().Returns(currentDatabase);
+        _tableQueryService.GetAllTablesAsync(Arg.Any<CancellationToken>())
+            .Returns(new List<TableInfo>());
+
+        return new MainWindowViewModel(
+            _connectionManager,
+            _exportService,
+            _tableQueryService,
+            _sqlQueryRepository,
+            _columnTypeRepository,
+            _objectTree,
+            new UpdateNotificationViewModel());
+    }
+
+    [Fact]
+    public void LoadObjectsAsync完成_有目前資料庫名稱_StatusMessage應包含資料庫名稱()
+    {
+        // Arrange
+        var profile = new ConnectionProfile { Name = "測試", Server = "localhost", Database = "TestDb" };
+
+        // Act
+        var vm = CreateVmForLoadObjects(profile, "TestDb");
+
+        // Assert
+        vm.StatusMessage.Should().Be("已載入 TestDb，共 0 個物件");
+    }
+
+    [Fact]
+    public void LoadObjectsAsync完成_無目前資料庫名稱_StatusMessage應為預設格式()
+    {
+        // Arrange
+        var profile = new ConnectionProfile { Name = "測試", Server = "localhost", Database = "TestDb" };
+
+        // Act
+        var vm = CreateVmForLoadObjects(profile, null);
+
+        // Assert
+        vm.StatusMessage.Should().Be("已載入 0 個物件");
+    }
+
+    #endregion
 }
 
 /// <summary>

@@ -8,6 +8,9 @@ public class SqlDryRunAnalyzerTests
 {
     private readonly SqlDryRunAnalyzer _analyzer = new();
 
+    // 正規化只發生在測試比對端，生產輸出必須保持原樣
+    private static string NormalizeWhitespace(string sql) => System.Text.RegularExpressions.Regex.Replace(sql, @"\s+", " ");
+
     [Fact(DisplayName = "Analyze: 合法 INSERT 應通過並分類為 Insert")]
     public void Analyze_ValidInsert_ShouldBeValidInsert()
     {
@@ -185,7 +188,7 @@ public class SqlDryRunAnalyzerTests
     {
         var rewritten = _analyzer.RewriteWithOutput("INSERT INTO dbo.Users (Name) VALUES (N'測試')");
 
-        rewritten.Should().ContainEquivalentOf("output inserted.*");
+        NormalizeWhitespace(rewritten).Should().ContainEquivalentOf("output inserted.*");
     }
 
     [Fact(DisplayName = "RewriteWithOutput: DELETE 應注入 OUTPUT deleted.*")]
@@ -193,8 +196,9 @@ public class SqlDryRunAnalyzerTests
     {
         var rewritten = _analyzer.RewriteWithOutput("DELETE FROM dbo.Users WHERE Id = 1");
 
-        rewritten.Should().ContainEquivalentOf("output deleted.*");
-        rewritten.Should().ContainEquivalentOf("where");
+        var normalized = NormalizeWhitespace(rewritten);
+        normalized.Should().ContainEquivalentOf("output deleted.*");
+        normalized.Should().ContainEquivalentOf("where");
     }
 
     [Fact(DisplayName = "RewriteWithOutput: UPDATE 有欄位清單應注入舊/新別名欄位")]
@@ -204,12 +208,13 @@ public class SqlDryRunAnalyzerTests
             "UPDATE Users SET Name = N'x' WHERE Id = 1",
             ["Id", "Name"]);
 
-        rewritten.Should().Contain("[舊_Id]");
-        rewritten.Should().Contain("[新_Id]");
-        rewritten.Should().Contain("[舊_Name]");
-        rewritten.Should().Contain("[新_Name]");
-        rewritten.Should().ContainEquivalentOf("deleted.Id");
-        rewritten.Should().ContainEquivalentOf("inserted.Name");
+        var normalized = NormalizeWhitespace(rewritten);
+        normalized.Should().Contain("[舊_Id]");
+        normalized.Should().Contain("[新_Id]");
+        normalized.Should().Contain("[舊_Name]");
+        normalized.Should().Contain("[新_Name]");
+        normalized.Should().ContainEquivalentOf("deleted.[Id]");
+        normalized.Should().ContainEquivalentOf("inserted.[Name]");
     }
 
     [Fact(DisplayName = "RewriteWithOutput: UPDATE 無欄位清單應退回 deleted.*, inserted.*")]
@@ -217,8 +222,9 @@ public class SqlDryRunAnalyzerTests
     {
         var rewritten = _analyzer.RewriteWithOutput("UPDATE Users SET Name = N'x' WHERE Id = 1");
 
-        rewritten.Should().ContainEquivalentOf("output deleted.*");
-        rewritten.Should().ContainEquivalentOf("inserted.*");
+        var normalized = NormalizeWhitespace(rewritten);
+        normalized.Should().ContainEquivalentOf("output deleted.*");
+        normalized.Should().ContainEquivalentOf("inserted.*");
     }
 
     [Fact(DisplayName = "RewriteWithOutput: 使用者已自帶 OUTPUT 應沿用不重複注入")]
@@ -230,5 +236,13 @@ public class SqlDryRunAnalyzerTests
         System.Text.RegularExpressions.Regex.Matches(rewritten, "OUTPUT", System.Text.RegularExpressions.RegexOptions.IgnoreCase)
             .Count.Should().Be(1);
         rewritten.Should().ContainEquivalentOf("deleted.Id");
+    }
+
+    [Fact(DisplayName = "RewriteWithOutput: 字串常值中的雙空白與 Tab 應保持原樣不被竄改")]
+    public void RewriteWithOutput_StringLiteralWithDoubleSpaceAndTab_ShouldPreserveLiteralAsIs()
+    {
+        var rewritten = _analyzer.RewriteWithOutput("INSERT INTO dbo.Logs (Message) VALUES (N'保留  雙空白\t與Tab')");
+
+        rewritten.Should().Contain("保留  雙空白\t與Tab");
     }
 }

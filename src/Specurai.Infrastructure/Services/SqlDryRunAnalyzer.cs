@@ -188,8 +188,7 @@ public class SqlDryRunAnalyzer
         });
         generator.GenerateScript(fragment, out var rewritten);
 
-        // ScriptDom 產生器會依欄位對齊插入多個空白，這裡收斂為單一空白以利下游文字比對
-        return System.Text.RegularExpressions.Regex.Replace(rewritten, "[ \t]{2,}", " ");
+        return rewritten;
     }
 
     private static OutputClause BuildStarOutput(params string[] qualifiers)
@@ -228,7 +227,7 @@ public class SqlDryRunAnalyzer
                 Identifiers =
                 {
                     new Identifier { Value = qualifier },
-                    new Identifier { Value = column }
+                    new Identifier { Value = column, QuoteType = QuoteType.SquareBracket }
                 }
             }
         },

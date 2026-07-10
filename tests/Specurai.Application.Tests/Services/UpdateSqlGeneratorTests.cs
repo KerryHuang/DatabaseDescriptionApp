@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Threading;
 using FluentAssertions;
 using Specurai.Application.Models;
 using Specurai.Application.Services;
@@ -231,5 +233,42 @@ public class UpdateSqlGeneratorTests
         var result = _generator.Generate(request);
 
         result.Sql.Should().Contain("WHERE [K1] = N'a' AND [K2] = N'b'");
+    }
+
+    [Fact(DisplayName = "WHERE 全空（定位欄皆為 byte[]）：跳過該列並回報警告")]
+    public void Generate_WHERE全空_應跳過並警告()
+    {
+        var columns = new[] { Col("Data"), Col("Ver", isReadOnly: true, clrType: typeof(byte[])) };
+        var request = Request(columns, ["Ver"],
+            Row(new() { ["Data"] = "舊", ["Ver"] = new byte[] { 1 } },
+                new() { ["Data"] = "新", ["Ver"] = new byte[] { 1 } }));
+
+        var result = _generator.Generate(request);
+
+        result.StatementCount.Should().Be(0);
+        result.Warnings.Should().Contain(w => w.Contains("無可用的定位欄位"));
+    }
+
+    [Fact(DisplayName = "日期字面值：非西曆文化下仍輸出西元年（InvariantCulture）")]
+    public void Generate_日期字面值_應與文化無關()
+    {
+        var originalCulture = Thread.CurrentThread.CurrentCulture;
+        try
+        {
+            Thread.CurrentThread.CurrentCulture = new CultureInfo("th-TH");
+
+            var columns = new[] { Col("Id", isKey: true, clrType: typeof(int)), Col("Birthday", clrType: typeof(DateTime)) };
+            var request = Request(columns, ["Id"],
+                Row(new() { ["Id"] = 1, ["Birthday"] = new DateTime(2026, 1, 1) },
+                    new() { ["Id"] = 1, ["Birthday"] = new DateTime(2026, 12, 31) }));
+
+            var result = _generator.Generate(request);
+
+            result.Sql.Should().Contain("[Birthday] = '2026-12-31 00:00:00.000'");
+        }
+        finally
+        {
+            Thread.CurrentThread.CurrentCulture = originalCulture;
+        }
     }
 }

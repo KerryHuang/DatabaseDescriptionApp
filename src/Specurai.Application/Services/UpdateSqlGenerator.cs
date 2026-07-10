@@ -71,6 +71,12 @@ public class UpdateSqlGenerator : IUpdateSqlGenerator
                     : $"{Quote(meta.BaseColumn!)} = {FormatLiteral(value)}");
             }
 
+            if (whereClauses.Count == 0)
+            {
+                warnings.Add($"第 {rowIndex + 1} 列：無可用的定位欄位，已跳過該列。");
+                continue;
+            }
+
             var tableName = string.IsNullOrEmpty(request.TargetSchema)
                 ? Quote(request.TargetTable)
                 : $"{Quote(request.TargetSchema)}.{Quote(request.TargetTable)}";
@@ -142,8 +148,8 @@ public class UpdateSqlGenerator : IUpdateSqlGenerator
     {
         null => "NULL",
         bool b => b ? "1" : "0",
-        DateTime dt => $"'{dt:yyyy-MM-dd HH:mm:ss.fff}'",
-        DateTimeOffset dto => $"'{dto:yyyy-MM-dd HH:mm:ss.fff zzz}'",
+        DateTime dt => $"'{dt.ToString("yyyy-MM-dd HH:mm:ss.fff", CultureInfo.InvariantCulture)}'",
+        DateTimeOffset dto => $"'{dto.ToString("yyyy-MM-dd HH:mm:ss.fff zzz", CultureInfo.InvariantCulture)}'",
         TimeSpan ts => $"'{ts}'",
         Guid g => $"'{g}'",
         byte or sbyte or short or ushort or int or uint or long or ulong or float or double or decimal

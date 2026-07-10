@@ -17,6 +17,7 @@ public static class SqlCommand
     {
         var command = new Command("sql", "SQL 查詢");
         command.AddCommand(CreateQueryCommand());
+        command.AddCommand(CreateDryRunCommand());
         command.AddCommand(CreateSearchColumnsCommand());
         return command;
     }
@@ -84,6 +85,114 @@ public static class SqlCommand
         }, sqlArg);
 
         return command;
+    }
+
+    private static Command CreateDryRunCommand()
+    {
+        var sqlArg = new Argument<string>("sql", "單一 DML 陳述式（INSERT/UPDATE/DELETE）");
+        var command = new Command("dry-run", "預演 DML：驗證語法、回報影響筆數與前後資料對照，一律回滾不修改資料") { sqlArg };
+
+        command.SetHandler(async (sql) =>
+        {
+            var repo = Program.Services.GetRequiredService<ISqlDryRunRepository>();
+
+            try
+            {
+                var result = await repo.DryRunAsync(sql);
+
+                if (CliOutput.JsonMode)
+                {
+                    OutputJson(result);
+                    if (!result.IsValid || result.ExecutionError != null)
+                        Environment.ExitCode = 1;
+                    return;
+                }
+
+                if (!result.IsValid)
+                {
+                    foreach (var error in result.SyntaxErrors)
+                        CliOutput.Error($"語法錯誤（第 {error.Line} 行第 {error.Column} 列）：{error.Message}");
+                    if (result.RejectReason != null)
+                        CliOutput.Error(result.RejectReason);
+                    Environment.ExitCode = 1;
+                    return;
+                }
+
+                if (result.ExecutionError != null)
+                {
+                    CliOutput.Error(result.ExecutionError);
+                    foreach (var warning in result.Warnings)
+                        CliOutput.Warning(warning);
+                    CliOutput.Info("已回滾，資料庫未變更。");
+                    Environment.ExitCode = 1;
+                    return;
+                }
+
+                CliOutput.Info($"語法：有效（{result.StatementType}）");
+                CliOutput.Info($"影響筆數：{result.AffectedRowCount} 筆");
+
+                if (result.PreviewTable is { Rows.Count: > 0 })
+                {
+                    var table = new Table().Title("前後資料對照");
+                    foreach (DataColumn col in result.PreviewTable.Columns)
+                        table.AddColumn(col.ColumnName.EscapeMarkup());
+
+                    foreach (DataRow row in result.PreviewTable.Rows)
+                    {
+                        var cells = new string[result.PreviewTable.Columns.Count];
+                        for (var i = 0; i < result.PreviewTable.Columns.Count; i++)
+                            cells[i] = (row[i] == DBNull.Value ? "" : row[i]?.ToString() ?? "").EscapeMarkup();
+                        table.AddRow(cells);
+                    }
+                    AnsiConsole.Write(table);
+
+                    if (result.PreviewTruncated)
+                        CliOutput.Info($"預覽僅顯示前 {result.PreviewTable.Rows.Count} 筆。");
+                }
+
+                foreach (var warning in result.Warnings)
+                    CliOutput.Warning(warning);
+
+                CliOutput.Info("已回滾，資料庫未變更。");
+            }
+            catch (Exception ex)
+            {
+                CliOutput.Error($"Dry run 失敗：{ex.Message}");
+                Environment.ExitCode = 1;
+            }
+        }, sqlArg);
+
+        return command;
+
+        static void OutputJson(Specurai.Domain.Entities.DryRunResult result)
+        {
+            var previewRows = new List<Dictionary<string, object?>>();
+            if (result.PreviewTable != null)
+            {
+                foreach (DataRow row in result.PreviewTable.Rows)
+                {
+                    var dict = new Dictionary<string, object?>();
+                    foreach (DataColumn col in result.PreviewTable.Columns)
+                        dict[col.ColumnName] = row[col] == DBNull.Value ? null : row[col];
+                    previewRows.Add(dict);
+                }
+            }
+
+            CliOutput.Success(new
+            {
+                Valid = result.IsValid,
+                StatementType = result.StatementType.ToString(),
+                result.RejectReason,
+                SyntaxErrors = result.SyntaxErrors.Select(e => new { e.Line, e.Column, e.Message }).ToList(),
+                result.AffectedRowCount,
+                PreviewRows = previewRows,
+                result.PreviewTruncated,
+                result.Warnings,
+                result.ExecutionError,
+                RolledBack = result.IsValid,
+                DatabaseChanged = false
+            }, previewRows.Count);
+        }
     }
 
     private static Command CreateSearchColumnsCommand()

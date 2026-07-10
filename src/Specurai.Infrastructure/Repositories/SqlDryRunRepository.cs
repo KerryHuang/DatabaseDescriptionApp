@@ -57,6 +57,14 @@ public class SqlDryRunRepository : ISqlDryRunRepository
         await using var connection = new SqlConnection(connectionString);
         await connection.OpenAsync(ct);
 
+        // 使用者已自帶 OUTPUT INTO：結果寫入指定目標而非回傳結果集，
+        // 沿用原句改走 ExecuteCountOnlyAsync，只回報影響筆數、無前後對照預覽
+        if (analysis.HasUserOutputIntoClause)
+        {
+            warnings.Add("使用者自帶 OUTPUT INTO，結果已寫入指定目標（將隨交易回滾），僅回報影響筆數。");
+            return await ExecuteCountOnlyAsync(connection, sql, analysis, warnings, ct);
+        }
+
         // OUTPUT 注入：UPDATE 需先查目標表欄位以產生 舊_欄位/新_欄位 別名對照
         string rewrittenSql;
         if (analysis.HasUserOutputClause)

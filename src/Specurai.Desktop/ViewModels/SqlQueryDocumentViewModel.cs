@@ -303,6 +303,7 @@ public partial class SqlQueryDocumentViewModel : DocumentViewModel
         StatusMessage = string.Empty;
         RowCount = 0;
         ExecutionTimeMs = 0;
+        DryRunWarnings = string.Empty;
     }
 
     [RelayCommand]

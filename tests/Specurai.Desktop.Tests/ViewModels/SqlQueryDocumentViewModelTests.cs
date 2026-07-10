@@ -615,5 +615,33 @@ public class SqlQueryDocumentViewModelTests
         vm.HasDryRunWarnings.Should().BeFalse();
     }
 
+    [Fact]
+    public async Task 清除查詢_應清除DryRun警告()
+    {
+        var dryRunRepo = Substitute.For<ISqlDryRunRepository>();
+        dryRunRepo.DryRunAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(new DryRunResult
+            {
+                IsValid = true,
+                StatementType = DryRunStatementType.Insert,
+                AffectedRowCount = 1,
+                PreviewTable = new DataTable(),
+                Warnings = ["IDENTITY 警告"]
+            });
+
+        var vm = new SqlQueryDocumentViewModel(_sqlQueryRepository, _connectionManager, dryRunRepo)
+        {
+            SqlText = "INSERT INTO T (A) VALUES (1)"
+        };
+
+        await vm.DryRunCommand.ExecuteAsync(null);
+        vm.HasDryRunWarnings.Should().BeTrue();
+
+        vm.ClearQueryCommand.Execute(null);
+
+        vm.DryRunWarnings.Should().BeEmpty();
+        vm.HasDryRunWarnings.Should().BeFalse();
+    }
+
     #endregion
 }

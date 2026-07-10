@@ -93,7 +93,7 @@ claude mcp add specurai -s user -- /絕對路徑/Specurai.McpServer
 | macOS | `~/Library/Application Support/Specurai/connections.json` |
 | Linux | `~/.config/Specurai/connections.json` |
 
-## 可用工具（56 個）
+## 可用工具（57 個）
 
 ⚠️ 表示寫入或破壞性操作。
 

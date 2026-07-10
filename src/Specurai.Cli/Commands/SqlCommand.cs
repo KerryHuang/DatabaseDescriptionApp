@@ -133,18 +133,11 @@ public static class SqlCommand
 
                 if (result.PreviewTable is { Rows.Count: > 0 })
                 {
-                    var table = new Table().Title("前後資料對照");
-                    foreach (DataColumn col in result.PreviewTable.Columns)
-                        table.AddColumn(col.ColumnName.EscapeMarkup());
-
-                    foreach (DataRow row in result.PreviewTable.Rows)
-                    {
-                        var cells = new string[result.PreviewTable.Columns.Count];
-                        for (var i = 0; i < result.PreviewTable.Columns.Count; i++)
-                            cells[i] = (row[i] == DBNull.Value ? "" : row[i]?.ToString() ?? "").EscapeMarkup();
-                        table.AddRow(cells);
-                    }
-                    AnsiConsole.Write(table);
+                    // Spectre.Console 在欄數多、欄寬遭擠壓且內容含全形字元（中日韓）時，
+                    // 版面計算會陷入無窮迴圈（實測 UPDATE 全欄對照 22 欄卡死逾 110 秒，
+                    // 縮到 6 欄仍卡死），因此改採「轉置」呈現：一個來源欄位一列，
+                    // 渲染欄數固定為 3～4 欄，欄寬充足即可避免觸發該問題。
+                    AnsiConsole.Write(BuildPreviewTable(result.PreviewTable));
 
                     if (result.PreviewTruncated)
                         CliOutput.Info($"預覽僅顯示前 {result.PreviewTable.Rows.Count} 筆。");
@@ -163,6 +156,92 @@ public static class SqlCommand
         }, sqlArg);
 
         return command;
+
+        // 將預覽表轉置為「一個來源欄位一列」的呈現：
+        // UPDATE 的 舊_欄位/新_欄位 別名配對成「欄位｜舊值｜新值」；
+        // INSERT/DELETE（或無法配對時）退回「欄位｜值」單值呈現。
+        // 多筆預覽時加上「筆」欄區分列序。
+        static Table BuildPreviewTable(DataTable preview)
+        {
+            // 解析 舊_/新_ 前綴配對（別名由 SqlDryRunAnalyzer 產生）
+            var paired = true;
+            foreach (DataColumn col in preview.Columns)
+            {
+                if (!col.ColumnName.StartsWith("舊_", StringComparison.Ordinal)
+                    && !col.ColumnName.StartsWith("新_", StringComparison.Ordinal))
+                {
+                    paired = false;
+                    break;
+                }
+            }
+
+            // fields：來源欄位名稱 → (舊值欄索引, 新值欄索引)；單值模式時只用 OldIndex
+            var fields = new List<(string Name, int OldIndex, int NewIndex)>();
+            var fieldIndexByName = new Dictionary<string, int>();
+            for (var i = 0; i < preview.Columns.Count; i++)
+            {
+                var columnName = preview.Columns[i].ColumnName;
+                var isOld = !paired || columnName.StartsWith("舊_", StringComparison.Ordinal);
+                var name = paired ? columnName[2..] : columnName;
+
+                if (!fieldIndexByName.TryGetValue(name, out var fi))
+                {
+                    fi = fields.Count;
+                    fieldIndexByName[name] = fi;
+                    fields.Add((name, -1, -1));
+                }
+                var field = fields[fi];
+                fields[fi] = isOld ? (field.Name, i, field.NewIndex) : (field.Name, field.OldIndex, i);
+            }
+
+            var showRowNumber = preview.Rows.Count > 1;
+            var table = new Table().Title("前後資料對照");
+            if (showRowNumber)
+                table.AddColumn("筆");
+            table.AddColumn("欄位");
+            if (paired)
+            {
+                table.AddColumn("舊值");
+                table.AddColumn("新值");
+            }
+            else
+            {
+                table.AddColumn("值");
+            }
+
+            var rowNumber = 0;
+            foreach (DataRow row in preview.Rows)
+            {
+                rowNumber++;
+                foreach (var (name, oldIndex, newIndex) in fields)
+                {
+                    var cells = new List<string>();
+                    if (showRowNumber)
+                        cells.Add(rowNumber.ToString());
+                    cells.Add(name.EscapeMarkup());
+                    cells.Add(oldIndex >= 0 ? FormatPreviewCell(row[oldIndex]) : "");
+                    if (paired)
+                        cells.Add(newIndex >= 0 ? FormatPreviewCell(row[newIndex]) : "");
+                    table.AddRow(cells.ToArray());
+                }
+            }
+            return table;
+        }
+
+        // 將預覽儲存格整理後再輸出：先去除 char 欄位的尾端填補空白，再截斷過長內容，
+        // 避免超長字串進一步放大 Spectre.Console 的版面計算成本。
+        static string FormatPreviewCell(object value)
+        {
+            const int MaxCellLength = 60;
+            var text = (value == DBNull.Value ? "" : value?.ToString() ?? "").Trim();
+            if (text.Length > MaxCellLength)
+            {
+                // 避免從代理對（surrogate pair）中間截斷產生無效字元
+                var cut = char.IsHighSurrogate(text[MaxCellLength - 1]) ? MaxCellLength - 1 : MaxCellLength;
+                text = text[..cut] + "…";
+            }
+            return text.EscapeMarkup();
+        }
 
         static void OutputJson(Specurai.Domain.Entities.DryRunResult result)
         {

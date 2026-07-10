@@ -183,6 +183,23 @@ public class UpdateSqlGeneratorTests
         result.Warnings.Should().ContainSingle().Which.Should().Contain("Qty");
     }
 
+    [Fact(DisplayName = "部分列轉型失敗：SQL 開頭加警告註解，正常列仍產生 UPDATE")]
+    public void Generate_部分列轉型失敗_應於SQL開頭加警告註解且保留正常列()
+    {
+        var columns = new[] { Col("Id", isKey: true, clrType: typeof(int)), Col("Qty", clrType: typeof(int)) };
+        var request = Request(columns, ["Id"],
+            Row(new() { ["Id"] = 1, ["Qty"] = 10 },
+                new() { ["Id"] = 1, ["Qty"] = "abc" }),
+            Row(new() { ["Id"] = 2, ["Qty"] = 10 },
+                new() { ["Id"] = 2, ["Qty"] = 20 }));
+
+        var result = _generator.Generate(request);
+
+        result.StatementCount.Should().Be(1);
+        result.Sql.Should().StartWith("-- 警告：第 1 列");
+        result.Sql.Should().Contain("UPDATE");
+    }
+
     [Fact(DisplayName = "唯讀欄位（timestamp/identity）不進 SET 也不進 WHERE")]
     public void Generate_唯讀欄位_應排除()
     {

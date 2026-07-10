@@ -281,35 +281,67 @@ public class SqlQueryRepository : ISqlQueryRepository
         await using var connection = new SqlConnection(connectionString);
         await connection.OpenAsync(ct);
 
-        await using var command = new SqlCommand(sql, connection);
-        command.CommandTimeout = 30;
+        try
+        {
+            await using var command = new SqlCommand(sql, connection);
+            command.CommandTimeout = 30;
 
-        using var reader = await command.ExecuteReaderAsync(CommandBehavior.KeyInfo, ct);
-        var columns = DeduplicateColumnNames(MapColumnMetadata(reader.GetSchemaTable()));
+            using var reader = await command.ExecuteReaderAsync(CommandBehavior.KeyInfo, ct);
+            var columns = DeduplicateColumnNames(MapColumnMetadata(reader.GetSchemaTable()));
 
-        // 手動填列：避免 DataTable.Load 因 KeyInfo 自動加上主鍵/唯一約束，
-        // 導致 OUTER JOIN 含 NULL 鍵值或重複鍵值的結果載入失敗
-        // 欄名以 columns（中繼資料去重後）為單一事實來源，確保與中繼資料可互查；
-        // 中繼資料為空時退回原本的 reader 名稱＋序號去重邏輯
+            // 手動填列：避免 DataTable.Load 因 KeyInfo 自動加上主鍵/唯一約束，
+            // 導致 OUTER JOIN 含 NULL 鍵值或重複鍵值的結果載入失敗
+            // 欄名以 columns（中繼資料去重後）為單一事實來源，確保與中繼資料可互查；
+            // 中繼資料為空時退回原本的 reader 名稱＋序號去重邏輯
+            // FieldCount 改為 VisibleFieldCount：browse mode 可能在尾端附加隱藏的主鍵欄
+            // （SqlClient 保證 visible 欄一律排在前段，故此處索引不受影響），
+            // 若使用 FieldCount 建欄會把使用者未查詢的隱藏欄也塞進結果格
+            var table = BuildResultTable(reader, columns, reader.VisibleFieldCount);
+            while (await reader.ReadAsync(ct))
+                FillRow(reader, table, reader.VisibleFieldCount);
+
+            return new QueryResultWithSchema { Table = table, Columns = columns };
+        }
+        catch (SqlException)
+        {
+            // browse mode（KeyInfo，隱含 SET NO_BROWSETABLE ON）對部分查詢形態
+            // （如 FOR XML/FOR JSON、部分多批次語句）可能報錯，導致原本能跑的查詢升級後失敗。
+            // 退回無 KeyInfo 的一般查詢重試一次；重試失敗則正常往外拋出。
+            // 此路徑回傳空中繼資料 → IsSingleTable 為 false → 不可編輯，但查詢功能本身不受影響。
+            await using var retryCommand = new SqlCommand(sql, connection);
+            retryCommand.CommandTimeout = 30;
+
+            using var retryReader = await retryCommand.ExecuteReaderAsync(ct);
+            var table = BuildResultTable(retryReader, [], retryReader.FieldCount);
+            while (await retryReader.ReadAsync(ct))
+                FillRow(retryReader, table, retryReader.FieldCount);
+
+            return new QueryResultWithSchema { Table = table, Columns = [] };
+        }
+    }
+
+    /// <summary>依 reader 前 <paramref name="fieldCount"/> 欄（視覺可見欄）建立空的 DataTable</summary>
+    private static DataTable BuildResultTable(SqlDataReader reader, List<QueryColumnMetadata> columns, int fieldCount)
+    {
         var table = new DataTable();
-        var useMetadataNames = columns.Count == reader.FieldCount;
-        for (var i = 0; i < reader.FieldCount; i++)
+        var useMetadataNames = columns.Count == fieldCount;
+        for (var i = 0; i < fieldCount; i++)
         {
             var name = useMetadataNames ? columns[i].ColumnName : reader.GetName(i);
             if (!useMetadataNames && table.Columns.Contains(name))
                 name = $"{name}_{i}";
             table.Columns.Add(name, reader.GetFieldType(i));
         }
+        return table;
+    }
 
-        while (await reader.ReadAsync(ct))
-        {
-            var row = table.NewRow();
-            for (var i = 0; i < reader.FieldCount; i++)
-                row[i] = reader.IsDBNull(i) ? DBNull.Value : reader.GetValue(i);
-            table.Rows.Add(row);
-        }
-
-        return new QueryResultWithSchema { Table = table, Columns = columns };
+    /// <summary>將目前 reader 資料列的前 <paramref name="fieldCount"/> 欄填入 DataTable</summary>
+    private static void FillRow(SqlDataReader reader, DataTable table, int fieldCount)
+    {
+        var row = table.NewRow();
+        for (var i = 0; i < fieldCount; i++)
+            row[i] = reader.IsDBNull(i) ? DBNull.Value : reader.GetValue(i);
+        table.Rows.Add(row);
     }
 
     /// <summary>
@@ -324,6 +356,11 @@ public class SqlQueryRepository : ISqlQueryRepository
         var result = new List<QueryColumnMetadata>();
         foreach (DataRow row in schemaTable.Rows)
         {
+            // browse mode（KeyInfo）在 SELECT 清單不含主鍵時，會把主鍵欄以隱藏欄附加在結果尾端，
+            // 這些欄位不屬於使用者查詢的結果，需過濾掉
+            if (AsBool(row, "IsHidden"))
+                continue;
+
             var clrType = row.Table.Columns.Contains("DataType") ? row["DataType"] as Type ?? typeof(object) : typeof(object);
             var baseColumn = AsString(row, "BaseColumnName");
             var isReadOnly = AsBool(row, "IsAutoIncrement")

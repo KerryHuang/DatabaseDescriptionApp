@@ -32,6 +32,8 @@ public static class ServiceRegistration
             new ParameterRepository(() => sp.GetRequiredService<IConnectionManager>().GetCurrentConnectionString()));
         services.AddSingleton<ISqlQueryRepository>(sp =>
             new SqlQueryRepository(() => sp.GetRequiredService<IConnectionManager>().GetCurrentConnectionString()));
+        services.AddSingleton<ISqlDryRunRepository>(sp =>
+            new SqlDryRunRepository(() => sp.GetRequiredService<IConnectionManager>().GetCurrentConnectionString()));
         services.AddSingleton<IColumnTypeRepository>(sp =>
             new ColumnTypeRepository(() => sp.GetRequiredService<IConnectionManager>().GetCurrentConnectionString()));
         services.AddSingleton<IDatabaseRecoveryModelRepository>(sp =>

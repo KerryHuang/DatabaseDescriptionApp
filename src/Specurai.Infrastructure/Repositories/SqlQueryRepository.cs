@@ -267,9 +267,85 @@ public class SqlQueryRepository : ISqlQueryRepository
         return results;
     }
 
-    public Task<QueryResultWithSchema> ExecuteQueryWithSchemaAsync(string sql, CancellationToken ct = default)
-        => throw new NotImplementedException();
+    public async Task<QueryResultWithSchema> ExecuteQueryWithSchemaAsync(string sql, CancellationToken ct = default)
+    {
+        var connectionString = _connectionStringProvider();
+        if (string.IsNullOrEmpty(connectionString))
+            throw new InvalidOperationException("未設定資料庫連線");
 
-    public Task<QueryResultWithSchema> ExecuteQueryWithSchemaAsync(string sql, string connectionString, CancellationToken ct = default)
-        => throw new NotImplementedException();
+        return await ExecuteQueryWithSchemaAsync(sql, connectionString, ct);
+    }
+
+    public async Task<QueryResultWithSchema> ExecuteQueryWithSchemaAsync(string sql, string connectionString, CancellationToken ct = default)
+    {
+        await using var connection = new SqlConnection(connectionString);
+        await connection.OpenAsync(ct);
+
+        await using var command = new SqlCommand(sql, connection);
+        command.CommandTimeout = 30;
+
+        using var reader = await command.ExecuteReaderAsync(CommandBehavior.KeyInfo, ct);
+        var columns = MapColumnMetadata(reader.GetSchemaTable());
+
+        // 手動填列：避免 DataTable.Load 因 KeyInfo 自動加上主鍵/唯一約束，
+        // 導致 OUTER JOIN 含 NULL 鍵值或重複鍵值的結果載入失敗
+        var table = new DataTable();
+        for (var i = 0; i < reader.FieldCount; i++)
+        {
+            var name = reader.GetName(i);
+            if (table.Columns.Contains(name))
+                name = $"{name}_{i}";
+            table.Columns.Add(name, reader.GetFieldType(i));
+        }
+
+        while (await reader.ReadAsync(ct))
+        {
+            var row = table.NewRow();
+            for (var i = 0; i < reader.FieldCount; i++)
+                row[i] = reader.IsDBNull(i) ? DBNull.Value : reader.GetValue(i);
+            table.Rows.Add(row);
+        }
+
+        return new QueryResultWithSchema { Table = table, Columns = columns };
+    }
+
+    /// <summary>
+    /// 將 GetSchemaTable() 的結果對映為欄位中繼資料。
+    /// 唯讀判定：identity、驅動回報唯讀、運算式欄位、無來源欄、byte[]（timestamp/rowversion）
+    /// </summary>
+    internal static List<QueryColumnMetadata> MapColumnMetadata(DataTable? schemaTable)
+    {
+        if (schemaTable == null)
+            return [];
+
+        var result = new List<QueryColumnMetadata>();
+        foreach (DataRow row in schemaTable.Rows)
+        {
+            var clrType = row.Table.Columns.Contains("DataType") ? row["DataType"] as Type ?? typeof(object) : typeof(object);
+            var baseColumn = AsString(row, "BaseColumnName");
+            var isReadOnly = AsBool(row, "IsAutoIncrement")
+                || AsBool(row, "IsReadOnly")
+                || AsBool(row, "IsExpression")
+                || string.IsNullOrEmpty(baseColumn)
+                || clrType == typeof(byte[]);
+
+            result.Add(new QueryColumnMetadata
+            {
+                ColumnName = AsString(row, "ColumnName") ?? string.Empty,
+                BaseSchema = AsString(row, "BaseSchemaName"),
+                BaseTable = AsString(row, "BaseTableName"),
+                BaseColumn = baseColumn,
+                IsKey = AsBool(row, "IsKey"),
+                IsReadOnly = isReadOnly,
+                ClrType = clrType
+            });
+        }
+        return result;
+
+        static string? AsString(DataRow row, string column) =>
+            row.Table.Columns.Contains(column) && row[column] is string { Length: > 0 } s ? s : null;
+
+        static bool AsBool(DataRow row, string column) =>
+            row.Table.Columns.Contains(column) && row[column] is true;
+    }
 }

@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using Avalonia.Controls;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Specurai.Application.Models;
 using Specurai.Application.Services;
 using Specurai.Domain.Entities;
 using Specurai.Domain.Interfaces;
@@ -22,6 +23,9 @@ public partial class SqlQueryDocumentViewModel : DocumentViewModel
     private readonly ISqlQueryRepository? _sqlQueryRepository;
     private readonly IConnectionManager? _connectionManager;
     private readonly ISqlDryRunRepository? _sqlDryRunRepository;
+    private readonly IUpdateSqlGenerator? _updateSqlGenerator;
+    private QueryResultWithSchema? _lastQueryResult;
+    private List<Dictionary<string, object?>> _originalRows = [];
     private Dictionary<string, string> _columnDescriptions = new(StringComparer.OrdinalIgnoreCase);
     private string? _localConnectionString;
     private static int _instanceCount;
@@ -51,6 +55,16 @@ public partial class SqlQueryDocumentViewModel : DocumentViewModel
     /// <summary>編輯器選取終點（與 TextBox.SelectionEnd 雙向綁定）</summary>
     [ObservableProperty]
     private int _selectionEnd;
+
+    /// <summary>查詢結果是否可編輯（單一資料表來源才開放）</summary>
+    [ObservableProperty]
+    private bool _isResultEditable;
+
+    /// <summary>無主鍵時的定位欄挑選回呼（View 掛真對話框，測試掛假回呼）；回傳 null 表示略過</summary>
+    public Func<IReadOnlyList<string>, Task<IReadOnlyList<string>?>>? PickKeyColumnsAsync { get; set; }
+
+    /// <summary>顯示產生 SQL 的回呼（View 掛 SqlPreviewWindow）</summary>
+    public Func<string, Task>? ShowGeneratedSqlAsync { get; set; }
 
     /// <summary>是否有 Dry Run 警告需要顯示（供警告列 IsVisible 綁定）</summary>
     public bool HasDryRunWarnings => !string.IsNullOrEmpty(DryRunWarnings);
@@ -82,11 +96,13 @@ public partial class SqlQueryDocumentViewModel : DocumentViewModel
     public SqlQueryDocumentViewModel(
         ISqlQueryRepository sqlQueryRepository,
         IConnectionManager connectionManager,
-        ISqlDryRunRepository? sqlDryRunRepository = null)
+        ISqlDryRunRepository? sqlDryRunRepository = null,
+        IUpdateSqlGenerator? updateSqlGenerator = null)
     {
         _sqlQueryRepository = sqlQueryRepository;
         _connectionManager = connectionManager;
         _sqlDryRunRepository = sqlDryRunRepository;
+        _updateSqlGenerator = updateSqlGenerator;
         _instanceId = ++_instanceCount;
         Title = $"SQL 查詢 {_instanceId}";
         Icon = "📝";
@@ -119,10 +135,10 @@ public partial class SqlQueryDocumentViewModel : DocumentViewModel
 
         try
         {
-            if (!string.IsNullOrEmpty(_localConnectionString))
-                _columnDescriptions = await _sqlQueryRepository.GetColumnDescriptionsAsync(_localConnectionString);
-            else
-                _columnDescriptions = await _sqlQueryRepository.GetColumnDescriptionsAsync();
+            var descriptions = !string.IsNullOrEmpty(_localConnectionString)
+                ? await _sqlQueryRepository.GetColumnDescriptionsAsync(_localConnectionString)
+                : await _sqlQueryRepository.GetColumnDescriptionsAsync();
+            _columnDescriptions = descriptions ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         }
         catch
         {
@@ -191,14 +207,25 @@ public partial class SqlQueryDocumentViewModel : DocumentViewModel
             QueryResults.Clear();
             ResultColumns.Clear();
             DryRunWarnings = string.Empty;
+            IsResultEditable = false;
+            _lastQueryResult = null;
+            _originalRows = [];
 
             var stopwatch = Stopwatch.StartNew();
-            var dataTable = !string.IsNullOrEmpty(_localConnectionString)
-                ? await _sqlQueryRepository.ExecuteQueryAsync(sql, _localConnectionString)
-                : await _sqlQueryRepository.ExecuteQueryAsync(sql);
+            var result = !string.IsNullOrEmpty(_localConnectionString)
+                ? await _sqlQueryRepository.ExecuteQueryWithSchemaAsync(sql, _localConnectionString)
+                : await _sqlQueryRepository.ExecuteQueryWithSchemaAsync(sql);
             stopwatch.Stop();
 
-            // 建立欄位（包含描述）
+            var dataTable = result.Table;
+            _lastQueryResult = result;
+            IsResultEditable = result.IsSingleTable;
+
+            var metaByName = result.Columns
+                .GroupBy(c => c.ColumnName, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+
+            // 建立欄位（包含描述；可編輯結果依中繼資料設定唯讀欄與雙向綁定）
             foreach (DataColumn col in dataTable.Columns)
             {
                 var headerText = col.ColumnName;
@@ -208,10 +235,17 @@ public partial class SqlQueryDocumentViewModel : DocumentViewModel
                     headerText = $"{col.ColumnName}\n({description})";
                 }
 
+                var meta = metaByName.GetValueOrDefault(col.ColumnName);
+                var editable = IsResultEditable && meta is { IsReadOnly: false };
+
                 ResultColumns.Add(new DataGridTextColumn
                 {
                     Header = headerText,
-                    Binding = new Avalonia.Data.Binding($"[{col.ColumnName}]"),
+                    Binding = new Avalonia.Data.Binding($"[{col.ColumnName}]")
+                    {
+                        Mode = editable ? Avalonia.Data.BindingMode.TwoWay : Avalonia.Data.BindingMode.OneWay
+                    },
+                    IsReadOnly = !editable,
                     Width = new DataGridLength(1, DataGridLengthUnitType.Auto)
                 });
             }
@@ -226,6 +260,9 @@ public partial class SqlQueryDocumentViewModel : DocumentViewModel
                 }
                 QueryResults.Add(dict);
             }
+
+            // 快照原值：產生異動 SQL 時以此比對
+            _originalRows = QueryResults.Select(r => new Dictionary<string, object?>(r)).ToList();
 
             RowCount = dataTable.Rows.Count;
             ExecutionTimeMs = stopwatch.ElapsedMilliseconds;
@@ -267,6 +304,9 @@ public partial class SqlQueryDocumentViewModel : DocumentViewModel
             ResultColumns.Clear();
             DryRunWarnings = string.Empty;
             RowCount = 0;
+            IsResultEditable = false;
+            _lastQueryResult = null;
+            _originalRows = [];
 
             var stopwatch = Stopwatch.StartNew();
             var result = !string.IsNullOrEmpty(_localConnectionString)
@@ -338,6 +378,79 @@ public partial class SqlQueryDocumentViewModel : DocumentViewModel
         RowCount = 0;
         ExecutionTimeMs = 0;
         DryRunWarnings = string.Empty;
+        IsResultEditable = false;
+        _lastQueryResult = null;
+        _originalRows = [];
+    }
+
+    /// <summary>
+    /// 比對結果格的編輯差異，產生 UPDATE 語句（僅產生文字，不執行任何寫入）
+    /// </summary>
+    [RelayCommand]
+    private async Task GenerateUpdateSqlAsync()
+    {
+        if (_updateSqlGenerator == null)
+            return;
+
+        if (_lastQueryResult is not { IsSingleTable: true } schema || !IsResultEditable)
+        {
+            StatusMessage = "僅支援單一資料表的查詢結果。";
+            return;
+        }
+
+        if (_originalRows.Count != QueryResults.Count)
+        {
+            StatusMessage = "結果列數與快照不一致，請重新執行查詢。";
+            return;
+        }
+
+        // 主鍵優先；無主鍵讓使用者挑選定位欄；略過則全欄位原值 fallback
+        var keyColumns = schema.Columns.Where(c => c.IsKey).Select(c => c.ColumnName).ToList();
+        var isFallback = false;
+        if (keyColumns.Count == 0)
+        {
+            var candidates = schema.Columns
+                .Where(c => !string.IsNullOrEmpty(c.BaseColumn) && c.ClrType != typeof(byte[]))
+                .Select(c => c.ColumnName)
+                .ToList();
+
+            var picked = PickKeyColumnsAsync != null ? await PickKeyColumnsAsync(candidates) : null;
+            if (picked is { Count: > 0 })
+            {
+                keyColumns = picked.ToList();
+            }
+            else
+            {
+                keyColumns = candidates;
+                isFallback = true;
+            }
+        }
+
+        var rows = QueryResults
+            .Select((current, i) => new UpdateSqlRow { Original = _originalRows[i], Current = current })
+            .ToList();
+
+        var result = _updateSqlGenerator.Generate(new UpdateSqlRequest
+        {
+            TargetSchema = schema.TargetSchema,
+            TargetTable = schema.TargetTable!,
+            Columns = schema.Columns,
+            KeyColumns = keyColumns,
+            IsFallbackKeys = isFallback,
+            Rows = rows
+        });
+
+        if (result.StatementCount == 0)
+        {
+            StatusMessage = result.Warnings.Count > 0 ? string.Join("；", result.Warnings) : "無異動。";
+            return;
+        }
+
+        var warningNote = result.Warnings.Count > 0 ? $"（{string.Join("；", result.Warnings)}）" : "";
+        StatusMessage = $"已產生 {result.StatementCount} 句 UPDATE{warningNote}";
+
+        if (ShowGeneratedSqlAsync != null)
+            await ShowGeneratedSqlAsync(result.Sql);
     }
 
     [RelayCommand]

@@ -58,6 +58,14 @@ public class UpdateSqlGenerator : IUpdateSqlGenerator
                 if (!TryConvert(rawOriginal, column.ClrType, out var original))
                     original = current;
 
+                // char/nchar 儲存時會自動填補尾端空白，比對與字面值都去尾端空白；
+                // varchar/nvarchar 的尾端空白可能是刻意資料，不動。
+                if (IsFixedLengthChar(column))
+                {
+                    original = TrimEndIfString(original);
+                    current = TrimEndIfString(current);
+                }
+
                 if (!ValuesEqual(original, current))
                     setClauses.Add($"{Quote(column.BaseColumn!)} = {FormatLiteral(current)}");
             }
@@ -78,6 +86,8 @@ public class UpdateSqlGenerator : IUpdateSqlGenerator
                 // WHERE 字面值同樣正規化到欄位型別，避免鍵欄被污染成字串時輸出 N'100719' 而非 100719；
                 // 轉不動時退回原始值，維持既有字串比對行為。
                 var value = TryConvert(rawValue, meta.ClrType, out var normalizedValue) ? normalizedValue : rawValue;
+                if (IsFixedLengthChar(meta))
+                    value = TrimEndIfString(value);
                 whereClauses.Add(value == null
                     ? $"{Quote(meta.BaseColumn!)} IS NULL"
                     : $"{Quote(meta.BaseColumn!)} = {FormatLiteral(value)}");
@@ -116,6 +126,12 @@ public class UpdateSqlGenerator : IUpdateSqlGenerator
 
     /// <summary>DBNull 正規化為 null</summary>
     private static object? Normalize(object? value) => value is DBNull ? null : value;
+
+    /// <summary>char/nchar 儲存時自動填補，尾端空白無意義；varchar 尾端空白可能刻意，不動</summary>
+    private static bool IsFixedLengthChar(QueryColumnMetadata c) => c.SqlTypeName is "char" or "nchar";
+
+    /// <summary>字串值去尾端空白，NULL 與非字串值原樣回傳</summary>
+    private static object? TrimEndIfString(object? value) => value is string s ? s.TrimEnd() : value;
 
     /// <summary>
     /// 將現值轉為欄位 CLR 型別（DataGrid 編輯後的值常是字串）。

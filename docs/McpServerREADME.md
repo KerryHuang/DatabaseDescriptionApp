@@ -101,7 +101,7 @@ claude mcp add specurai -s user -- /絕對路徑/Specurai.McpServer
 |------|------|
 | 連線管理 | `list_connections`、`switch_connection`、`test_connection`、`add_connection` ⚠️、`update_connection` ⚠️、`delete_connection` ⚠️、`export_connections`、`import_connections` ⚠️ |
 | 資料表查詢 | `list_tables`、`get_columns`、`get_indexes`、`get_relations`、`get_parameters`、`get_definition` |
-| SQL 查詢 | `execute_readonly_sql`、`search_columns`、`search_columns_multi_database`、`get_create_table_sql` |
+| SQL 查詢 | `execute_readonly_sql`、`dry_run_sql`、`search_columns`、`search_columns_multi_database`、`get_create_table_sql` |
 | 描述管理 | `update_table_description`、`update_column_description` |
 | 效能診斷 | `get_wait_statistics`、`get_expensive_queries`、`get_expensive_procedures`、`get_missing_indexes`、`get_unused_indexes`、`get_error_log` |
 | 健康監控 | `get_health_install_status`、`get_health_status`、`get_health_metrics`、`get_health_alerts`、`install_health_monitoring` ⚠️、`uninstall_health_monitoring` ⚠️、`export_health_monitoring_sql` |

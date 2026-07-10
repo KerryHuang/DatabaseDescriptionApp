@@ -285,15 +285,18 @@ public class SqlQueryRepository : ISqlQueryRepository
         command.CommandTimeout = 30;
 
         using var reader = await command.ExecuteReaderAsync(CommandBehavior.KeyInfo, ct);
-        var columns = MapColumnMetadata(reader.GetSchemaTable());
+        var columns = DeduplicateColumnNames(MapColumnMetadata(reader.GetSchemaTable()));
 
         // 手動填列：避免 DataTable.Load 因 KeyInfo 自動加上主鍵/唯一約束，
         // 導致 OUTER JOIN 含 NULL 鍵值或重複鍵值的結果載入失敗
+        // 欄名以 columns（中繼資料去重後）為單一事實來源，確保與中繼資料可互查；
+        // 中繼資料為空時退回原本的 reader 名稱＋序號去重邏輯
         var table = new DataTable();
+        var useMetadataNames = columns.Count == reader.FieldCount;
         for (var i = 0; i < reader.FieldCount; i++)
         {
-            var name = reader.GetName(i);
-            if (table.Columns.Contains(name))
+            var name = useMetadataNames ? columns[i].ColumnName : reader.GetName(i);
+            if (!useMetadataNames && table.Columns.Contains(name))
                 name = $"{name}_{i}";
             table.Columns.Add(name, reader.GetFieldType(i));
         }
@@ -347,5 +350,41 @@ public class SqlQueryRepository : ISqlQueryRepository
 
         static bool AsBool(DataRow row, string column) =>
             row.Table.Columns.Contains(column) && row[column] is true;
+    }
+
+    /// <summary>
+    /// 將重複欄名以 `_{索引}` 後綴去重，規則需與 DataTable 建欄的去重規則一致，
+    /// 確保中繼資料（QueryColumnMetadata.ColumnName）與 DataTable 欄名可互查（單一事實來源）。
+    /// </summary>
+    internal static List<QueryColumnMetadata> DeduplicateColumnNames(List<QueryColumnMetadata> columns)
+    {
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var result = new List<QueryColumnMetadata>(columns.Count);
+
+        for (var i = 0; i < columns.Count; i++)
+        {
+            var column = columns[i];
+            var name = column.ColumnName;
+            if (!seen.Add(name))
+            {
+                name = $"{name}_{i}";
+                seen.Add(name);
+            }
+
+            result.Add(name == column.ColumnName
+                ? column
+                : new QueryColumnMetadata
+                {
+                    ColumnName = name,
+                    BaseSchema = column.BaseSchema,
+                    BaseTable = column.BaseTable,
+                    BaseColumn = column.BaseColumn,
+                    IsKey = column.IsKey,
+                    IsReadOnly = column.IsReadOnly,
+                    ClrType = column.ClrType
+                });
+        }
+
+        return result;
     }
 }

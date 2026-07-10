@@ -91,6 +91,8 @@
             <Border Grid.Row="0">
                 <TextBox x:Name="SqlTextBox"
                          Text="{Binding SqlText}"
+                         SelectionStart="{Binding SelectionStart, Mode=TwoWay}"
+                         SelectionEnd="{Binding SelectionEnd, Mode=TwoWay}"
                          AcceptsReturn="True"
                          AcceptsTab="True"
                          TextWrapping="Wrap"

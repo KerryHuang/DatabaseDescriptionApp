@@ -644,4 +644,133 @@ public class SqlQueryDocumentViewModelTests
     }
 
     #endregion
+
+    #region 選取範圍執行測試
+
+    [Fact]
+    public async Task 執行查詢_有選取範圍_應只執行選取文字並標示狀態()
+    {
+        _sqlQueryRepository.ExecuteQueryAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(new DataTable());
+
+        var sql = "SELECT 1;\nSELECT 2;";
+        var vm = new SqlQueryDocumentViewModel(_sqlQueryRepository, _connectionManager)
+        {
+            SqlText = sql,
+            SelectionStart = sql.IndexOf("SELECT 2"),
+            SelectionEnd = sql.IndexOf("SELECT 2") + "SELECT 2;".Length
+        };
+
+        await vm.ExecuteQueryCommand.ExecuteAsync(null);
+
+        await _sqlQueryRepository.Received(1).ExecuteQueryAsync("SELECT 2;", Arg.Any<CancellationToken>());
+        vm.StatusMessage.Should().Contain("（選取範圍）");
+        vm.QueryHistory.Should().Contain("SELECT 2;");
+    }
+
+    [Fact]
+    public async Task 執行查詢_無選取範圍_應執行全文且不標示選取()
+    {
+        _sqlQueryRepository.ExecuteQueryAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(new DataTable());
+
+        var vm = new SqlQueryDocumentViewModel(_sqlQueryRepository, _connectionManager)
+        {
+            SqlText = "SELECT 1"
+        };
+
+        await vm.ExecuteQueryCommand.ExecuteAsync(null);
+
+        await _sqlQueryRepository.Received(1).ExecuteQueryAsync("SELECT 1", Arg.Any<CancellationToken>());
+        vm.StatusMessage.Should().NotContain("（選取範圍）");
+    }
+
+    [Fact]
+    public async Task 執行查詢_選取純空白_應視同未選取執行全文()
+    {
+        _sqlQueryRepository.ExecuteQueryAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(new DataTable());
+
+        var sql = "SELECT 1;   \nSELECT 2;";
+        var vm = new SqlQueryDocumentViewModel(_sqlQueryRepository, _connectionManager)
+        {
+            SqlText = sql,
+            SelectionStart = 9,   // 「;」後的空白區
+            SelectionEnd = 12
+        };
+
+        await vm.ExecuteQueryCommand.ExecuteAsync(null);
+
+        await _sqlQueryRepository.Received(1).ExecuteQueryAsync(sql.Trim(), Arg.Any<CancellationToken>());
+        vm.StatusMessage.Should().NotContain("（選取範圍）");
+    }
+
+    [Fact]
+    public async Task 執行查詢_反向選取_應正規化索引後執行選取文字()
+    {
+        _sqlQueryRepository.ExecuteQueryAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(new DataTable());
+
+        var sql = "SELECT 1;\nSELECT 2;";
+        var start = sql.IndexOf("SELECT 2");
+        var vm = new SqlQueryDocumentViewModel(_sqlQueryRepository, _connectionManager)
+        {
+            SqlText = sql,
+            // 游標從後往前拖：Start > End
+            SelectionStart = start + "SELECT 2;".Length,
+            SelectionEnd = start
+        };
+
+        await vm.ExecuteQueryCommand.ExecuteAsync(null);
+
+        await _sqlQueryRepository.Received(1).ExecuteQueryAsync("SELECT 2;", Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task 執行查詢_選取索引超出文字長度_應鉗制在合法範圍()
+    {
+        _sqlQueryRepository.ExecuteQueryAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(new DataTable());
+
+        var vm = new SqlQueryDocumentViewModel(_sqlQueryRepository, _connectionManager)
+        {
+            SqlText = "SELECT 1",
+            SelectionStart = 7,
+            SelectionEnd = 999   // 文字變短後殘留的舊索引
+        };
+
+        await vm.ExecuteQueryCommand.ExecuteAsync(null);
+
+        await _sqlQueryRepository.Received(1).ExecuteQueryAsync("1", Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task DryRun_有選取範圍_應只預演選取文字並標示狀態()
+    {
+        var dryRunRepo = Substitute.For<ISqlDryRunRepository>();
+        dryRunRepo.DryRunAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(new DryRunResult
+            {
+                IsValid = true,
+                StatementType = DryRunStatementType.Update,
+                AffectedRowCount = 1,
+                PreviewTable = new DataTable()
+            });
+
+        var sql = "SELECT * FROM T;\nUPDATE T SET A = 1 WHERE Id = 9";
+        var start = sql.IndexOf("UPDATE");
+        var vm = new SqlQueryDocumentViewModel(_sqlQueryRepository, _connectionManager, dryRunRepo)
+        {
+            SqlText = sql,
+            SelectionStart = start,
+            SelectionEnd = sql.Length
+        };
+
+        await vm.DryRunCommand.ExecuteAsync(null);
+
+        await dryRunRepo.Received(1).DryRunAsync("UPDATE T SET A = 1 WHERE Id = 9", Arg.Any<CancellationToken>());
+        vm.StatusMessage.Should().Contain("（選取範圍）");
+    }
+
+    #endregion
 }

@@ -1,4 +1,5 @@
 using System.Data;
+using Specurai.Domain.Entities;
 
 namespace Specurai.Domain.Interfaces;
 
@@ -53,6 +54,16 @@ public interface ISqlQueryRepository
     /// 執行 SQL 查詢並返回結果（使用指定連線字串）
     /// </summary>
     Task<DataTable> ExecuteQueryAsync(string sql, string connectionString, CancellationToken ct = default);
+
+    /// <summary>
+    /// 執行 SQL 查詢並同時取得欄位來源中繼資料（CommandBehavior.KeyInfo，使用預設連線）
+    /// </summary>
+    Task<QueryResultWithSchema> ExecuteQueryWithSchemaAsync(string sql, CancellationToken ct = default);
+
+    /// <summary>
+    /// 執行 SQL 查詢並同時取得欄位來源中繼資料（CommandBehavior.KeyInfo，使用指定連線字串）
+    /// </summary>
+    Task<QueryResultWithSchema> ExecuteQueryWithSchemaAsync(string sql, string connectionString, CancellationToken ct = default);
 
     /// <summary>
     /// 取得欄位描述對照表（表名.欄位名 -> 描述）（使用預設連線）

@@ -1,5 +1,6 @@
 using System.Data;
 using Microsoft.Data.SqlClient;
+using Specurai.Domain.Entities;
 using Specurai.Domain.Interfaces;
 
 namespace Specurai.Infrastructure.Repositories;
@@ -265,4 +266,10 @@ public class SqlQueryRepository : ISqlQueryRepository
 
         return results;
     }
+
+    public Task<QueryResultWithSchema> ExecuteQueryWithSchemaAsync(string sql, CancellationToken ct = default)
+        => throw new NotImplementedException();
+
+    public Task<QueryResultWithSchema> ExecuteQueryWithSchemaAsync(string sql, string connectionString, CancellationToken ct = default)
+        => throw new NotImplementedException();
 }

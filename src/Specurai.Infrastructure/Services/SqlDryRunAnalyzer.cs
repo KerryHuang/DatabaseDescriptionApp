@@ -154,9 +154,17 @@ public class SqlDryRunAnalyzer
     {
         foreach (var reference in references)
         {
-            if (reference is QualifiedJoin join)
+            if (reference is JoinTableReference join)
             {
+                // QualifiedJoin（INNER/LEFT/RIGHT JOIN）與 UnqualifiedJoin（逗號 JOIN、CROSS JOIN）
+                // 共同基底皆為 JoinTableReference，都需要遞迴展開左右兩側
                 foreach (var inner in FlattenTableReferences([join.FirstTableReference, join.SecondTableReference]))
+                    yield return inner;
+            }
+            else if (reference is JoinParenthesisTableReference parenthesis)
+            {
+                // 括號包裹的 JOIN，例如 FROM (dbo.Users u JOIN dbo.Orders o ON ...)
+                foreach (var inner in FlattenTableReferences([parenthesis.Join]))
                     yield return inner;
             }
             else

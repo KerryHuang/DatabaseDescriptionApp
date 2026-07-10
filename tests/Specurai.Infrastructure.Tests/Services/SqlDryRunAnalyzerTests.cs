@@ -71,6 +71,28 @@ public class SqlDryRunAnalyzerTests
         result.TargetTable.Should().Be("Users");
     }
 
+    [Fact(DisplayName = "Analyze: UPDATE 逗號 JOIN 別名目標應解析回 FROM 子句中的實際資料表")]
+    public void Analyze_UpdateWithCommaJoinAliasTarget_ShouldResolveActualTable()
+    {
+        var sql = "UPDATE u SET u.Name = N'x' FROM dbo.Users u, dbo.Orders o WHERE o.UserId = u.Id";
+        var result = _analyzer.Analyze(sql);
+
+        result.IsValid.Should().BeTrue();
+        result.TargetSchema.Should().Be("dbo");
+        result.TargetTable.Should().Be("Users");
+    }
+
+    [Fact(DisplayName = "Analyze: DELETE CROSS JOIN 別名目標應解析回 FROM 子句中的實際資料表")]
+    public void Analyze_DeleteWithCrossJoinAliasTarget_ShouldResolveActualTable()
+    {
+        var sql = "DELETE u FROM dbo.Users u CROSS JOIN dbo.Orders o";
+        var result = _analyzer.Analyze(sql);
+
+        result.IsValid.Should().BeTrue();
+        result.TargetSchema.Should().Be("dbo");
+        result.TargetTable.Should().Be("Users");
+    }
+
     [Fact(DisplayName = "Analyze: SELECT 應被拒絕")]
     public void Analyze_Select_ShouldBeRejected()
     {

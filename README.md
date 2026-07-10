@@ -385,6 +385,7 @@ specurai describe column dbo.Users.Email "電子郵件"
 
 # SQL 查詢與搜尋
 specurai sql query "SELECT TOP 10 * FROM dbo.Users"
+specurai sql dry-run "UPDATE dbo.Users SET Name = N'新名' WHERE Id = 1"   # 預演 DML，一律回滾
 specurai sql search-columns Email --all-profiles
 
 # 匯出
@@ -462,6 +463,7 @@ specurai --json schema compare --base "正式" --target "測試"
 | 工具 | 說明 |
 |------|------|
 | `execute_readonly_sql` | 唯讀 SQL |
+| `dry_run_sql` | Dry Run 預演單一 DML（一律回滾） |
 | `search_columns` / `search_columns_multi_database` | 欄位名稱搜尋（單/多資料庫） |
 | `get_create_table_sql` | 產生 CREATE TABLE |
 

@@ -183,6 +183,36 @@ public class SqlDryRunAnalyzerTests
         result.HasUserOutputClause.Should().BeFalse();
     }
 
+    [Fact(DisplayName = "Analyze: 使用者已自帶 OUTPUT INTO 子句應標記 HasUserOutputIntoClause 而非 HasUserOutputClause")]
+    public void Analyze_UserOutputIntoClause_ShouldBeFlaggedSeparately()
+    {
+        var result = _analyzer.Analyze("DELETE FROM T OUTPUT deleted.Id INTO Audit WHERE Id = 1");
+
+        result.IsValid.Should().BeTrue();
+        result.HasUserOutputIntoClause.Should().BeTrue();
+        result.HasUserOutputClause.Should().BeFalse();
+    }
+
+    [Fact(DisplayName = "Analyze: 跨庫 3-part 目標名應降級為 null，觸發 star fallback")]
+    public void Analyze_CrossDatabaseTarget_ShouldResolveToNullTarget()
+    {
+        var result = _analyzer.Analyze("UPDATE OtherDb.dbo.Users SET Name = N'x' WHERE Id = 1");
+
+        result.IsValid.Should().BeTrue();
+        result.TargetSchema.Should().BeNull();
+        result.TargetTable.Should().BeNull();
+    }
+
+    [Fact(DisplayName = "Analyze: FROM 別名指向跨庫資料表時也應降級為 null")]
+    public void Analyze_AliasTargetToCrossDatabaseTable_ShouldResolveToNullTarget()
+    {
+        var result = _analyzer.Analyze("UPDATE u SET u.Name = N'x' FROM OtherDb.dbo.Users u WHERE u.Id = 1");
+
+        result.IsValid.Should().BeTrue();
+        result.TargetSchema.Should().BeNull();
+        result.TargetTable.Should().BeNull();
+    }
+
     [Fact(DisplayName = "RewriteWithOutput: INSERT 應注入 OUTPUT inserted.*")]
     public void RewriteWithOutput_Insert_ShouldInjectInsertedStar()
     {

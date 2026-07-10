@@ -83,7 +83,8 @@ public class SqlDryRunAnalyzer
             StatementType = DryRunStatementType.Insert,
             TargetSchema = schema,
             TargetTable = table,
-            HasUserOutputClause = spec.OutputClause != null || spec.OutputIntoClause != null
+            HasUserOutputClause = spec.OutputClause != null,
+            HasUserOutputIntoClause = spec.OutputIntoClause != null
         };
     }
 
@@ -97,7 +98,8 @@ public class SqlDryRunAnalyzer
             StatementType = DryRunStatementType.Update,
             TargetSchema = schema,
             TargetTable = table,
-            HasUserOutputClause = spec.OutputClause != null || spec.OutputIntoClause != null
+            HasUserOutputClause = spec.OutputClause != null,
+            HasUserOutputIntoClause = spec.OutputIntoClause != null
         };
     }
 
@@ -111,7 +113,8 @@ public class SqlDryRunAnalyzer
             StatementType = DryRunStatementType.Delete,
             TargetSchema = schema,
             TargetTable = table,
-            HasUserOutputClause = spec.OutputClause != null || spec.OutputIntoClause != null
+            HasUserOutputClause = spec.OutputClause != null,
+            HasUserOutputIntoClause = spec.OutputIntoClause != null
         };
     }
 
@@ -123,6 +126,12 @@ public class SqlDryRunAnalyzer
         TableReference target, FromClause? fromClause, WithCtesAndXmlNamespaces? ctes)
     {
         if (target is not NamedTableReference named)
+            return (null, null);
+
+        // 目標名稱帶資料庫或伺服器限定詞（3/4-part name，如 OtherDb.dbo.T）：
+        // 欄位查詢一律查當前連線資料庫，若目標實為跨庫/跨伺服器物件會查錯庫產生假性失敗，
+        // 故安全降級為 null，觸發 star fallback（deleted.*/inserted.*）而非注入錯誤欄位清單。
+        if (named.SchemaObject.DatabaseIdentifier != null || named.SchemaObject.ServerIdentifier != null)
             return (null, null);
 
         var baseName = named.SchemaObject.BaseIdentifier.Value;
@@ -142,6 +151,10 @@ public class SqlDryRunAnalyzer
                 if (reference is NamedTableReference n &&
                     string.Equals(n.Alias?.Value, baseName, StringComparison.OrdinalIgnoreCase))
                 {
+                    // 別名指向的資料表帶資料庫或伺服器限定詞：同樣安全降級為 null，避免查錯庫
+                    if (n.SchemaObject.DatabaseIdentifier != null || n.SchemaObject.ServerIdentifier != null)
+                        return (null, null);
+
                     return (n.SchemaObject.SchemaIdentifier?.Value, n.SchemaObject.BaseIdentifier.Value);
                 }
             }

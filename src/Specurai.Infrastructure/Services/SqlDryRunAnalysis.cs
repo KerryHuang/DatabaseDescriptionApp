@@ -25,6 +25,9 @@ public class SqlDryRunAnalysis
     /// <summary>目標資料表名稱（無法解析時為 null，如 CTE 目標）</summary>
     public string? TargetTable { get; init; }
 
-    /// <summary>使用者是否已自帶 OUTPUT / OUTPUT INTO 子句</summary>
+    /// <summary>使用者是否已自帶 OUTPUT 子句（不含 OUTPUT INTO）</summary>
     public bool HasUserOutputClause { get; init; }
+
+    /// <summary>使用者是否已自帶 OUTPUT INTO 子句（結果寫入目標表，不回傳結果集）</summary>
+    public bool HasUserOutputIntoClause { get; init; }
 }

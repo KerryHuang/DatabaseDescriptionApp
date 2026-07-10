@@ -271,26 +271,37 @@ public class UpdateSqlGeneratorTests
     {
         // 模擬 Avalonia DataGrid TwoWay 綁定把顯示文字回寫進資料列的污染情境：
         // Original 與 Current 皆為字串，但實際值未變更，不應誤判為異動。
-        var columns = new[]
+        // 「2022/6/30 上午 12:00:00」為 zh-TW 顯示格式——固定文化避免測試隨執行環境 locale 飄動。
+        var originalCulture = Thread.CurrentThread.CurrentCulture;
+        try
         {
-            Col("Id", isKey: true, clrType: typeof(int)),
-            Col("IsActive", clrType: typeof(bool)),
-            Col("Birthday", clrType: typeof(DateTime)),
-            Col("Qty", clrType: typeof(int)),
-            Col("Name")
-        };
-        var request = Request(columns, ["Id"],
-            Row(
-                new() { ["Id"] = "1", ["IsActive"] = "False", ["Birthday"] = "2022/6/30 上午 12:00:00", ["Qty"] = "1", ["Name"] = "洪玉如" },
-                new() { ["Id"] = "1", ["IsActive"] = "False", ["Birthday"] = "2022/6/30 上午 12:00:00", ["Qty"] = "1", ["Name"] = "洪小玉" }));
+            Thread.CurrentThread.CurrentCulture = new System.Globalization.CultureInfo("zh-TW");
 
-        var result = _generator.Generate(request);
+            var columns = new[]
+            {
+                Col("Id", isKey: true, clrType: typeof(int)),
+                Col("IsActive", clrType: typeof(bool)),
+                Col("Birthday", clrType: typeof(DateTime)),
+                Col("Qty", clrType: typeof(int)),
+                Col("Name")
+            };
+            var request = Request(columns, ["Id"],
+                Row(
+                    new() { ["Id"] = "1", ["IsActive"] = "False", ["Birthday"] = "2022/6/30 上午 12:00:00", ["Qty"] = "1", ["Name"] = "洪玉如" },
+                    new() { ["Id"] = "1", ["IsActive"] = "False", ["Birthday"] = "2022/6/30 上午 12:00:00", ["Qty"] = "1", ["Name"] = "洪小玉" }));
 
-        result.StatementCount.Should().Be(1);
-        result.Sql.Should().Contain("SET [Name] = N'洪小玉'");
-        result.Sql.Should().NotContain("[IsActive]");
-        result.Sql.Should().NotContain("[Birthday]");
-        result.Sql.Should().NotContain("[Qty]");
+            var result = _generator.Generate(request);
+
+            result.StatementCount.Should().Be(1);
+            result.Sql.Should().Contain("SET [Name] = N'洪小玉'");
+            result.Sql.Should().NotContain("[IsActive]");
+            result.Sql.Should().NotContain("[Birthday]");
+            result.Sql.Should().NotContain("[Qty]");
+        }
+        finally
+        {
+            Thread.CurrentThread.CurrentCulture = originalCulture;
+        }
     }
 
     [Fact(DisplayName = "原值為顯示字串的鍵欄：WHERE 應輸出型別正規化字面值")]

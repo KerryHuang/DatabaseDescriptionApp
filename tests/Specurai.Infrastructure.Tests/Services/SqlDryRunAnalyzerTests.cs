@@ -1,0 +1,160 @@
+using FluentAssertions;
+using Specurai.Domain.Entities;
+using Specurai.Infrastructure.Services;
+
+namespace Specurai.Infrastructure.Tests.Services;
+
+public class SqlDryRunAnalyzerTests
+{
+    private readonly SqlDryRunAnalyzer _analyzer = new();
+
+    [Fact(DisplayName = "Analyze: 合法 INSERT 應通過並分類為 Insert")]
+    public void Analyze_ValidInsert_ShouldBeValidInsert()
+    {
+        var result = _analyzer.Analyze("INSERT INTO dbo.Users (Name) VALUES (N'測試')");
+
+        result.IsValid.Should().BeTrue();
+        result.StatementType.Should().Be(DryRunStatementType.Insert);
+        result.TargetSchema.Should().Be("dbo");
+        result.TargetTable.Should().Be("Users");
+    }
+
+    [Fact(DisplayName = "Analyze: 合法 UPDATE 應通過並分類為 Update")]
+    public void Analyze_ValidUpdate_ShouldBeValidUpdate()
+    {
+        var result = _analyzer.Analyze("UPDATE Users SET Name = N'新名' WHERE Id = 1");
+
+        result.IsValid.Should().BeTrue();
+        result.StatementType.Should().Be(DryRunStatementType.Update);
+        result.TargetSchema.Should().BeNull();
+        result.TargetTable.Should().Be("Users");
+    }
+
+    [Fact(DisplayName = "Analyze: 合法 DELETE 應通過並分類為 Delete")]
+    public void Analyze_ValidDelete_ShouldBeValidDelete()
+    {
+        var result = _analyzer.Analyze("DELETE FROM dbo.Users WHERE Id = 1");
+
+        result.IsValid.Should().BeTrue();
+        result.StatementType.Should().Be(DryRunStatementType.Delete);
+        result.TargetTable.Should().Be("Users");
+    }
+
+    [Fact(DisplayName = "Analyze: 註解開頭的 DML 應通過（現有前綴檢查會誤擋的情況）")]
+    public void Analyze_DmlWithLeadingComment_ShouldBeValid()
+    {
+        var result = _analyzer.Analyze("-- 調整名稱\nUPDATE Users SET Name = N'x' WHERE Id = 1");
+
+        result.IsValid.Should().BeTrue();
+        result.StatementType.Should().Be(DryRunStatementType.Update);
+    }
+
+    [Fact(DisplayName = "Analyze: CTE 包裝的 UPDATE 應通過，但目標表無法解析為 null")]
+    public void Analyze_CteUpdate_ShouldBeValidWithNullTarget()
+    {
+        var sql = "WITH cte AS (SELECT * FROM Users WHERE Id < 10) UPDATE cte SET Name = N'x'";
+        var result = _analyzer.Analyze(sql);
+
+        result.IsValid.Should().BeTrue();
+        result.StatementType.Should().Be(DryRunStatementType.Update);
+        result.TargetTable.Should().BeNull();
+    }
+
+    [Fact(DisplayName = "Analyze: UPDATE 別名目標應解析回 FROM 子句中的實際資料表")]
+    public void Analyze_UpdateWithAliasTarget_ShouldResolveActualTable()
+    {
+        var sql = "UPDATE u SET u.Name = N'x' FROM dbo.Users u JOIN dbo.Orders o ON o.UserId = u.Id WHERE o.Id = 5";
+        var result = _analyzer.Analyze(sql);
+
+        result.IsValid.Should().BeTrue();
+        result.TargetSchema.Should().Be("dbo");
+        result.TargetTable.Should().Be("Users");
+    }
+
+    [Fact(DisplayName = "Analyze: SELECT 應被拒絕")]
+    public void Analyze_Select_ShouldBeRejected()
+    {
+        var result = _analyzer.Analyze("SELECT * FROM Users");
+
+        result.IsValid.Should().BeFalse();
+        result.RejectReason.Should().Contain("僅支援 INSERT/UPDATE/DELETE");
+    }
+
+    [Theory(DisplayName = "Analyze: DDL/TRUNCATE/EXEC 應被拒絕")]
+    [InlineData("DROP TABLE Users")]
+    [InlineData("TRUNCATE TABLE Users")]
+    [InlineData("EXEC sp_help")]
+    [InlineData("CREATE TABLE T (Id INT)")]
+    [InlineData("ALTER TABLE Users ADD C INT")]
+    public void Analyze_NonDml_ShouldBeRejected(string sql)
+    {
+        var result = _analyzer.Analyze(sql);
+
+        result.IsValid.Should().BeFalse();
+        result.RejectReason.Should().Contain("僅支援 INSERT/UPDATE/DELETE");
+    }
+
+    [Fact(DisplayName = "Analyze: 多個陳述式應被拒絕")]
+    public void Analyze_MultipleStatements_ShouldBeRejected()
+    {
+        var result = _analyzer.Analyze("DELETE FROM A WHERE Id = 1; DELETE FROM B WHERE Id = 2;");
+
+        result.IsValid.Should().BeFalse();
+        result.RejectReason.Should().Contain("僅允許單一");
+    }
+
+    [Fact(DisplayName = "Analyze: 空白輸入應被拒絕")]
+    public void Analyze_EmptyInput_ShouldBeRejected()
+    {
+        var result = _analyzer.Analyze("   ");
+
+        result.IsValid.Should().BeFalse();
+        result.RejectReason.Should().Contain("未偵測到");
+    }
+
+    [Fact(DisplayName = "Analyze: 語法錯誤應回報行列位置")]
+    public void Analyze_SyntaxError_ShouldReportLineAndColumn()
+    {
+        var result = _analyzer.Analyze("UPDATE Users SET WHERE Id = 1");
+
+        result.IsValid.Should().BeFalse();
+        result.SyntaxErrors.Should().NotBeEmpty();
+        result.SyntaxErrors[0].Line.Should().BeGreaterThan(0);
+        result.SyntaxErrors[0].Column.Should().BeGreaterThan(0);
+    }
+
+    [Fact(DisplayName = "Analyze: INSERT ... EXEC 應被拒絕")]
+    public void Analyze_InsertExec_ShouldBeRejected()
+    {
+        var result = _analyzer.Analyze("INSERT INTO T EXEC dbo.SomeProc");
+
+        result.IsValid.Should().BeFalse();
+        result.RejectReason.Should().Contain("INSERT ... EXEC");
+    }
+
+    [Fact(DisplayName = "Analyze: 字串常值內含 DELETE 關鍵字的 INSERT 應通過")]
+    public void Analyze_KeywordInsideStringLiteral_ShouldBeValid()
+    {
+        var result = _analyzer.Analyze("INSERT INTO Logs (Message) VALUES (N'DELETE FROM X 已執行')");
+
+        result.IsValid.Should().BeTrue();
+        result.StatementType.Should().Be(DryRunStatementType.Insert);
+    }
+
+    [Fact(DisplayName = "Analyze: 使用者已自帶 OUTPUT 子句應標記 HasUserOutputClause")]
+    public void Analyze_UserOutputClause_ShouldBeFlagged()
+    {
+        var result = _analyzer.Analyze("DELETE FROM Users OUTPUT deleted.* WHERE Id = 1");
+
+        result.IsValid.Should().BeTrue();
+        result.HasUserOutputClause.Should().BeTrue();
+    }
+
+    [Fact(DisplayName = "Analyze: 未帶 OUTPUT 子句 HasUserOutputClause 應為 false")]
+    public void Analyze_NoOutputClause_ShouldNotBeFlagged()
+    {
+        var result = _analyzer.Analyze("DELETE FROM Users WHERE Id = 1");
+
+        result.HasUserOutputClause.Should().BeFalse();
+    }
+}

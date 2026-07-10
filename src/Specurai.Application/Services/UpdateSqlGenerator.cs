@@ -17,6 +17,9 @@ public interface IUpdateSqlGenerator
 /// <summary>
 /// 異動 SQL 產生器：比對每列原值/現值差異，產出 UPDATE 語句。
 /// SET 只含實際改過的欄位；WHERE 一律使用原值（NULL 用 IS NULL）。
+/// 注意：Avalonia DataGrid 可編輯欄的 TwoWay 綁定會在儲存格顯示時，把「顯示文字」
+/// 回寫進資料列（早於快照），因此 Original/Current 都可能因 UI 綁定而是字串形態，
+/// 兩邊都必須正規化到欄位型別後再比對，否則會把 bool/DateTime/數字誤判為異動。
 /// </summary>
 public class UpdateSqlGenerator : IUpdateSqlGenerator
 {
@@ -41,13 +44,19 @@ public class UpdateSqlGenerator : IUpdateSqlGenerator
                 if (column.IsReadOnly || string.IsNullOrEmpty(column.BaseColumn))
                     continue;
 
-                var original = Normalize(row.Original.GetValueOrDefault(column.ColumnName));
+                var rawOriginal = Normalize(row.Original.GetValueOrDefault(column.ColumnName));
                 if (!TryConvert(row.Current.GetValueOrDefault(column.ColumnName), column.ClrType, out var current))
                 {
                     warnings.Add($"第 {rowIndex + 1} 列：欄位「{column.ColumnName}」的值無法轉換為 {column.ClrType.Name}，已跳過該列。");
                     conversionFailed = true;
                     break;
                 }
+
+                // 對稱正規化：Original 也可能被 UI 綁定污染成顯示字串，需比照 Current 轉型。
+                // 轉不動時保守視為「相等（不產生異動）」，因為假異動的破壞性大於漏產生
+                // （漏產生使用者仍可再次比對重跑；假異動可能覆寫別人的正確資料）。
+                if (!TryConvert(rawOriginal, column.ClrType, out var original))
+                    original = current;
 
                 if (!ValuesEqual(original, current))
                     setClauses.Add($"{Quote(column.BaseColumn!)} = {FormatLiteral(current)}");
@@ -65,7 +74,10 @@ public class UpdateSqlGenerator : IUpdateSqlGenerator
                 if (meta.ClrType == typeof(byte[]))
                     continue;
 
-                var value = Normalize(row.Original.GetValueOrDefault(keyName));
+                var rawValue = Normalize(row.Original.GetValueOrDefault(keyName));
+                // WHERE 字面值同樣正規化到欄位型別，避免鍵欄被污染成字串時輸出 N'100719' 而非 100719；
+                // 轉不動時退回原始值，維持既有字串比對行為。
+                var value = TryConvert(rawValue, meta.ClrType, out var normalizedValue) ? normalizedValue : rawValue;
                 whereClauses.Add(value == null
                     ? $"{Quote(meta.BaseColumn!)} IS NULL"
                     : $"{Quote(meta.BaseColumn!)} = {FormatLiteral(value)}");

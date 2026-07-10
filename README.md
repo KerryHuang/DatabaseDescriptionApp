@@ -71,7 +71,7 @@ specurai tables list
 |------|----------|--------|
 | 物件瀏覽 | Tables / Views / Procedures / Functions，含欄位、索引、關聯、參數、SQL 定義；MDI 多分頁 | — |
 | 多連線管理 | 多組連線儲存、切換、匯入/匯出；CLI 支援 stdin 臨時連線不落地 | Ctrl+L |
-| SQL 查詢 | 自訂 SQL、結果匯出 CSV、單欄位複製、查詢分頁連線獨立 | Ctrl+Q |
+| SQL 查詢 | 自訂 SQL、選取範圍執行、DML Dry Run（F6 預演一律回滾）、結果格編輯產生異動 UPDATE、結果匯出 CSV、單欄位複製、查詢分頁連線獨立 | Ctrl+Q |
 | 欄位搜尋 | 跨資料表搜尋、型態一致性三級警示、批次更新長度、套用說明 | Ctrl+F |
 | 統計分析 | 欄位使用分析、資料表統計（列數、空間、圖表） | Ctrl+U / Ctrl+T |
 | 備份與還原 | 完整/差異/交易記錄備份，伺服器端操作、備份驗證、歷史記錄 | Ctrl+Shift+B |

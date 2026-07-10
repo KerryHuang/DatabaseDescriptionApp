@@ -797,6 +797,25 @@ public class SqlQueryDocumentViewModelTests
         };
     }
 
+    private static QueryResultWithSchema TwoRowSingleTableResult()
+    {
+        var table = new DataTable();
+        table.Columns.Add("EMP_ID", typeof(string));
+        table.Columns.Add("EMP_NAME", typeof(string));
+        table.Rows.Add("1", "甲");
+        table.Rows.Add("2", "乙");
+
+        return new QueryResultWithSchema
+        {
+            Table = table,
+            Columns =
+            [
+                new QueryColumnMetadata { ColumnName = "EMP_ID", BaseSchema = "dbo", BaseTable = "SYS010", BaseColumn = "EMP_ID", IsKey = true, ClrType = typeof(string) },
+                new QueryColumnMetadata { ColumnName = "EMP_NAME", BaseSchema = "dbo", BaseTable = "SYS010", BaseColumn = "EMP_NAME", ClrType = typeof(string) }
+            ]
+        };
+    }
+
     private static QueryResultWithSchema MultiTableResult()
     {
         var table = new DataTable();
@@ -946,6 +965,37 @@ public class SqlQueryDocumentViewModelTests
 
         captured!.KeyColumns.Should().BeEquivalentTo(["EMP_ID", "EMP_NAME"]);
         captured.IsFallbackKeys.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task 產生異動SQL_結果集合被重排_配對仍正確()
+    {
+        UpdateSqlRequest? captured = null;
+        var generator = Substitute.For<IUpdateSqlGenerator>();
+        generator.Generate(Arg.Do<UpdateSqlRequest>(r => captured = r))
+            .Returns(new UpdateSqlResult { Sql = "UPDATE ...;", StatementCount = 1 });
+        _sqlQueryRepository.ExecuteQueryWithSchemaAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(TwoRowSingleTableResult());
+
+        var vm = new SqlQueryDocumentViewModel(_sqlQueryRepository, _connectionManager, null, generator)
+        {
+            SqlText = "SELECT * FROM SYS010",
+            ShowGeneratedSqlAsync = _ => Task.CompletedTask
+        };
+        await vm.ExecuteQueryCommand.ExecuteAsync(null);
+
+        // 模擬 DataGrid 排序重排底層集合
+        var first = vm.QueryResults[0];
+        vm.QueryResults.RemoveAt(0);
+        vm.QueryResults.Add(first);
+        vm.QueryResults[1]["EMP_NAME"] = "甲改";   // 改的是原第一列（EMP_ID=1）
+
+        await vm.GenerateUpdateSqlCommand.ExecuteAsync(null);
+
+        captured.Should().NotBeNull();
+        var changedRow = captured!.Rows.Should().ContainSingle(r => (string?)r.Current["EMP_NAME"] == "甲改").Subject;
+        changedRow.Original["EMP_ID"].Should().Be("1");
+        changedRow.Original["EMP_NAME"].Should().Be("甲");
     }
 
     [Fact]

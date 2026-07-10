@@ -25,7 +25,10 @@ public partial class SqlQueryDocumentViewModel : DocumentViewModel
     private readonly ISqlDryRunRepository? _sqlDryRunRepository;
     private readonly IUpdateSqlGenerator? _updateSqlGenerator;
     private QueryResultWithSchema? _lastQueryResult;
-    private List<Dictionary<string, object?>> _originalRows = [];
+
+    /// <summary>原值快照：以列物件參照為鍵，排序/重排不影響配對</summary>
+    private readonly Dictionary<Dictionary<string, object?>, Dictionary<string, object?>> _originalByRow
+        = new(ReferenceEqualityComparer.Instance);
     private Dictionary<string, string> _columnDescriptions = new(StringComparer.OrdinalIgnoreCase);
     private string? _localConnectionString;
     private static int _instanceCount;
@@ -209,7 +212,7 @@ public partial class SqlQueryDocumentViewModel : DocumentViewModel
             DryRunWarnings = string.Empty;
             IsResultEditable = false;
             _lastQueryResult = null;
-            _originalRows = [];
+            _originalByRow.Clear();
 
             var stopwatch = Stopwatch.StartNew();
             var result = !string.IsNullOrEmpty(_localConnectionString)
@@ -262,7 +265,11 @@ public partial class SqlQueryDocumentViewModel : DocumentViewModel
             }
 
             // 快照原值：產生異動 SQL 時以此比對
-            _originalRows = QueryResults.Select(r => new Dictionary<string, object?>(r)).ToList();
+            _originalByRow.Clear();
+            foreach (var row in QueryResults)
+            {
+                _originalByRow[row] = new Dictionary<string, object?>(row);
+            }
 
             RowCount = dataTable.Rows.Count;
             ExecutionTimeMs = stopwatch.ElapsedMilliseconds;
@@ -306,7 +313,7 @@ public partial class SqlQueryDocumentViewModel : DocumentViewModel
             RowCount = 0;
             IsResultEditable = false;
             _lastQueryResult = null;
-            _originalRows = [];
+            _originalByRow.Clear();
 
             var stopwatch = Stopwatch.StartNew();
             var result = !string.IsNullOrEmpty(_localConnectionString)
@@ -380,7 +387,7 @@ public partial class SqlQueryDocumentViewModel : DocumentViewModel
         DryRunWarnings = string.Empty;
         IsResultEditable = false;
         _lastQueryResult = null;
-        _originalRows = [];
+        _originalByRow.Clear();
     }
 
     /// <summary>
@@ -398,9 +405,9 @@ public partial class SqlQueryDocumentViewModel : DocumentViewModel
             return;
         }
 
-        if (_originalRows.Count != QueryResults.Count)
+        if (QueryResults.Any(r => !_originalByRow.ContainsKey(r)))
         {
-            StatusMessage = "結果列數與快照不一致，請重新執行查詢。";
+            StatusMessage = "結果列與快照不一致，請重新執行查詢。";
             return;
         }
 
@@ -427,7 +434,7 @@ public partial class SqlQueryDocumentViewModel : DocumentViewModel
         }
 
         var rows = QueryResults
-            .Select((current, i) => new UpdateSqlRow { Original = _originalRows[i], Current = current })
+            .Select(current => new UpdateSqlRow { Original = _originalByRow[current], Current = current })
             .ToList();
 
         var result = _updateSqlGenerator.Generate(new UpdateSqlRequest

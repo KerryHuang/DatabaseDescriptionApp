@@ -45,6 +45,7 @@ public static class ServiceRegistration
 
         // Application - 核心查詢服務
         services.AddSingleton<ITableQueryService, TableQueryService>();
+        services.AddSingleton<IUpdateSqlGenerator, UpdateSqlGenerator>();
 
         // Infrastructure - Schema 比對
         services.AddSingleton<ISchemaCollector, MssqlSchemaCollector>();

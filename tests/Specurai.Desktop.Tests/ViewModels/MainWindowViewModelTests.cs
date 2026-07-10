@@ -17,6 +17,7 @@ public class MainWindowViewModelTests
     private readonly IExportService _exportService;
     private readonly ITableQueryService _tableQueryService;
     private readonly ISqlQueryRepository _sqlQueryRepository;
+    private readonly ISqlDryRunRepository _sqlDryRunRepository;
     private readonly IColumnTypeRepository _columnTypeRepository;
     private readonly ObjectTreeViewModel _objectTree;
 
@@ -26,6 +27,7 @@ public class MainWindowViewModelTests
         _exportService = Substitute.For<IExportService>();
         _tableQueryService = Substitute.For<ITableQueryService>();
         _sqlQueryRepository = Substitute.For<ISqlQueryRepository>();
+        _sqlDryRunRepository = Substitute.For<ISqlDryRunRepository>();
         _columnTypeRepository = Substitute.For<IColumnTypeRepository>();
         _objectTree = new ObjectTreeViewModel(_tableQueryService, _connectionManager);
     }
@@ -312,6 +314,7 @@ public class MainWindowViewModelTests
             _exportService,
             _tableQueryService,
             _sqlQueryRepository,
+            _sqlDryRunRepository,
             _columnTypeRepository,
             _objectTree,
             new UpdateNotificationViewModel());
@@ -336,6 +339,7 @@ public class MainWindowViewModelTests
             _exportService,
             _tableQueryService,
             _sqlQueryRepository,
+            _sqlDryRunRepository,
             _columnTypeRepository,
             _objectTree,
             new UpdateNotificationViewModel());
@@ -399,6 +403,7 @@ public class MainWindowViewModelTests
             _exportService,
             _tableQueryService,
             _sqlQueryRepository,
+            _sqlDryRunRepository,
             _columnTypeRepository,
             _objectTree,
             new UpdateNotificationViewModel());

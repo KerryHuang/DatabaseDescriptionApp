@@ -21,6 +21,7 @@ public partial class SqlQueryDocumentViewModel : DocumentViewModel
 {
     private readonly ISqlQueryRepository? _sqlQueryRepository;
     private readonly IConnectionManager? _connectionManager;
+    private readonly ISqlDryRunRepository? _sqlDryRunRepository;
     private Dictionary<string, string> _columnDescriptions = new(StringComparer.OrdinalIgnoreCase);
     private string? _localConnectionString;
     private static int _instanceCount;
@@ -39,6 +40,14 @@ public partial class SqlQueryDocumentViewModel : DocumentViewModel
 
     [ObservableProperty]
     private long _executionTimeMs;
+
+    [ObservableProperty]
+    private string _dryRunWarnings = string.Empty;
+
+    /// <summary>是否有 Dry Run 警告需要顯示（供警告列 IsVisible 綁定）</summary>
+    public bool HasDryRunWarnings => !string.IsNullOrEmpty(DryRunWarnings);
+
+    partial void OnDryRunWarningsChanged(string value) => OnPropertyChanged(nameof(HasDryRunWarnings));
 
     [ObservableProperty]
     private ConnectionProfile? _selectedProfile;
@@ -62,10 +71,14 @@ public partial class SqlQueryDocumentViewModel : DocumentViewModel
         Icon = "📝";
     }
 
-    public SqlQueryDocumentViewModel(ISqlQueryRepository sqlQueryRepository, IConnectionManager connectionManager)
+    public SqlQueryDocumentViewModel(
+        ISqlQueryRepository sqlQueryRepository,
+        IConnectionManager connectionManager,
+        ISqlDryRunRepository? sqlDryRunRepository = null)
     {
         _sqlQueryRepository = sqlQueryRepository;
         _connectionManager = connectionManager;
+        _sqlDryRunRepository = sqlDryRunRepository;
         _instanceId = ++_instanceCount;
         Title = $"SQL 查詢 {_instanceId}";
         Icon = "📝";
@@ -146,6 +159,7 @@ public partial class SqlQueryDocumentViewModel : DocumentViewModel
             StatusMessage = "執行中...";
             QueryResults.Clear();
             ResultColumns.Clear();
+            DryRunWarnings = string.Empty;
 
             var stopwatch = Stopwatch.StartNew();
             var dataTable = !string.IsNullOrEmpty(_localConnectionString)
@@ -195,6 +209,84 @@ public partial class SqlQueryDocumentViewModel : DocumentViewModel
             QueryResults.Clear();
             ResultColumns.Clear();
             RowCount = 0;
+        }
+        finally
+        {
+            IsExecuting = false;
+        }
+    }
+
+    /// <summary>
+    /// Dry Run 預演 DML：交易中執行取得影響筆數與前後對照，一律回滾
+    /// </summary>
+    [RelayCommand]
+    private async Task DryRunAsync()
+    {
+        if (_sqlDryRunRepository == null || string.IsNullOrWhiteSpace(SqlText))
+            return;
+
+        try
+        {
+            IsExecuting = true;
+            StatusMessage = "Dry Run 執行中...";
+            QueryResults.Clear();
+            ResultColumns.Clear();
+            DryRunWarnings = string.Empty;
+            RowCount = 0;
+
+            var stopwatch = Stopwatch.StartNew();
+            var result = !string.IsNullOrEmpty(_localConnectionString)
+                ? await _sqlDryRunRepository.DryRunAsync(SqlText.Trim(), _localConnectionString)
+                : await _sqlDryRunRepository.DryRunAsync(SqlText.Trim());
+            stopwatch.Stop();
+            ExecutionTimeMs = stopwatch.ElapsedMilliseconds;
+
+            if (!result.IsValid)
+            {
+                StatusMessage = result.SyntaxErrors.Count > 0
+                    ? $"語法錯誤（第 {result.SyntaxErrors[0].Line} 行第 {result.SyntaxErrors[0].Column} 列）：{result.SyntaxErrors[0].Message}"
+                    : result.RejectReason ?? "Dry run 驗證未通過";
+                return;
+            }
+
+            if (result.ExecutionError != null)
+            {
+                StatusMessage = result.ExecutionError;
+                DryRunWarnings = string.Join("\n", result.Warnings);
+                return;
+            }
+
+            if (result.PreviewTable != null)
+            {
+                foreach (DataColumn col in result.PreviewTable.Columns)
+                {
+                    ResultColumns.Add(new DataGridTextColumn
+                    {
+                        Header = col.ColumnName,
+                        Binding = new Avalonia.Data.Binding($"[{col.ColumnName}]"),
+                        Width = new DataGridLength(1, DataGridLengthUnitType.Auto)
+                    });
+                }
+
+                foreach (DataRow row in result.PreviewTable.Rows)
+                {
+                    var dict = new Dictionary<string, object?>();
+                    foreach (DataColumn col in result.PreviewTable.Columns)
+                    {
+                        dict[col.ColumnName] = row[col] == DBNull.Value ? null : row[col];
+                    }
+                    QueryResults.Add(dict);
+                }
+            }
+
+            RowCount = result.AffectedRowCount;
+            DryRunWarnings = string.Join("\n", result.Warnings);
+            var truncatedNote = result.PreviewTruncated ? $"（預覽僅顯示前 {QueryResults.Count} 筆）" : "";
+            StatusMessage = $"Dry Run 完成：影響 {result.AffectedRowCount} 筆（{result.StatementType}）{truncatedNote}｜已回滾，資料庫未變更，耗時 {ExecutionTimeMs} ms";
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Dry run 失敗：{ex.Message}";
         }
         finally
         {

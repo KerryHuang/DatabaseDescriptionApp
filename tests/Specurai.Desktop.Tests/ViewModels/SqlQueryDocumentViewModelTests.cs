@@ -472,4 +472,148 @@ public class SqlQueryDocumentViewModelTests
     }
 
     #endregion
+
+    #region Dry Run 測試
+
+    [Fact]
+    public void 初始狀態_DryRunWarnings應為空字串()
+    {
+        var vm = new SqlQueryDocumentViewModel();
+
+        vm.DryRunWarnings.Should().BeEmpty();
+        vm.HasDryRunWarnings.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task DryRun_成功預演_應顯示筆數與回滾訊息並載入預覽()
+    {
+        var preview = new DataTable();
+        preview.Columns.Add("舊_Name", typeof(object));
+        preview.Columns.Add("新_Name", typeof(object));
+        preview.Rows.Add("張三", "張三丰");
+
+        var dryRunRepo = Substitute.For<ISqlDryRunRepository>();
+        dryRunRepo.DryRunAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(new DryRunResult
+            {
+                IsValid = true,
+                StatementType = DryRunStatementType.Update,
+                AffectedRowCount = 1,
+                PreviewTable = preview,
+                Warnings = ["測試警告"]
+            });
+
+        var vm = new SqlQueryDocumentViewModel(_sqlQueryRepository, _connectionManager, dryRunRepo)
+        {
+            SqlText = "UPDATE Users SET Name = N'張三丰' WHERE Id = 1"
+        };
+
+        await vm.DryRunCommand.ExecuteAsync(null);
+
+        vm.QueryResults.Should().HaveCount(1);
+        vm.RowCount.Should().Be(1);
+        vm.StatusMessage.Should().Contain("影響 1 筆");
+        vm.StatusMessage.Should().Contain("已回滾");
+        vm.DryRunWarnings.Should().Contain("測試警告");
+        vm.HasDryRunWarnings.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task DryRun_語法錯誤_應顯示行列訊息()
+    {
+        var dryRunRepo = Substitute.For<ISqlDryRunRepository>();
+        dryRunRepo.DryRunAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(new DryRunResult
+            {
+                IsValid = false,
+                SyntaxErrors = [new DryRunSyntaxError { Line = 1, Column = 18, Message = "Incorrect syntax" }]
+            });
+
+        var vm = new SqlQueryDocumentViewModel(_sqlQueryRepository, _connectionManager, dryRunRepo)
+        {
+            SqlText = "UPDATE T SET WHERE"
+        };
+
+        await vm.DryRunCommand.ExecuteAsync(null);
+
+        vm.StatusMessage.Should().Contain("語法錯誤");
+        vm.StatusMessage.Should().Contain("第 1 行");
+        vm.QueryResults.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task DryRun_被拒絕_應顯示拒絕原因()
+    {
+        var dryRunRepo = Substitute.For<ISqlDryRunRepository>();
+        dryRunRepo.DryRunAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(new DryRunResult
+            {
+                IsValid = false,
+                RejectReason = "僅支援 INSERT/UPDATE/DELETE 的 dry run"
+            });
+
+        var vm = new SqlQueryDocumentViewModel(_sqlQueryRepository, _connectionManager, dryRunRepo)
+        {
+            SqlText = "DROP TABLE X"
+        };
+
+        await vm.DryRunCommand.ExecuteAsync(null);
+
+        vm.StatusMessage.Should().Contain("僅支援 INSERT/UPDATE/DELETE");
+    }
+
+    [Fact]
+    public async Task DryRun_執行期錯誤_應顯示ExecutionError()
+    {
+        var dryRunRepo = Substitute.For<ISqlDryRunRepository>();
+        dryRunRepo.DryRunAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(new DryRunResult
+            {
+                IsValid = true,
+                StatementType = DryRunStatementType.Delete,
+                ExecutionError = "此語句實際執行將會失敗：REFERENCE 條件約束衝突"
+            });
+
+        var vm = new SqlQueryDocumentViewModel(_sqlQueryRepository, _connectionManager, dryRunRepo)
+        {
+            SqlText = "DELETE FROM Users WHERE Id = 1"
+        };
+
+        await vm.DryRunCommand.ExecuteAsync(null);
+
+        vm.StatusMessage.Should().Contain("實際執行將會失敗");
+        vm.StatusMessage.Should().Contain("REFERENCE");
+    }
+
+    [Fact]
+    public async Task 執行一般查詢_應清除DryRun警告()
+    {
+        var dryRunRepo = Substitute.For<ISqlDryRunRepository>();
+        dryRunRepo.DryRunAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(new DryRunResult
+            {
+                IsValid = true,
+                StatementType = DryRunStatementType.Insert,
+                AffectedRowCount = 1,
+                PreviewTable = new DataTable(),
+                Warnings = ["IDENTITY 警告"]
+            });
+        _sqlQueryRepository.ExecuteQueryAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(new DataTable());
+
+        var vm = new SqlQueryDocumentViewModel(_sqlQueryRepository, _connectionManager, dryRunRepo)
+        {
+            SqlText = "INSERT INTO T (A) VALUES (1)"
+        };
+
+        await vm.DryRunCommand.ExecuteAsync(null);
+        vm.HasDryRunWarnings.Should().BeTrue();
+
+        vm.SqlText = "SELECT 1 AS A";
+        await vm.ExecuteQueryCommand.ExecuteAsync(null);
+
+        vm.HasDryRunWarnings.Should().BeFalse();
+    }
+
+    #endregion
 }

@@ -25,6 +25,7 @@ public partial class MainWindowViewModel : ViewModelBase
     private readonly IExportService? _exportService;
     private readonly ITableQueryService? _tableQueryService;
     private readonly ISqlQueryRepository? _sqlQueryRepository;
+    private readonly ISqlDryRunRepository? _sqlDryRunRepository;
     private readonly IColumnTypeRepository? _columnTypeRepository;
 
     [ObservableProperty]
@@ -114,6 +115,7 @@ public partial class MainWindowViewModel : ViewModelBase
         IExportService exportService,
         ITableQueryService tableQueryService,
         ISqlQueryRepository sqlQueryRepository,
+        ISqlDryRunRepository sqlDryRunRepository,
         IColumnTypeRepository columnTypeRepository,
         ObjectTreeViewModel objectTree,
         UpdateNotificationViewModel updateNotification)
@@ -122,6 +124,7 @@ public partial class MainWindowViewModel : ViewModelBase
         _exportService = exportService;
         _tableQueryService = tableQueryService;
         _sqlQueryRepository = sqlQueryRepository;
+        _sqlDryRunRepository = sqlDryRunRepository;
         _columnTypeRepository = columnTypeRepository;
         ObjectTree = objectTree;
         UpdateNotification = updateNotification;
@@ -410,7 +413,7 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         if (_sqlQueryRepository == null || _connectionManager == null) return;
 
-        var doc = new SqlQueryDocumentViewModel(_sqlQueryRepository, _connectionManager);
+        var doc = new SqlQueryDocumentViewModel(_sqlQueryRepository, _connectionManager, _sqlDryRunRepository);
         doc.CloseRequested += OnDocumentCloseRequested;
         Documents.Add(doc);
         SelectedDocument = doc;
@@ -425,7 +428,7 @@ public partial class MainWindowViewModel : ViewModelBase
         if (table.Type != "BASE TABLE" && table.Type != "VIEW") return;
 
         var sql = $"SELECT TOP 200 * FROM [{table.Schema}].[{table.Name}]";
-        var doc = new SqlQueryDocumentViewModel(_sqlQueryRepository, _connectionManager);
+        var doc = new SqlQueryDocumentViewModel(_sqlQueryRepository, _connectionManager, _sqlDryRunRepository);
         doc.CloseRequested += OnDocumentCloseRequested;
         Documents.Add(doc);
         SelectedDocument = doc;

@@ -83,6 +83,7 @@ sealed class Program
                 sp.GetRequiredService<IExportService>(),
                 sp.GetRequiredService<ITableQueryService>(),
                 sp.GetRequiredService<ISqlQueryRepository>(),
+                sp.GetRequiredService<ISqlDryRunRepository>(),
                 sp.GetRequiredService<IColumnTypeRepository>(),
                 sp.GetRequiredService<ObjectTreeViewModel>(),
                 sp.GetRequiredService<UpdateNotificationViewModel>()));

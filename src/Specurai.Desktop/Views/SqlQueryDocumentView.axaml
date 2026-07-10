@@ -13,7 +13,7 @@
         <vm:SqlQueryDocumentViewModel/>
     </Design.DataContext>
 
-    <Grid RowDefinitions="Auto,*,Auto">
+    <Grid RowDefinitions="Auto,Auto,*,Auto">
         <!-- 工具列 -->
         <Border Grid.Row="0" Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}" Padding="10,8">
             <Grid ColumnDefinitions="Auto,*,Auto">
@@ -39,6 +39,15 @@
                         <StackPanel Orientation="Horizontal" Spacing="5">
                             <TextBlock Text="▶️" FontSize="14"/>
                             <TextBlock Text="執行 (F5)"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Command="{Binding DryRunCommand}"
+                            IsEnabled="{Binding !IsExecuting}"
+                            HotKey="F6"
+                            ToolTip.Tip="預演 DML（INSERT/UPDATE/DELETE）：交易中執行後一律回滾，不會修改資料">
+                        <StackPanel Orientation="Horizontal" Spacing="5">
+                            <TextBlock Text="🧪" FontSize="14"/>
+                            <TextBlock Text="Dry Run (F6)"/>
                         </StackPanel>
                     </Button>
                     <Button Command="{Binding ClearQueryCommand}">
@@ -70,8 +79,14 @@
             </Grid>
         </Border>
 
+        <!-- Dry Run 警告列 -->
+        <Border Grid.Row="1" Background="#33FFA500" Padding="10,5"
+                IsVisible="{Binding HasDryRunWarnings}">
+            <TextBlock Text="{Binding DryRunWarnings}" TextWrapping="Wrap" FontWeight="SemiBold"/>
+        </Border>
+
         <!-- SQL 查詢主內容區 -->
-        <Grid Grid.Row="1" RowDefinitions="180,5,*" Margin="10,5,10,0">
+        <Grid Grid.Row="2" RowDefinitions="180,5,*" Margin="10,5,10,0">
             <!-- SQL 輸入區 -->
             <Border Grid.Row="0">
                 <TextBox x:Name="SqlTextBox"
@@ -103,7 +118,7 @@
         </Grid>
 
         <!-- 狀態列 -->
-        <Border Grid.Row="2" Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}" Padding="10,5">
+        <Border Grid.Row="3" Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}" Padding="10,5">
             <Grid ColumnDefinitions="*,Auto,Auto">
                 <TextBlock Grid.Column="0" Text="{Binding StatusMessage}" VerticalAlignment="Center"/>
                 <TextBlock Grid.Column="1" VerticalAlignment="Center" Margin="20,0">

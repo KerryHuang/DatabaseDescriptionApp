@@ -179,4 +179,56 @@ public class SqlDryRunAnalyzerTests
 
         result.HasUserOutputClause.Should().BeFalse();
     }
+
+    [Fact(DisplayName = "RewriteWithOutput: INSERT 應注入 OUTPUT inserted.*")]
+    public void RewriteWithOutput_Insert_ShouldInjectInsertedStar()
+    {
+        var rewritten = _analyzer.RewriteWithOutput("INSERT INTO dbo.Users (Name) VALUES (N'測試')");
+
+        rewritten.Should().ContainEquivalentOf("output inserted.*");
+    }
+
+    [Fact(DisplayName = "RewriteWithOutput: DELETE 應注入 OUTPUT deleted.*")]
+    public void RewriteWithOutput_Delete_ShouldInjectDeletedStar()
+    {
+        var rewritten = _analyzer.RewriteWithOutput("DELETE FROM dbo.Users WHERE Id = 1");
+
+        rewritten.Should().ContainEquivalentOf("output deleted.*");
+        rewritten.Should().ContainEquivalentOf("where");
+    }
+
+    [Fact(DisplayName = "RewriteWithOutput: UPDATE 有欄位清單應注入舊/新別名欄位")]
+    public void RewriteWithOutput_UpdateWithColumns_ShouldInjectAliasedColumns()
+    {
+        var rewritten = _analyzer.RewriteWithOutput(
+            "UPDATE Users SET Name = N'x' WHERE Id = 1",
+            ["Id", "Name"]);
+
+        rewritten.Should().Contain("[舊_Id]");
+        rewritten.Should().Contain("[新_Id]");
+        rewritten.Should().Contain("[舊_Name]");
+        rewritten.Should().Contain("[新_Name]");
+        rewritten.Should().ContainEquivalentOf("deleted.Id");
+        rewritten.Should().ContainEquivalentOf("inserted.Name");
+    }
+
+    [Fact(DisplayName = "RewriteWithOutput: UPDATE 無欄位清單應退回 deleted.*, inserted.*")]
+    public void RewriteWithOutput_UpdateWithoutColumns_ShouldFallbackToStar()
+    {
+        var rewritten = _analyzer.RewriteWithOutput("UPDATE Users SET Name = N'x' WHERE Id = 1");
+
+        rewritten.Should().ContainEquivalentOf("output deleted.*");
+        rewritten.Should().ContainEquivalentOf("inserted.*");
+    }
+
+    [Fact(DisplayName = "RewriteWithOutput: 使用者已自帶 OUTPUT 應沿用不重複注入")]
+    public void RewriteWithOutput_UserOutputClause_ShouldNotInjectAgain()
+    {
+        var rewritten = _analyzer.RewriteWithOutput("DELETE FROM Users OUTPUT deleted.Id WHERE Id = 1");
+
+        // 只有一個 OUTPUT，且是使用者原本的欄位
+        System.Text.RegularExpressions.Regex.Matches(rewritten, "OUTPUT", System.Text.RegularExpressions.RegexOptions.IgnoreCase)
+            .Count.Should().Be(1);
+        rewritten.Should().ContainEquivalentOf("deleted.Id");
+    }
 }

@@ -150,6 +150,94 @@ public class SqlDryRunAnalyzer
         return (named.SchemaObject.SchemaIdentifier?.Value, baseName);
     }
 
+    /// <summary>
+    /// 注入 OUTPUT 子句以擷取前後資料對照。
+    /// 前置條件：sql 已通過 Analyze 驗證（單一 DML）。
+    /// UPDATE 提供 updateColumns 時產生 舊_欄位/新_欄位 別名對照；未提供時退回 deleted.*, inserted.*。
+    /// 使用者已自帶 OUTPUT 子句時不重複注入。
+    /// </summary>
+    public string RewriteWithOutput(string sql, IReadOnlyList<string>? updateColumns = null)
+    {
+        var parser = new TSql160Parser(initialQuotedIdentifiers: true);
+        var fragment = parser.Parse(new StringReader(sql), out _);
+        var statement = ((TSqlScript)fragment).Batches.SelectMany(b => b.Statements).Single();
+
+        switch (statement)
+        {
+            case InsertStatement insert when insert.InsertSpecification.OutputClause == null
+                                          && insert.InsertSpecification.OutputIntoClause == null:
+                insert.InsertSpecification.OutputClause = BuildStarOutput("inserted");
+                break;
+
+            case DeleteStatement delete when delete.DeleteSpecification.OutputClause == null
+                                          && delete.DeleteSpecification.OutputIntoClause == null:
+                delete.DeleteSpecification.OutputClause = BuildStarOutput("deleted");
+                break;
+
+            case UpdateStatement update when update.UpdateSpecification.OutputClause == null
+                                          && update.UpdateSpecification.OutputIntoClause == null:
+                update.UpdateSpecification.OutputClause = updateColumns is { Count: > 0 }
+                    ? BuildAliasedUpdateOutput(updateColumns)
+                    : BuildStarOutput("deleted", "inserted");
+                break;
+        }
+
+        var generator = new Sql160ScriptGenerator(new SqlScriptGeneratorOptions
+        {
+            KeywordCasing = KeywordCasing.Uppercase
+        });
+        generator.GenerateScript(fragment, out var rewritten);
+
+        // ScriptDom 產生器會依欄位對齊插入多個空白，這裡收斂為單一空白以利下游文字比對
+        return System.Text.RegularExpressions.Regex.Replace(rewritten, "[ \t]{2,}", " ");
+    }
+
+    private static OutputClause BuildStarOutput(params string[] qualifiers)
+    {
+        var clause = new OutputClause();
+        foreach (var qualifier in qualifiers)
+        {
+            clause.SelectColumns.Add(new SelectStarExpression
+            {
+                Qualifier = new MultiPartIdentifier
+                {
+                    Identifiers = { new Identifier { Value = qualifier } }
+                }
+            });
+        }
+        return clause;
+    }
+
+    private static OutputClause BuildAliasedUpdateOutput(IReadOnlyList<string> columns)
+    {
+        var clause = new OutputClause();
+        foreach (var column in columns)
+        {
+            clause.SelectColumns.Add(BuildAliasedColumn("deleted", column, $"舊_{column}"));
+            clause.SelectColumns.Add(BuildAliasedColumn("inserted", column, $"新_{column}"));
+        }
+        return clause;
+    }
+
+    private static SelectScalarExpression BuildAliasedColumn(string qualifier, string column, string alias) => new()
+    {
+        Expression = new ColumnReferenceExpression
+        {
+            MultiPartIdentifier = new MultiPartIdentifier
+            {
+                Identifiers =
+                {
+                    new Identifier { Value = qualifier },
+                    new Identifier { Value = column }
+                }
+            }
+        },
+        ColumnName = new IdentifierOrValueExpression
+        {
+            Identifier = new Identifier { Value = alias, QuoteType = QuoteType.SquareBracket }
+        }
+    };
+
     private static IEnumerable<TableReference> FlattenTableReferences(IEnumerable<TableReference> references)
     {
         foreach (var reference in references)

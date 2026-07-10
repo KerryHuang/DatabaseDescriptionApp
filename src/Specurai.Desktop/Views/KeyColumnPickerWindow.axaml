@@ -1,0 +1,20 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="Specurai.Desktop.Views.KeyColumnPickerWindow"
+        Title="選擇定位欄位"
+        Width="360" Height="440"
+        WindowStartupLocation="CenterOwner"
+        CanResize="True">
+    <Grid RowDefinitions="Auto,*,Auto" Margin="12">
+        <TextBlock Grid.Row="0" TextWrapping="Wrap" Margin="0,0,0,8"
+                   Text="查詢結果沒有主鍵欄位。請勾選用來定位資料列的欄位（WHERE 條件）；略過則以全部欄位的原值定位。"/>
+        <ScrollViewer Grid.Row="1">
+            <ItemsControl x:Name="ColumnList"/>
+        </ScrollViewer>
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right"
+                    Margin="0,10,0,0" Spacing="8">
+            <Button Content="確定" Click="OnOkClick" Width="80"/>
+            <Button Content="略過" Click="OnSkipClick" Width="80"/>
+        </StackPanel>
+    </Grid>
+</Window>

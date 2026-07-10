@@ -50,6 +50,14 @@
                             <TextBlock Text="Dry Run (F6)"/>
                         </StackPanel>
                     </Button>
+                    <Button Command="{Binding GenerateUpdateSqlCommand}"
+                            IsEnabled="{Binding IsResultEditable}"
+                            ToolTip.Tip="比對結果格的編輯差異，產生 UPDATE 語句（僅產生文字，不會執行）">
+                        <StackPanel Orientation="Horizontal" Spacing="5">
+                            <TextBlock Text="🧾" FontSize="14"/>
+                            <TextBlock Text="產生異動SQL"/>
+                        </StackPanel>
+                    </Button>
                     <Button Command="{Binding ClearQueryCommand}">
                         <StackPanel Orientation="Horizontal" Spacing="5">
                             <TextBlock Text="🗑️" FontSize="14"/>
@@ -111,7 +119,7 @@
                           behaviors:DataGridCellCopyBehavior.Enable="True"
                           ItemsSource="{Binding QueryResults}"
                           AutoGenerateColumns="False"
-                          IsReadOnly="True"
+                          IsReadOnly="{Binding !IsResultEditable}"
                           GridLinesVisibility="All"
                           CanUserResizeColumns="True"
                           CanUserReorderColumns="True"

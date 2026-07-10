@@ -2,6 +2,7 @@ using System.Data;
 using FluentAssertions;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
+using Specurai.Application.Models;
 using Specurai.Application.Services;
 using Specurai.Desktop.ViewModels;
 using Specurai.Domain.Entities;
@@ -224,7 +225,8 @@ public class SqlQueryDocumentViewModelTests
 
         var dataTable = new DataTable();
         dataTable.Columns.Add("Id", typeof(int));
-        _sqlQueryRepository.ExecuteQueryAsync(Arg.Any<string>()).Returns(dataTable);
+        _sqlQueryRepository.ExecuteQueryWithSchemaAsync(Arg.Any<string>())
+            .Returns(new QueryResultWithSchema { Table = dataTable });
 
         var vm = new SqlQueryDocumentViewModel(_sqlQueryRepository, _connectionManager);
 
@@ -234,8 +236,8 @@ public class SqlQueryDocumentViewModelTests
 
         // Assert：查詢應呼叫「不含連線字串」的多載（跟隨目前資料庫覆寫），
         // 而非帶入釘住的 profile 連線字串
-        await _sqlQueryRepository.Received(1).ExecuteQueryAsync("SELECT 1");
-        await _sqlQueryRepository.DidNotReceive().ExecuteQueryAsync(Arg.Any<string>(), Arg.Any<string>());
+        await _sqlQueryRepository.Received(1).ExecuteQueryWithSchemaAsync("SELECT 1");
+        await _sqlQueryRepository.DidNotReceive().ExecuteQueryWithSchemaAsync(Arg.Any<string>(), Arg.Any<string>());
     }
 
     [Fact]
@@ -360,7 +362,7 @@ public class SqlQueryDocumentViewModelTests
         await vm.ExecuteQueryCommand.ExecuteAsync(null);
 
         // Assert
-        await _sqlQueryRepository.DidNotReceive().ExecuteQueryAsync(Arg.Any<string>());
+        await _sqlQueryRepository.DidNotReceive().ExecuteQueryWithSchemaAsync(Arg.Any<string>());
     }
 
     [Fact]
@@ -378,8 +380,8 @@ public class SqlQueryDocumentViewModelTests
         dataTable.Rows.Add(1, "Test");
         dataTable.Rows.Add(2, "User");
 
-        _sqlQueryRepository.ExecuteQueryAsync("SELECT * FROM Users")
-            .Returns(dataTable);
+        _sqlQueryRepository.ExecuteQueryWithSchemaAsync("SELECT * FROM Users")
+            .Returns(new QueryResultWithSchema { Table = dataTable });
 
         var vm = new SqlQueryDocumentViewModel(_sqlQueryRepository, _connectionManager);
         vm.SqlText = "SELECT * FROM Users";
@@ -402,7 +404,7 @@ public class SqlQueryDocumentViewModelTests
         _connectionManager.GetCurrentProfile().Returns((ConnectionProfile?)null);
         _sqlQueryRepository.GetColumnDescriptionsAsync()
             .Returns(new Dictionary<string, string>());
-        _sqlQueryRepository.ExecuteQueryAsync(Arg.Any<string>())
+        _sqlQueryRepository.ExecuteQueryWithSchemaAsync(Arg.Any<string>())
             .ThrowsAsync(new Exception("語法錯誤"));
 
         var vm = new SqlQueryDocumentViewModel(_sqlQueryRepository, _connectionManager);
@@ -432,7 +434,8 @@ public class SqlQueryDocumentViewModelTests
 
         var dataTable = new DataTable();
         dataTable.Columns.Add("Id", typeof(int));
-        _sqlQueryRepository.ExecuteQueryAsync(Arg.Any<string>()).Returns(dataTable);
+        _sqlQueryRepository.ExecuteQueryWithSchemaAsync(Arg.Any<string>())
+            .Returns(new QueryResultWithSchema { Table = dataTable });
 
         var vm = new SqlQueryDocumentViewModel(_sqlQueryRepository, _connectionManager);
 
@@ -598,8 +601,8 @@ public class SqlQueryDocumentViewModelTests
                 PreviewTable = new DataTable(),
                 Warnings = ["IDENTITY 警告"]
             });
-        _sqlQueryRepository.ExecuteQueryAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
-            .Returns(new DataTable());
+        _sqlQueryRepository.ExecuteQueryWithSchemaAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(new QueryResultWithSchema { Table = new DataTable() });
 
         var vm = new SqlQueryDocumentViewModel(_sqlQueryRepository, _connectionManager, dryRunRepo)
         {
@@ -650,8 +653,8 @@ public class SqlQueryDocumentViewModelTests
     [Fact]
     public async Task 執行查詢_有選取範圍_應只執行選取文字並標示狀態()
     {
-        _sqlQueryRepository.ExecuteQueryAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
-            .Returns(new DataTable());
+        _sqlQueryRepository.ExecuteQueryWithSchemaAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(new QueryResultWithSchema { Table = new DataTable() });
 
         var sql = "SELECT 1;\nSELECT 2;";
         var vm = new SqlQueryDocumentViewModel(_sqlQueryRepository, _connectionManager)
@@ -663,7 +666,7 @@ public class SqlQueryDocumentViewModelTests
 
         await vm.ExecuteQueryCommand.ExecuteAsync(null);
 
-        await _sqlQueryRepository.Received(1).ExecuteQueryAsync("SELECT 2;", Arg.Any<CancellationToken>());
+        await _sqlQueryRepository.Received(1).ExecuteQueryWithSchemaAsync("SELECT 2;", Arg.Any<CancellationToken>());
         vm.StatusMessage.Should().Contain("（選取範圍）");
         vm.QueryHistory.Should().Contain("SELECT 2;");
     }
@@ -671,8 +674,8 @@ public class SqlQueryDocumentViewModelTests
     [Fact]
     public async Task 執行查詢_無選取範圍_應執行全文且不標示選取()
     {
-        _sqlQueryRepository.ExecuteQueryAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
-            .Returns(new DataTable());
+        _sqlQueryRepository.ExecuteQueryWithSchemaAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(new QueryResultWithSchema { Table = new DataTable() });
 
         var vm = new SqlQueryDocumentViewModel(_sqlQueryRepository, _connectionManager)
         {
@@ -681,15 +684,15 @@ public class SqlQueryDocumentViewModelTests
 
         await vm.ExecuteQueryCommand.ExecuteAsync(null);
 
-        await _sqlQueryRepository.Received(1).ExecuteQueryAsync("SELECT 1", Arg.Any<CancellationToken>());
+        await _sqlQueryRepository.Received(1).ExecuteQueryWithSchemaAsync("SELECT 1", Arg.Any<CancellationToken>());
         vm.StatusMessage.Should().NotContain("（選取範圍）");
     }
 
     [Fact]
     public async Task 執行查詢_選取純空白_應視同未選取執行全文()
     {
-        _sqlQueryRepository.ExecuteQueryAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
-            .Returns(new DataTable());
+        _sqlQueryRepository.ExecuteQueryWithSchemaAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(new QueryResultWithSchema { Table = new DataTable() });
 
         var sql = "SELECT 1;   \nSELECT 2;";
         var vm = new SqlQueryDocumentViewModel(_sqlQueryRepository, _connectionManager)
@@ -701,15 +704,15 @@ public class SqlQueryDocumentViewModelTests
 
         await vm.ExecuteQueryCommand.ExecuteAsync(null);
 
-        await _sqlQueryRepository.Received(1).ExecuteQueryAsync(sql.Trim(), Arg.Any<CancellationToken>());
+        await _sqlQueryRepository.Received(1).ExecuteQueryWithSchemaAsync(sql.Trim(), Arg.Any<CancellationToken>());
         vm.StatusMessage.Should().NotContain("（選取範圍）");
     }
 
     [Fact]
     public async Task 執行查詢_反向選取_應正規化索引後執行選取文字()
     {
-        _sqlQueryRepository.ExecuteQueryAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
-            .Returns(new DataTable());
+        _sqlQueryRepository.ExecuteQueryWithSchemaAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(new QueryResultWithSchema { Table = new DataTable() });
 
         var sql = "SELECT 1;\nSELECT 2;";
         var start = sql.IndexOf("SELECT 2");
@@ -723,14 +726,14 @@ public class SqlQueryDocumentViewModelTests
 
         await vm.ExecuteQueryCommand.ExecuteAsync(null);
 
-        await _sqlQueryRepository.Received(1).ExecuteQueryAsync("SELECT 2;", Arg.Any<CancellationToken>());
+        await _sqlQueryRepository.Received(1).ExecuteQueryWithSchemaAsync("SELECT 2;", Arg.Any<CancellationToken>());
     }
 
     [Fact]
     public async Task 執行查詢_選取索引超出文字長度_應鉗制在合法範圍()
     {
-        _sqlQueryRepository.ExecuteQueryAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
-            .Returns(new DataTable());
+        _sqlQueryRepository.ExecuteQueryWithSchemaAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(new QueryResultWithSchema { Table = new DataTable() });
 
         var vm = new SqlQueryDocumentViewModel(_sqlQueryRepository, _connectionManager)
         {
@@ -741,7 +744,7 @@ public class SqlQueryDocumentViewModelTests
 
         await vm.ExecuteQueryCommand.ExecuteAsync(null);
 
-        await _sqlQueryRepository.Received(1).ExecuteQueryAsync("1", Arg.Any<CancellationToken>());
+        await _sqlQueryRepository.Received(1).ExecuteQueryWithSchemaAsync("1", Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -770,6 +773,243 @@ public class SqlQueryDocumentViewModelTests
 
         await dryRunRepo.Received(1).DryRunAsync("UPDATE T SET A = 1 WHERE Id = 9", Arg.Any<CancellationToken>());
         vm.StatusMessage.Should().Contain("（選取範圍）");
+    }
+
+    #endregion
+
+    #region 結果編輯與產生異動SQL測試
+
+    private static QueryResultWithSchema SingleTableResult(bool withKey = true)
+    {
+        var table = new DataTable();
+        table.Columns.Add("EMP_ID", typeof(string));
+        table.Columns.Add("EMP_NAME", typeof(string));
+        table.Rows.Add("100719", "洪玉如");
+
+        return new QueryResultWithSchema
+        {
+            Table = table,
+            Columns =
+            [
+                new QueryColumnMetadata { ColumnName = "EMP_ID", BaseSchema = "dbo", BaseTable = "SYS010", BaseColumn = "EMP_ID", IsKey = withKey, ClrType = typeof(string) },
+                new QueryColumnMetadata { ColumnName = "EMP_NAME", BaseSchema = "dbo", BaseTable = "SYS010", BaseColumn = "EMP_NAME", ClrType = typeof(string) }
+            ]
+        };
+    }
+
+    private static QueryResultWithSchema MultiTableResult()
+    {
+        var table = new DataTable();
+        table.Columns.Add("A", typeof(string));
+        table.Rows.Add("x");
+
+        return new QueryResultWithSchema
+        {
+            Table = table,
+            Columns =
+            [
+                new QueryColumnMetadata { ColumnName = "A", BaseSchema = "dbo", BaseTable = "T1", BaseColumn = "A", ClrType = typeof(string) },
+                new QueryColumnMetadata { ColumnName = "B", BaseSchema = "dbo", BaseTable = "T2", BaseColumn = "B", ClrType = typeof(string) }
+            ]
+        };
+    }
+
+    [Fact]
+    public async Task 執行查詢_單表結果_應可編輯()
+    {
+        _sqlQueryRepository.ExecuteQueryWithSchemaAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(SingleTableResult());
+
+        var vm = new SqlQueryDocumentViewModel(_sqlQueryRepository, _connectionManager)
+        {
+            SqlText = "SELECT * FROM SYS010"
+        };
+
+        await vm.ExecuteQueryCommand.ExecuteAsync(null);
+
+        vm.IsResultEditable.Should().BeTrue();
+        vm.QueryResults.Should().HaveCount(1);
+    }
+
+    [Fact]
+    public async Task 執行查詢_多表結果_應唯讀()
+    {
+        _sqlQueryRepository.ExecuteQueryWithSchemaAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(MultiTableResult());
+
+        var vm = new SqlQueryDocumentViewModel(_sqlQueryRepository, _connectionManager)
+        {
+            SqlText = "SELECT ..."
+        };
+
+        await vm.ExecuteQueryCommand.ExecuteAsync(null);
+
+        vm.IsResultEditable.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task 產生異動SQL_無異動_應顯示無異動()
+    {
+        var generator = Substitute.For<IUpdateSqlGenerator>();
+        generator.Generate(Arg.Any<UpdateSqlRequest>()).Returns(new UpdateSqlResult());
+        _sqlQueryRepository.ExecuteQueryWithSchemaAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(SingleTableResult());
+
+        var vm = new SqlQueryDocumentViewModel(_sqlQueryRepository, _connectionManager, null, generator)
+        {
+            SqlText = "SELECT * FROM SYS010"
+        };
+        await vm.ExecuteQueryCommand.ExecuteAsync(null);
+
+        await vm.GenerateUpdateSqlCommand.ExecuteAsync(null);
+
+        vm.StatusMessage.Should().Contain("無異動");
+    }
+
+    [Fact]
+    public async Task 產生異動SQL_有異動_應以回呼顯示SQL並用主鍵定位()
+    {
+        UpdateSqlRequest? captured = null;
+        var generator = Substitute.For<IUpdateSqlGenerator>();
+        generator.Generate(Arg.Do<UpdateSqlRequest>(r => captured = r))
+            .Returns(new UpdateSqlResult { Sql = "UPDATE [dbo].[SYS010] ...;", StatementCount = 1 });
+        _sqlQueryRepository.ExecuteQueryWithSchemaAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(SingleTableResult());
+
+        string? shownSql = null;
+        var vm = new SqlQueryDocumentViewModel(_sqlQueryRepository, _connectionManager, null, generator)
+        {
+            SqlText = "SELECT * FROM SYS010",
+            ShowGeneratedSqlAsync = sql => { shownSql = sql; return Task.CompletedTask; }
+        };
+        await vm.ExecuteQueryCommand.ExecuteAsync(null);
+        vm.QueryResults[0]["EMP_NAME"] = "洪小玉";   // 模擬編輯
+
+        await vm.GenerateUpdateSqlCommand.ExecuteAsync(null);
+
+        shownSql.Should().Contain("UPDATE");
+        captured.Should().NotBeNull();
+        captured!.KeyColumns.Should().BeEquivalentTo(["EMP_ID"]);
+        captured.IsFallbackKeys.Should().BeFalse();
+        captured.Rows[0].Original["EMP_NAME"].Should().Be("洪玉如");   // 快照保留原值
+        captured.Rows[0].Current["EMP_NAME"].Should().Be("洪小玉");
+        vm.StatusMessage.Should().Contain("1 句");
+    }
+
+    [Fact]
+    public async Task 產生異動SQL_無主鍵_應呼叫欄位挑選回呼()
+    {
+        UpdateSqlRequest? captured = null;
+        var generator = Substitute.For<IUpdateSqlGenerator>();
+        generator.Generate(Arg.Do<UpdateSqlRequest>(r => captured = r))
+            .Returns(new UpdateSqlResult { Sql = "UPDATE ...;", StatementCount = 1 });
+        _sqlQueryRepository.ExecuteQueryWithSchemaAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(SingleTableResult(withKey: false));
+
+        IReadOnlyList<string>? offered = null;
+        var vm = new SqlQueryDocumentViewModel(_sqlQueryRepository, _connectionManager, null, generator)
+        {
+            SqlText = "SELECT * FROM SYS010",
+            PickKeyColumnsAsync = cols => { offered = cols; return Task.FromResult<IReadOnlyList<string>?>(["EMP_ID"]); },
+            ShowGeneratedSqlAsync = _ => Task.CompletedTask
+        };
+        await vm.ExecuteQueryCommand.ExecuteAsync(null);
+        vm.QueryResults[0]["EMP_NAME"] = "改";
+
+        await vm.GenerateUpdateSqlCommand.ExecuteAsync(null);
+
+        offered.Should().Contain(["EMP_ID", "EMP_NAME"]);
+        captured!.KeyColumns.Should().BeEquivalentTo(["EMP_ID"]);
+        captured.IsFallbackKeys.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task 產生異動SQL_無主鍵且略過挑選_應用全欄位Fallback()
+    {
+        UpdateSqlRequest? captured = null;
+        var generator = Substitute.For<IUpdateSqlGenerator>();
+        generator.Generate(Arg.Do<UpdateSqlRequest>(r => captured = r))
+            .Returns(new UpdateSqlResult { Sql = "UPDATE ...;", StatementCount = 1 });
+        _sqlQueryRepository.ExecuteQueryWithSchemaAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(SingleTableResult(withKey: false));
+
+        var vm = new SqlQueryDocumentViewModel(_sqlQueryRepository, _connectionManager, null, generator)
+        {
+            SqlText = "SELECT * FROM SYS010",
+            PickKeyColumnsAsync = _ => Task.FromResult<IReadOnlyList<string>?>(null),
+            ShowGeneratedSqlAsync = _ => Task.CompletedTask
+        };
+        await vm.ExecuteQueryCommand.ExecuteAsync(null);
+        vm.QueryResults[0]["EMP_NAME"] = "改";
+
+        await vm.GenerateUpdateSqlCommand.ExecuteAsync(null);
+
+        captured!.KeyColumns.Should().BeEquivalentTo(["EMP_ID", "EMP_NAME"]);
+        captured.IsFallbackKeys.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task 產生異動SQL_不可編輯結果_應提示僅支援單表()
+    {
+        var generator = Substitute.For<IUpdateSqlGenerator>();
+        _sqlQueryRepository.ExecuteQueryWithSchemaAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(MultiTableResult());
+
+        var vm = new SqlQueryDocumentViewModel(_sqlQueryRepository, _connectionManager, null, generator)
+        {
+            SqlText = "SELECT ..."
+        };
+        await vm.ExecuteQueryCommand.ExecuteAsync(null);
+
+        await vm.GenerateUpdateSqlCommand.ExecuteAsync(null);
+
+        vm.StatusMessage.Should().Contain("僅支援單一資料表");
+        generator.DidNotReceive().Generate(Arg.Any<UpdateSqlRequest>());
+    }
+
+    [Fact]
+    public async Task DryRun後_結果應不可編輯()
+    {
+        var dryRunRepo = Substitute.For<ISqlDryRunRepository>();
+        dryRunRepo.DryRunAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(new DryRunResult
+            {
+                IsValid = true,
+                StatementType = DryRunStatementType.Update,
+                AffectedRowCount = 1,
+                PreviewTable = new DataTable()
+            });
+        _sqlQueryRepository.ExecuteQueryWithSchemaAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(SingleTableResult());
+
+        var vm = new SqlQueryDocumentViewModel(_sqlQueryRepository, _connectionManager, dryRunRepo)
+        {
+            SqlText = "SELECT * FROM SYS010"
+        };
+        await vm.ExecuteQueryCommand.ExecuteAsync(null);
+        vm.IsResultEditable.Should().BeTrue();
+
+        vm.SqlText = "UPDATE SYS010 SET EMP_NAME = N'x' WHERE EMP_ID = '1'";
+        await vm.DryRunCommand.ExecuteAsync(null);
+
+        vm.IsResultEditable.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task 清除_應重置可編輯狀態()
+    {
+        _sqlQueryRepository.ExecuteQueryWithSchemaAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(SingleTableResult());
+
+        var vm = new SqlQueryDocumentViewModel(_sqlQueryRepository, _connectionManager)
+        {
+            SqlText = "SELECT * FROM SYS010"
+        };
+        await vm.ExecuteQueryCommand.ExecuteAsync(null);
+
+        vm.ClearQueryCommand.Execute(null);
+
+        vm.IsResultEditable.Should().BeFalse();
     }
 
     #endregion

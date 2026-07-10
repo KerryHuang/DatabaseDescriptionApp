@@ -266,6 +266,47 @@ public class UpdateSqlGeneratorTests
         result.Warnings.Should().Contain(w => w.Contains("無可用的定位欄位"));
     }
 
+    [Fact(DisplayName = "原值與現值皆為顯示字串且未編輯：不應產生異動")]
+    public void Generate_原值與現值皆為顯示字串且未編輯_不應產生異動()
+    {
+        // 模擬 Avalonia DataGrid TwoWay 綁定把顯示文字回寫進資料列的污染情境：
+        // Original 與 Current 皆為字串，但實際值未變更，不應誤判為異動。
+        var columns = new[]
+        {
+            Col("Id", isKey: true, clrType: typeof(int)),
+            Col("IsActive", clrType: typeof(bool)),
+            Col("Birthday", clrType: typeof(DateTime)),
+            Col("Qty", clrType: typeof(int)),
+            Col("Name")
+        };
+        var request = Request(columns, ["Id"],
+            Row(
+                new() { ["Id"] = "1", ["IsActive"] = "False", ["Birthday"] = "2022/6/30 上午 12:00:00", ["Qty"] = "1", ["Name"] = "洪玉如" },
+                new() { ["Id"] = "1", ["IsActive"] = "False", ["Birthday"] = "2022/6/30 上午 12:00:00", ["Qty"] = "1", ["Name"] = "洪小玉" }));
+
+        var result = _generator.Generate(request);
+
+        result.StatementCount.Should().Be(1);
+        result.Sql.Should().Contain("SET [Name] = N'洪小玉'");
+        result.Sql.Should().NotContain("[IsActive]");
+        result.Sql.Should().NotContain("[Birthday]");
+        result.Sql.Should().NotContain("[Qty]");
+    }
+
+    [Fact(DisplayName = "原值為顯示字串的鍵欄：WHERE 應輸出型別正規化字面值")]
+    public void Generate_原值為顯示字串的鍵欄_WHERE應輸出型別正規化字面值()
+    {
+        var columns = new[] { Col("Id", isKey: true, clrType: typeof(int)), Col("Name") };
+        var request = Request(columns, ["Id"],
+            Row(new() { ["Id"] = "100719", ["Name"] = "洪玉如" },
+                new() { ["Id"] = "100719", ["Name"] = "洪小玉" }));
+
+        var result = _generator.Generate(request);
+
+        result.Sql.Should().Contain("[Id] = 100719");
+        result.Sql.Should().NotContain("N'100719'");
+    }
+
     [Fact(DisplayName = "日期字面值：非西曆文化下仍輸出西元年（InvariantCulture）")]
     public void Generate_日期字面值_應與文化無關()
     {

@@ -1,5 +1,6 @@
 using System.Data;
 using FluentAssertions;
+using Specurai.Domain.Entities;
 using Specurai.Infrastructure.Repositories;
 
 namespace Specurai.Infrastructure.Tests.Repositories;
@@ -94,5 +95,37 @@ public class SqlQueryRepositorySchemaTests
     public void MapColumnMetadata_Null_應回傳空清單()
     {
         SqlQueryRepository.MapColumnMetadata(null).Should().BeEmpty();
+    }
+
+    [Fact(DisplayName = "重複欄名應加上 _{索引} 後綴去重")]
+    public void DeduplicateColumnNames_重複欄名_應加上索引後綴()
+    {
+        var columns = new List<QueryColumnMetadata>
+        {
+            new() { ColumnName = "EMP_ID", ClrType = typeof(string) },
+            new() { ColumnName = "EMP_ID", ClrType = typeof(int) }
+        };
+
+        var result = SqlQueryRepository.DeduplicateColumnNames(columns);
+
+        result.Should().HaveCount(2);
+        result[0].ColumnName.Should().Be("EMP_ID");
+        result[1].ColumnName.Should().Be("EMP_ID_1");
+        result[1].ClrType.Should().Be(typeof(int));
+    }
+
+    [Fact(DisplayName = "無重複欄名時應保持原樣")]
+    public void DeduplicateColumnNames_無重複_應保持原樣()
+    {
+        var columns = new List<QueryColumnMetadata>
+        {
+            new() { ColumnName = "EMP_ID", ClrType = typeof(string) },
+            new() { ColumnName = "EMP_NAME", ClrType = typeof(string) }
+        };
+
+        var result = SqlQueryRepository.DeduplicateColumnNames(columns);
+
+        result[0].ColumnName.Should().Be("EMP_ID");
+        result[1].ColumnName.Should().Be("EMP_NAME");
     }
 }

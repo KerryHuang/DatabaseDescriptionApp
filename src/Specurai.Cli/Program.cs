@@ -128,6 +128,11 @@ public static class Program
                 await next(context);
             });
 
-        return await builder.Build().InvokeAsync(args);
+        var invokeResult = await builder.Build().InvokeAsync(args);
+
+        // 部分 command handler（如 sql query、sql dry-run）以 Environment.ExitCode 表達失敗，
+        // 而非透過 InvokeAsync 的回傳值。此處需彙整：若 handler 已設定非 0 的 ExitCode，
+        // 優先回傳該值，避免 process 實際結束碼恆為 0。
+        return Environment.ExitCode != 0 ? Environment.ExitCode : invokeResult;
     }
 }

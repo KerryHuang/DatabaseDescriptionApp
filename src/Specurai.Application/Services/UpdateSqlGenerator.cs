@@ -90,6 +90,8 @@ public class UpdateSqlGenerator : IUpdateSqlGenerator
         var sb = new StringBuilder();
         if (request.IsFallbackKeys)
             sb.AppendLine("-- 警告：無主鍵定位，執行前請先 Dry Run 確認影響筆數");
+        foreach (var warning in warnings)
+            sb.AppendLine($"-- 警告：{warning}");
         sb.AppendJoin(Environment.NewLine, statements);
 
         return new UpdateSqlResult

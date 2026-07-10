@@ -1018,6 +1018,29 @@ public class SqlQueryDocumentViewModelTests
     }
 
     [Fact]
+    public async Task 產生異動SQL_結果集合含快照外的列_應提示重新執行查詢()
+    {
+        var generator = Substitute.For<IUpdateSqlGenerator>();
+        _sqlQueryRepository.ExecuteQueryWithSchemaAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(SingleTableResult());
+
+        var vm = new SqlQueryDocumentViewModel(_sqlQueryRepository, _connectionManager, null, generator)
+        {
+            SqlText = "SELECT * FROM SYS010",
+            ShowGeneratedSqlAsync = _ => Task.CompletedTask
+        };
+        await vm.ExecuteQueryCommand.ExecuteAsync(null);
+
+        // 模擬快照外的列（非查詢結果，例如程式其他路徑誤加入）
+        vm.QueryResults.Add(new Dictionary<string, object?> { ["EMP_ID"] = "999", ["EMP_NAME"] = "額外" });
+
+        await vm.GenerateUpdateSqlCommand.ExecuteAsync(null);
+
+        vm.StatusMessage.Should().Contain("請重新執行查詢");
+        generator.DidNotReceive().Generate(Arg.Any<UpdateSqlRequest>());
+    }
+
+    [Fact]
     public async Task DryRun後_結果應不可編輯()
     {
         var dryRunRepo = Substitute.For<ISqlDryRunRepository>();

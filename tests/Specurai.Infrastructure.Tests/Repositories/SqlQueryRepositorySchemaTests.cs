@@ -21,6 +21,7 @@ public class SqlQueryRepositorySchemaTests
         table.Columns.Add("IsExpression", typeof(bool));
         table.Columns.Add("DataType", typeof(Type));
         table.Columns.Add("IsHidden", typeof(bool));
+        table.Columns.Add("DataTypeName", typeof(string));
         foreach (var row in rows)
             table.Rows.Add(row);
         return table;
@@ -30,8 +31,8 @@ public class SqlQueryRepositorySchemaTests
     public void MapColumnMetadata_一般欄位_應正確對映()
     {
         var schema = BuildSchemaTable(
-            ["EMP_ID", "dbo", "SYS010", "EMP_ID", true, false, false, false, typeof(string), false],
-            ["EMP_NAME", "dbo", "SYS010", "EMP_NAME", false, false, false, false, typeof(string), false]);
+            ["EMP_ID", "dbo", "SYS010", "EMP_ID", true, false, false, false, typeof(string), false, "char"],
+            ["EMP_NAME", "dbo", "SYS010", "EMP_NAME", false, false, false, false, typeof(string), false, "nvarchar"]);
 
         var result = SqlQueryRepository.MapColumnMetadata(schema);
 
@@ -43,14 +44,16 @@ public class SqlQueryRepositorySchemaTests
         result[0].IsKey.Should().BeTrue();
         result[0].IsReadOnly.Should().BeFalse();
         result[0].ClrType.Should().Be(typeof(string));
+        result[0].SqlTypeName.Should().Be("char");
         result[1].IsKey.Should().BeFalse();
+        result[1].SqlTypeName.Should().Be("nvarchar");
     }
 
     [Fact(DisplayName = "identity 欄位應標記唯讀")]
     public void MapColumnMetadata_Identity欄位_應唯讀()
     {
         var schema = BuildSchemaTable(
-            ["Id", "dbo", "T", "Id", true, true, false, false, typeof(int), false]);
+            ["Id", "dbo", "T", "Id", true, true, false, false, typeof(int), false, "int"]);
 
         var result = SqlQueryRepository.MapColumnMetadata(schema);
 
@@ -61,7 +64,7 @@ public class SqlQueryRepositorySchemaTests
     public void MapColumnMetadata_運算式欄位_應唯讀()
     {
         var schema = BuildSchemaTable(
-            ["Total", null, null, null, false, false, false, true, typeof(decimal), false]);
+            ["Total", null, null, null, false, false, false, true, typeof(decimal), false, "decimal"]);
 
         var result = SqlQueryRepository.MapColumnMetadata(schema);
 
@@ -74,7 +77,7 @@ public class SqlQueryRepositorySchemaTests
     public void MapColumnMetadata_ByteArray欄位_應唯讀()
     {
         var schema = BuildSchemaTable(
-            ["TIMESTAMP", "dbo", "SYS010", "TIMESTAMP", false, false, false, false, typeof(byte[]), false]);
+            ["TIMESTAMP", "dbo", "SYS010", "TIMESTAMP", false, false, false, false, typeof(byte[]), false, "timestamp"]);
 
         var result = SqlQueryRepository.MapColumnMetadata(schema);
 
@@ -85,7 +88,7 @@ public class SqlQueryRepositorySchemaTests
     public void MapColumnMetadata_IsKey為DBNull_應視為False()
     {
         var schema = BuildSchemaTable(
-            ["A", "dbo", "T", "A", null, false, false, false, typeof(string), false]);
+            ["A", "dbo", "T", "A", null, false, false, false, typeof(string), false, "varchar"]);
 
         var result = SqlQueryRepository.MapColumnMetadata(schema);
 
@@ -96,8 +99,8 @@ public class SqlQueryRepositorySchemaTests
     public void MapColumnMetadata_隱藏欄_應被過濾()
     {
         var schema = BuildSchemaTable(
-            ["EMP_NAME", "dbo", "SYS010", "EMP_NAME", false, false, false, false, typeof(string), false],
-            ["EMP_ID", "dbo", "SYS010", "EMP_ID", true, false, false, false, typeof(string), true]);
+            ["EMP_NAME", "dbo", "SYS010", "EMP_NAME", false, false, false, false, typeof(string), false, "nvarchar"],
+            ["EMP_ID", "dbo", "SYS010", "EMP_ID", true, false, false, false, typeof(string), true, "char"]);
 
         var result = SqlQueryRepository.MapColumnMetadata(schema);
 

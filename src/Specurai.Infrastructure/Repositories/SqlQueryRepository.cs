@@ -377,7 +377,8 @@ public class SqlQueryRepository : ISqlQueryRepository
                 BaseColumn = baseColumn,
                 IsKey = AsBool(row, "IsKey"),
                 IsReadOnly = isReadOnly,
-                ClrType = clrType
+                ClrType = clrType,
+                SqlTypeName = AsString(row, "DataTypeName")
             });
         }
         return result;
@@ -418,7 +419,8 @@ public class SqlQueryRepository : ISqlQueryRepository
                     BaseColumn = column.BaseColumn,
                     IsKey = column.IsKey,
                     IsReadOnly = column.IsReadOnly,
-                    ClrType = column.ClrType
+                    ClrType = column.ClrType,
+                    SqlTypeName = column.SqlTypeName
                 });
         }
 

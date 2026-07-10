@@ -11,7 +11,7 @@ public class UpdateSqlGeneratorTests
 {
     private readonly UpdateSqlGenerator _generator = new();
 
-    private static QueryColumnMetadata Col(string name, bool isKey = false, bool isReadOnly = false, Type? clrType = null) => new()
+    private static QueryColumnMetadata Col(string name, bool isKey = false, bool isReadOnly = false, Type? clrType = null, string? sqlTypeName = null) => new()
     {
         ColumnName = name,
         BaseSchema = "dbo",
@@ -19,7 +19,8 @@ public class UpdateSqlGeneratorTests
         BaseColumn = name,
         IsKey = isKey,
         IsReadOnly = isReadOnly,
-        ClrType = clrType ?? typeof(string)
+        ClrType = clrType ?? typeof(string),
+        SqlTypeName = sqlTypeName
     };
 
     private static UpdateSqlRequest Request(
@@ -339,5 +340,53 @@ public class UpdateSqlGeneratorTests
         {
             Thread.CurrentThread.CurrentCulture = originalCulture;
         }
+    }
+
+    [Fact(DisplayName = "char 欄位：字面值應去尾端空白")]
+    public void Generate_Char欄位_字面值應去尾端空白()
+    {
+        var columns = new[]
+        {
+            Col("EMP_ID", isKey: true, sqlTypeName: "char"),
+            Col("EMP_NAME", sqlTypeName: "char")
+        };
+        var request = Request(columns, ["EMP_ID"],
+            Row(new() { ["EMP_ID"] = "100719     ", ["EMP_NAME"] = "洪玉如   " },
+                new() { ["EMP_ID"] = "100719     ", ["EMP_NAME"] = "洪小如" }));
+
+        var result = _generator.Generate(request);
+
+        result.StatementCount.Should().Be(1);
+        result.Sql.Should().Contain("SET [EMP_NAME] = N'洪小如'");
+        result.Sql.Should().NotContain("洪小如   ");
+        result.Sql.Should().Contain("WHERE [EMP_ID] = N'100719'");
+        result.Sql.Should().NotContain("N'100719     '");
+    }
+
+    [Fact(DisplayName = "char 欄位：重打相同內容不同填補不應判定異動")]
+    public void Generate_Char欄位_重打相同內容不同填補_不應判定異動()
+    {
+        var columns = new[] { Col("EMP_ID", isKey: true), Col("EMP_NAME", sqlTypeName: "char") };
+        var request = Request(columns, ["EMP_ID"],
+            Row(new() { ["EMP_ID"] = "1", ["EMP_NAME"] = "洪玉如   " },
+                new() { ["EMP_ID"] = "1", ["EMP_NAME"] = "洪玉如" }));
+
+        var result = _generator.Generate(request);
+
+        result.StatementCount.Should().Be(0);
+    }
+
+    [Fact(DisplayName = "varchar 欄位：尾端空白應保留")]
+    public void Generate_Varchar欄位_尾端空白應保留()
+    {
+        var columns = new[] { Col("Id", isKey: true, clrType: typeof(int)), Col("Name", sqlTypeName: "nvarchar") };
+        var request = Request(columns, ["Id"],
+            Row(new() { ["Id"] = 1, ["Name"] = "a" },
+                new() { ["Id"] = 1, ["Name"] = "a " }));
+
+        var result = _generator.Generate(request);
+
+        result.StatementCount.Should().Be(1);
+        result.Sql.Should().Contain("SET [Name] = N'a '");
     }
 }

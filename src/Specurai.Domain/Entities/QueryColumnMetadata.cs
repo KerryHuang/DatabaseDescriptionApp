@@ -27,6 +27,9 @@ public class QueryColumnMetadata
 
     /// <summary>欄位 CLR 型別（產生 SQL 字面值與編輯值轉型用）</summary>
     public required Type ClrType { get; init; }
+
+    /// <summary>SQL 型別名稱（如 char、nvarchar；來自 DataTypeName，無法取得時為 null）</summary>
+    public string? SqlTypeName { get; init; }
 }
 
 /// <summary>

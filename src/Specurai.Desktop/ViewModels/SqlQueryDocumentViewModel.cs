@@ -44,6 +44,14 @@ public partial class SqlQueryDocumentViewModel : DocumentViewModel
     [ObservableProperty]
     private string _dryRunWarnings = string.Empty;
 
+    /// <summary>編輯器選取起點（與 TextBox.SelectionStart 雙向綁定）</summary>
+    [ObservableProperty]
+    private int _selectionStart;
+
+    /// <summary>編輯器選取終點（與 TextBox.SelectionEnd 雙向綁定）</summary>
+    [ObservableProperty]
+    private int _selectionEnd;
+
     /// <summary>是否有 Dry Run 警告需要顯示（供警告列 IsVisible 綁定）</summary>
     public bool HasDryRunWarnings => !string.IsNullOrEmpty(DryRunWarnings);
 
@@ -147,11 +155,34 @@ public partial class SqlQueryDocumentViewModel : DocumentViewModel
         }
     }
 
+    /// <summary>
+    /// 取得要執行的 SQL：編輯器有非空白的選取範圍時只取選取文字（SSMS 行為），否則取全文。
+    /// 反向選取以 min/max 正規化；索引超出目前文字長度時鉗制在合法範圍。
+    /// </summary>
+    private (string Sql, bool IsSelection) GetEffectiveSql()
+    {
+        var text = SqlText;
+        var start = Math.Clamp(Math.Min(SelectionStart, SelectionEnd), 0, text.Length);
+        var end = Math.Clamp(Math.Max(SelectionStart, SelectionEnd), 0, text.Length);
+
+        if (end > start)
+        {
+            var selected = text[start..end];
+            if (!string.IsNullOrWhiteSpace(selected))
+                return (selected.Trim(), true);
+        }
+
+        return (text.Trim(), false);
+    }
+
     [RelayCommand]
     private async Task ExecuteQueryAsync()
     {
         if (_sqlQueryRepository == null || string.IsNullOrWhiteSpace(SqlText))
             return;
+
+        var (sql, isSelection) = GetEffectiveSql();
+        var selectionNote = isSelection ? "（選取範圍）" : "";
 
         try
         {
@@ -163,8 +194,8 @@ public partial class SqlQueryDocumentViewModel : DocumentViewModel
 
             var stopwatch = Stopwatch.StartNew();
             var dataTable = !string.IsNullOrEmpty(_localConnectionString)
-                ? await _sqlQueryRepository.ExecuteQueryAsync(SqlText.Trim(), _localConnectionString)
-                : await _sqlQueryRepository.ExecuteQueryAsync(SqlText.Trim());
+                ? await _sqlQueryRepository.ExecuteQueryAsync(sql, _localConnectionString)
+                : await _sqlQueryRepository.ExecuteQueryAsync(sql);
             stopwatch.Stop();
 
             // 建立欄位（包含描述）
@@ -198,10 +229,10 @@ public partial class SqlQueryDocumentViewModel : DocumentViewModel
 
             RowCount = dataTable.Rows.Count;
             ExecutionTimeMs = stopwatch.ElapsedMilliseconds;
-            StatusMessage = $"查詢完成：{RowCount} 筆資料，耗時 {ExecutionTimeMs} ms";
+            StatusMessage = $"查詢完成{selectionNote}：{RowCount} 筆資料，耗時 {ExecutionTimeMs} ms";
 
-            // 加入歷史記錄
-            AddToHistory(SqlText.Trim());
+            // 加入歷史記錄（記實際執行的那段）
+            AddToHistory(sql);
         }
         catch (Exception ex)
         {
@@ -225,6 +256,9 @@ public partial class SqlQueryDocumentViewModel : DocumentViewModel
         if (_sqlDryRunRepository == null || string.IsNullOrWhiteSpace(SqlText))
             return;
 
+        var (sql, isSelection) = GetEffectiveSql();
+        var selectionNote = isSelection ? "（選取範圍）" : "";
+
         try
         {
             IsExecuting = true;
@@ -236,8 +270,8 @@ public partial class SqlQueryDocumentViewModel : DocumentViewModel
 
             var stopwatch = Stopwatch.StartNew();
             var result = !string.IsNullOrEmpty(_localConnectionString)
-                ? await _sqlDryRunRepository.DryRunAsync(SqlText.Trim(), _localConnectionString)
-                : await _sqlDryRunRepository.DryRunAsync(SqlText.Trim());
+                ? await _sqlDryRunRepository.DryRunAsync(sql, _localConnectionString)
+                : await _sqlDryRunRepository.DryRunAsync(sql);
             stopwatch.Stop();
             ExecutionTimeMs = stopwatch.ElapsedMilliseconds;
 
@@ -282,7 +316,7 @@ public partial class SqlQueryDocumentViewModel : DocumentViewModel
             RowCount = result.AffectedRowCount;
             DryRunWarnings = string.Join("\n", result.Warnings);
             var truncatedNote = result.PreviewTruncated ? $"（預覽僅顯示前 {QueryResults.Count} 筆）" : "";
-            StatusMessage = $"Dry Run 完成：影響 {result.AffectedRowCount} 筆（{result.StatementType}）{truncatedNote}｜已回滾，資料庫未變更，耗時 {ExecutionTimeMs} ms";
+            StatusMessage = $"Dry Run 完成{selectionNote}：影響 {result.AffectedRowCount} 筆（{result.StatementType}）{truncatedNote}｜已回滾，資料庫未變更，耗時 {ExecutionTimeMs} ms";
         }
         catch (Exception ex)
         {

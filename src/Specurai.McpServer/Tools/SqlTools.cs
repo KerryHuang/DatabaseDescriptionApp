@@ -91,7 +91,63 @@ public static class SqlTools
         }
     }
 
-    private static string DataTableToJson(DataTable dataTable)
+    /// <summary>
+    /// Dry Run 預演單一 DML（一律回滾）
+    /// </summary>
+    [McpServerTool, Description("以 Dry Run 預演單一 DML（INSERT/UPDATE/DELETE）：驗證語法、在交易中執行以取得影響筆數與前後資料對照，最後一律 ROLLBACK，絕不修改資料")]
+    public static async Task<string> DryRunSql(
+        ISqlDryRunRepository sqlDryRunRepository,
+        [Description("要預演的單一 DML 陳述式（INSERT/UPDATE/DELETE）")] string sql)
+    {
+        try
+        {
+            var result = await sqlDryRunRepository.DryRunAsync(sql);
+
+            if (!result.IsValid)
+            {
+                return JsonSerializer.Serialize(new
+                {
+                    Valid = false,
+                    result.RejectReason,
+                    SyntaxErrors = result.SyntaxErrors.Select(e => new { e.Line, e.Column, e.Message }),
+                    DatabaseChanged = false
+                }, JsonOptions);
+            }
+
+            if (result.ExecutionError != null)
+            {
+                return JsonSerializer.Serialize(new
+                {
+                    Valid = true,
+                    StatementType = result.StatementType.ToString(),
+                    result.ExecutionError,
+                    result.Warnings,
+                    RolledBack = true,
+                    DatabaseChanged = false
+                }, JsonOptions);
+            }
+
+            return JsonSerializer.Serialize(new
+            {
+                Valid = true,
+                StatementType = result.StatementType.ToString(),
+                result.AffectedRowCount,
+                PreviewColumns = result.PreviewTable?.Columns.Cast<DataColumn>()
+                    .Select(c => c.ColumnName).ToArray(),
+                PreviewRows = result.PreviewTable == null ? null : DataTableToRows(result.PreviewTable),
+                result.PreviewTruncated,
+                result.Warnings,
+                RolledBack = true,
+                DatabaseChanged = false
+            }, JsonOptions);
+        }
+        catch (Exception ex)
+        {
+            return $"Dry run 執行失敗：{ex.Message}";
+        }
+    }
+
+    private static List<Dictionary<string, object?>> DataTableToRows(DataTable dataTable)
     {
         var rows = new List<Dictionary<string, object?>>();
         foreach (DataRow row in dataTable.Rows)
@@ -103,6 +159,12 @@ public static class SqlTools
             }
             rows.Add(dict);
         }
+        return rows;
+    }
+
+    private static string DataTableToJson(DataTable dataTable)
+    {
+        var rows = DataTableToRows(dataTable);
 
         var result = new
         {

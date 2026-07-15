@@ -70,11 +70,11 @@ public class ColumnSearchDocumentViewModelTests
     [Fact]
     public void Constructor_有依賴_應初始化SelectableProfiles()
     {
-        // Arrange
+        // Arrange：無預備連線，僅開發（預設）與正式環境
         var profiles = new List<ConnectionProfile>
         {
-            new() { Name = "開發環境", Server = "localhost", Database = "DevDb" },
-            new() { Name = "正式環境", Server = "prod", Database = "ProdDb" }
+            new() { Name = "開發環境", Server = "localhost", Database = "DevDb", Environment = DatabaseEnvironment.Development, IsDefault = true },
+            new() { Name = "正式環境", Server = "prod", Database = "ProdDb", Environment = DatabaseEnvironment.Production }
         };
         _connectionManager.GetAllProfiles().Returns(profiles);
         _connectionManager.GetCurrentProfile().Returns(profiles[0]);
@@ -85,9 +85,49 @@ public class ColumnSearchDocumentViewModelTests
         // Assert
         vm.SelectableProfiles.Should().HaveCount(2);
         vm.SelectableProfiles[0].Profile.Should().Be(profiles[0]);
-        vm.SelectableProfiles[0].IsSelected.Should().BeTrue();
         vm.SelectableProfiles[1].Profile.Should().Be(profiles[1]);
-        vm.SelectableProfiles[1].IsSelected.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Constructor_有預備連線_應預設勾選所有預備連線()
+    {
+        // Arrange：兩個預備連線 + 一個標記為預設的開發連線
+        var profiles = new List<ConnectionProfile>
+        {
+            new() { Name = "預備A", Server = "s1", Database = "StagingA", Environment = DatabaseEnvironment.Staging },
+            new() { Name = "預備B", Server = "s2", Database = "StagingB", Environment = DatabaseEnvironment.Staging },
+            new() { Name = "預設環境", Server = "dev", Database = "DevDb", Environment = DatabaseEnvironment.Development, IsDefault = true }
+        };
+        _connectionManager.GetAllProfiles().Returns(profiles);
+        _connectionManager.GetCurrentProfile().Returns(profiles[2]);
+
+        // Act
+        var vm = CreateViewModel();
+
+        // Assert：所有預備連線被勾選，預設連線不勾
+        vm.SelectableProfiles[0].IsSelected.Should().BeTrue();
+        vm.SelectableProfiles[1].IsSelected.Should().BeTrue();
+        vm.SelectableProfiles[2].IsSelected.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Constructor_無預備連線_應改勾選預設連線()
+    {
+        // Arrange：無任何預備連線，另有一個標記為預設的連線
+        var profiles = new List<ConnectionProfile>
+        {
+            new() { Name = "正式環境", Server = "prod", Database = "ProdDb", Environment = DatabaseEnvironment.Production },
+            new() { Name = "預設環境", Server = "dev", Database = "DevDb", Environment = DatabaseEnvironment.Development, IsDefault = true }
+        };
+        _connectionManager.GetAllProfiles().Returns(profiles);
+        _connectionManager.GetCurrentProfile().Returns(profiles[0]);
+
+        // Act
+        var vm = CreateViewModel();
+
+        // Assert：無預備連線時，僅勾選預設連線
+        vm.SelectableProfiles[0].IsSelected.Should().BeFalse();
+        vm.SelectableProfiles[1].IsSelected.Should().BeTrue();
     }
 
     #endregion
@@ -312,14 +352,14 @@ public class ColumnSearchDocumentViewModelTests
         // Arrange
         var profile = new ConnectionProfile
         {
-            Name = "測試", Server = "localhost", Database = "TestDb"
+            Name = "測試", Server = "localhost", Database = "TestDb", Environment = DatabaseEnvironment.Production
         };
         _connectionManager.GetAllProfiles().Returns(new List<ConnectionProfile> { profile });
         _connectionManager.GetCurrentProfile().Returns((ConnectionProfile?)null);
 
         var vm = CreateViewModel();
         vm.ColumnSearchText = "UserId";
-        // 不勾選任何連線
+        // 無預備連線且無目前連線，預設不勾選任何連線
 
         // Act
         await vm.SearchColumnsCommand.ExecuteAsync(null);
@@ -434,8 +474,8 @@ public class ColumnSearchDocumentViewModelTests
         // Arrange
         var profiles = new List<ConnectionProfile>
         {
-            new() { Name = "環境A", Server = "s1", Database = "A" },
-            new() { Name = "環境B", Server = "s2", Database = "B" }
+            new() { Name = "環境A", Server = "s1", Database = "A", Environment = DatabaseEnvironment.Production },
+            new() { Name = "環境B", Server = "s2", Database = "B", Environment = DatabaseEnvironment.Production }
         };
         _connectionManager.GetAllProfiles().Returns(profiles);
         _connectionManager.GetCurrentProfile().Returns((ConnectionProfile?)null);

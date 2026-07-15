@@ -148,13 +148,31 @@ public partial class ColumnSearchDocumentViewModel : DocumentViewModel
             SelectableProfiles.Add(new SelectableProfile { Profile = profile });
         }
 
-        // 選擇目前的連線（用於操作連線），並預設勾選
+        // 選擇目前的連線（用於寫入操作）
         var currentProfile = _connectionManager?.GetCurrentProfile();
         if (currentProfile != null)
         {
             SelectedProfile = ConnectionProfiles.FirstOrDefault(p => p.Id == currentProfile.Id);
-            var selectable = SelectableProfiles.FirstOrDefault(sp => sp.Profile.Id == currentProfile.Id);
-            if (selectable != null) selectable.IsSelected = true;
+        }
+
+        // 預設勾選所有「預備」環境連線作為搜尋目標；若無預備連線，才 fallback 至「預設」連線
+        var stagingProfiles = profiles.Where(p => p.Environment == DatabaseEnvironment.Staging).ToList();
+        if (stagingProfiles.Count > 0)
+        {
+            foreach (var profile in stagingProfiles)
+            {
+                var selectable = SelectableProfiles.FirstOrDefault(sp => sp.Profile.Id == profile.Id);
+                if (selectable != null) selectable.IsSelected = true;
+            }
+        }
+        else
+        {
+            var defaultProfile = profiles.FirstOrDefault(p => p.IsDefault) ?? currentProfile;
+            if (defaultProfile != null)
+            {
+                var selectable = SelectableProfiles.FirstOrDefault(sp => sp.Profile.Id == defaultProfile.Id);
+                if (selectable != null) selectable.IsSelected = true;
+            }
         }
     }
 

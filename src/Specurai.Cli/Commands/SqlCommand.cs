@@ -363,7 +363,7 @@ public static class SqlCommand
 
         if (allProfiles)
         {
-            profileIds = cm.GetAllProfiles().Select(p => p.Id).ToList();
+            profileIds = cm.GetEnabledProfiles().Select(p => p.Id).ToList();
         }
         else
         {
@@ -371,12 +371,12 @@ public static class SqlCommand
             profileIds = [];
             foreach (var pn in profileNames)
             {
-                var profile = cm.GetAllProfiles()
+                var profile = cm.GetEnabledProfiles()
                     .FirstOrDefault(p => p.Name.Equals(pn, StringComparison.OrdinalIgnoreCase));
                 if (profile != null)
                     profileIds.Add(profile.Id);
                 else
-                    CliOutput.Warning($"找不到連線「{pn}」，已跳過");
+                    CliOutput.Warning($"{ConnectionResolver.DescribeMissing(cm, pn)}，已跳過");
             }
         }
 

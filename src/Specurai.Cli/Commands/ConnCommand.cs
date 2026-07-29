@@ -149,7 +149,8 @@ public static class ConnCommand
                     p.Database,
                     AuthType = p.AuthType.ToString(),
                     IsCurrent = current?.Id == p.Id,
-                    p.IsDefault
+                    p.IsDefault,
+                    p.IsEnabled
                 }).ToList();
                 CliOutput.Success(data, data.Count);
             }
@@ -171,11 +172,16 @@ public static class ConnCommand
                 foreach (var p in profiles)
                 {
                     var isCurrent = current?.Id == p.Id;
-                    var status = isCurrent ? "[green]← 目前[/]" : (p.IsDefault ? "[grey]預設[/]" : "");
+                    var status = !p.IsEnabled
+                        ? "[red]停用[/]"
+                        : isCurrent ? "[green]← 目前[/]" : (p.IsDefault ? "[grey]預設[/]" : "");
+                    var nameCell = !p.IsEnabled
+                        ? $"[grey]{p.Name.EscapeMarkup()}[/]"
+                        : isCurrent ? $"[green]{p.Name.EscapeMarkup()}[/]" : p.Name.EscapeMarkup();
                     var auth = p.AuthType == AuthenticationType.WindowsAuthentication ? "Windows" : p.Username ?? "SQL";
 
                     table.AddRow(
-                        isCurrent ? $"[green]{p.Name.EscapeMarkup()}[/]" : p.Name.EscapeMarkup(),
+                        nameCell,
                         p.Server.EscapeMarkup(),
                         p.Database.EscapeMarkup(),
                         auth,

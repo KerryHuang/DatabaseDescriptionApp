@@ -35,22 +35,22 @@ public static class SchemaCommand
             // 解析 base 連線
             var baseProfile = string.IsNullOrEmpty(baseName)
                 ? cm.GetCurrentProfile()
-                : cm.GetAllProfiles().FirstOrDefault(p => p.Name.Equals(baseName, StringComparison.OrdinalIgnoreCase));
+                : cm.GetEnabledProfiles().FirstOrDefault(p => p.Name.Equals(baseName, StringComparison.OrdinalIgnoreCase));
 
             if (baseProfile == null)
             {
-                CliOutput.Error(string.IsNullOrEmpty(baseName) ? "未設定目前連線" : $"找不到連線「{baseName}」");
+                CliOutput.Error(string.IsNullOrEmpty(baseName) ? "未設定目前連線" : ConnectionResolver.DescribeMissing(cm, baseName));
                 Environment.ExitCode = 1;
                 return;
             }
 
             // 解析 target 連線
-            var targetProfile = cm.GetAllProfiles()
+            var targetProfile = cm.GetEnabledProfiles()
                 .FirstOrDefault(p => p.Name.Equals(targetName, StringComparison.OrdinalIgnoreCase));
 
             if (targetProfile == null)
             {
-                CliOutput.Error($"找不到連線「{targetName}」");
+                CliOutput.Error(ConnectionResolver.DescribeMissing(cm, targetName));
                 Environment.ExitCode = 1;
                 return;
             }
@@ -156,11 +156,11 @@ public static class SchemaCommand
 
             var baseProfile = string.IsNullOrEmpty(baseName)
                 ? cm.GetCurrentProfile()
-                : cm.GetAllProfiles().FirstOrDefault(p => p.Name.Equals(baseName, StringComparison.OrdinalIgnoreCase));
+                : cm.GetEnabledProfiles().FirstOrDefault(p => p.Name.Equals(baseName, StringComparison.OrdinalIgnoreCase));
 
             if (baseProfile == null)
             {
-                CliOutput.Error(string.IsNullOrEmpty(baseName) ? "未設定目前連線" : $"找不到連線「{baseName}」");
+                CliOutput.Error(string.IsNullOrEmpty(baseName) ? "未設定目前連線" : ConnectionResolver.DescribeMissing(cm, baseName));
                 Environment.ExitCode = 1;
                 return;
             }
@@ -170,10 +170,10 @@ public static class SchemaCommand
 
             foreach (var tn in targetNames)
             {
-                var tp = cm.GetAllProfiles().FirstOrDefault(p => p.Name.Equals(tn, StringComparison.OrdinalIgnoreCase));
+                var tp = cm.GetEnabledProfiles().FirstOrDefault(p => p.Name.Equals(tn, StringComparison.OrdinalIgnoreCase));
                 if (tp == null)
                 {
-                    CliOutput.Warning($"找不到連線「{tn}」，已跳過");
+                    CliOutput.Warning($"{ConnectionResolver.DescribeMissing(cm, tn)}，已跳過");
                     continue;
                 }
                 targetProfiles.Add((tp, cm.BuildConnectionString(tp)));

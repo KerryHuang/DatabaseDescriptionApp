@@ -102,7 +102,9 @@ public class ConfirmGateTests
     public async Task MigrationLogResize_ConfirmFalse_ShouldReturnSummaryWithoutExecuting()
     {
         var cm = Substitute.For<IConnectionManager>();
-        cm.GetAllProfiles().Returns(new[] { SampleProfile("Target") });
+        var target = SampleProfile("Target");
+        cm.GetAllProfiles().Returns(new[] { target });
+        cm.GetEnabledProfiles().Returns(new[] { target });
         cm.BuildConnectionString(Arg.Any<ConnectionProfile>()).Returns("conn");
         var executor = Substitute.For<ISchemaMigrationExecutor>();
 
@@ -118,7 +120,9 @@ public class ConfirmGateTests
     public async Task MigrationLogResize_ConfirmTrue_ShouldExecute()
     {
         var cm = Substitute.For<IConnectionManager>();
-        cm.GetAllProfiles().Returns(new[] { SampleProfile("Target") });
+        var target = SampleProfile("Target");
+        cm.GetAllProfiles().Returns(new[] { target });
+        cm.GetEnabledProfiles().Returns(new[] { target });
         cm.BuildConnectionString(Arg.Any<ConnectionProfile>()).Returns("conn");
         var executor = Substitute.For<ISchemaMigrationExecutor>();
         executor.ResizeLogAsync(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
@@ -133,7 +137,9 @@ public class ConfirmGateTests
     public void DeleteConnection_ConfirmFalse_ShouldReturnSummaryWithoutExecuting()
     {
         var cm = Substitute.For<IConnectionManager>();
-        cm.GetAllProfiles().Returns(new[] { SampleProfile("MyConn") });
+        var toDelete = SampleProfile("MyConn");
+        cm.GetAllProfiles().Returns(new[] { toDelete });
+        cm.GetEnabledProfiles().Returns(new[] { toDelete });
 
         var result = ConnectionCrudTools.DeleteConnection(cm, "MyConn", confirm: false);
 
@@ -148,6 +154,7 @@ public class ConfirmGateTests
         var profile = SampleProfile("MyConn");
         var cm = Substitute.For<IConnectionManager>();
         cm.GetAllProfiles().Returns(new[] { profile });
+        cm.GetEnabledProfiles().Returns(new[] { profile });
 
         var result = ConnectionCrudTools.DeleteConnection(cm, "MyConn", confirm: true);
 

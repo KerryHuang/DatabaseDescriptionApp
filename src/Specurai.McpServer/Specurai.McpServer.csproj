@@ -35,4 +35,8 @@
     <ProjectReference Include="..\Specurai.Infrastructure\Specurai.Infrastructure.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="Specurai.McpServer.Tests" />
+  </ItemGroup>
+
 </Project>

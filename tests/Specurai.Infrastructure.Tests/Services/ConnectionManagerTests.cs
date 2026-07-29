@@ -144,4 +144,39 @@ public class ConnectionManagerTests : IDisposable
 
         databases.Should().BeEmpty();
     }
+
+    [Fact]
+    public void LoadProfiles_舊設定檔無IsEnabled欄位_全部視為啟用()
+    {
+        var configPath = Path.Combine(Path.GetTempPath(), $"specurai-{Guid.NewGuid()}.json");
+        var json = """
+        {
+          "Profiles": [
+            {
+              "Id": "11111111-1111-1111-1111-111111111111",
+              "Name": "舊連線",
+              "Server": "localhost",
+              "Database": "OldDb",
+              "AuthType": 0,
+              "IsDefault": true,
+              "Environment": 2
+            }
+          ],
+          "CurrentProfileId": "11111111-1111-1111-1111-111111111111"
+        }
+        """;
+        File.WriteAllText(configPath, json);
+
+        try
+        {
+            var manager = new ConnectionManager(configPath);
+
+            manager.GetAllProfiles().Should().ContainSingle()
+                .Which.IsEnabled.Should().BeTrue();
+        }
+        finally
+        {
+            File.Delete(configPath);
+        }
+    }
 }

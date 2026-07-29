@@ -65,4 +65,9 @@ public class ConnectionProfile
     /// 連線所屬環境（預設預備環境）
     /// </summary>
     public DatabaseEnvironment Environment { get; set; } = DatabaseEnvironment.Staging;
+
+    /// <summary>
+    /// 是否啟用（停用的連線不會出現在各功能的連線選擇中）
+    /// </summary>
+    public bool IsEnabled { get; set; } = true;
 }

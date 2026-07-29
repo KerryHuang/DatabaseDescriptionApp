@@ -88,23 +88,39 @@ public class ConnectionManager : IConnectionManager
     public void UpdateProfile(ConnectionProfile profile)
     {
         var index = _profiles.FindIndex(p => p.Id == profile.Id);
-        if (index >= 0)
+        if (index < 0)
+            return;
+
+        if (profile.IsDefault)
         {
-            if (profile.IsDefault)
+            foreach (var p in _profiles)
             {
-                foreach (var p in _profiles)
-                {
-                    p.IsDefault = false;
-                }
+                p.IsDefault = false;
             }
+        }
 
-            _profiles[index] = profile;
-            SaveProfiles();
+        // 停用的連線不該保留預設身分，否則會留下一個永遠選不到的預設連線
+        if (!profile.IsEnabled)
+        {
+            profile.IsDefault = false;
+        }
 
-            if (_currentProfileId == profile.Id)
-            {
-                CurrentProfileChanged?.Invoke(this, profile);
-            }
+        _profiles[index] = profile;
+        SaveProfiles();
+
+        // 停用目前連線時自動切離至第一個啟用的連線，沒有就變成無連線
+        if (!profile.IsEnabled && _currentProfileId == profile.Id)
+        {
+            var fallback = _profiles.FirstOrDefault(p => p.IsEnabled);
+            _currentProfileId = fallback?.Id;
+            _currentDatabaseOverride = null;
+            CurrentProfileChanged?.Invoke(this, fallback);
+            return;
+        }
+
+        if (_currentProfileId == profile.Id)
+        {
+            CurrentProfileChanged?.Invoke(this, profile);
         }
     }
 

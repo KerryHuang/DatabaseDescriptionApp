@@ -13,6 +13,11 @@ public interface IConnectionManager
     IReadOnlyList<ConnectionProfile> GetAllProfiles();
 
     /// <summary>
+    /// 取得所有已啟用的連線設定（供功能面的連線選擇使用）
+    /// </summary>
+    IReadOnlyList<ConnectionProfile> GetEnabledProfiles();
+
+    /// <summary>
     /// 取得目前使用的連線設定
     /// </summary>
     ConnectionProfile? GetCurrentProfile();

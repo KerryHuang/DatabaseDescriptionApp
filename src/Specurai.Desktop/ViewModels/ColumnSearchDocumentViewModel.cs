@@ -141,7 +141,7 @@ public partial class ColumnSearchDocumentViewModel : DocumentViewModel
     {
         ConnectionProfiles.Clear();
         SelectableProfiles.Clear();
-        var profiles = _connectionManager?.GetAllProfiles() ?? [];
+        var profiles = _connectionManager?.GetEnabledProfiles() ?? [];
         foreach (var profile in profiles)
         {
             ConnectionProfiles.Add(profile);

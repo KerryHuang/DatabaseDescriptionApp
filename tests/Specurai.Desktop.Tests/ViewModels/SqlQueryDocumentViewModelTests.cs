@@ -46,6 +46,7 @@ public class SqlQueryDocumentViewModelTests
             new() { Name = "開發環境", Server = "localhost", Database = "DevDb" }
         };
         _connectionManager.GetAllProfiles().Returns(profiles);
+        _connectionManager.GetEnabledProfiles().Returns(profiles);
         _connectionManager.GetCurrentProfile().Returns(profiles[0]);
         _sqlQueryRepository.GetColumnDescriptionsAsync()
             .Returns(new Dictionary<string, string>());

@@ -49,6 +49,7 @@ public class SchemaCompareDocumentViewModelTests
             new() { Name = "測試環境", Server = "test-server", Database = "TestDb" }
         };
         _connectionManager.GetAllProfiles().Returns(profiles);
+        _connectionManager.GetEnabledProfiles().Returns(profiles);
 
         // Act
         var vm = new SchemaCompareDocumentViewModel(
@@ -58,6 +59,30 @@ public class SchemaCompareDocumentViewModelTests
 
         // Assert
         vm.AvailableProfiles.Should().HaveCount(2);
+    }
+
+    [Fact]
+    public void LoadConnectionProfiles_有停用連線_不出現在連線清單()
+    {
+        // Arrange
+        var enabled = new ConnectionProfile
+        {
+            Name = "啟用的", Server = "s1", Database = "db1", IsEnabled = true
+        };
+        _connectionManager.GetEnabledProfiles().Returns([enabled]);
+        _connectionManager.GetAllProfiles().Returns([
+            enabled,
+            new ConnectionProfile { Name = "停用的", Server = "s2", Database = "db2", IsEnabled = false }
+        ]);
+
+        // Act
+        var vm = new SchemaCompareDocumentViewModel(
+            _schemaCompareService,
+            _schemaCollector,
+            _connectionManager);
+
+        // Assert
+        vm.AvailableProfiles.Should().ContainSingle().Which.Name.Should().Be("啟用的");
     }
 
     #endregion
@@ -250,6 +275,7 @@ public class SchemaCompareDocumentViewModelTests
             new() { Id = Guid.NewGuid(), Name = "測試環境", Server = "test-server", Database = "TestDb" }
         };
         _connectionManager.GetAllProfiles().Returns(profiles);
+        _connectionManager.GetEnabledProfiles().Returns(profiles);
         _connectionManager.GetConnectionString(profiles[0].Id).Returns("Server=localhost;Database=DevDb");
         _connectionManager.GetConnectionString(profiles[1].Id).Returns("Server=test-server;Database=TestDb");
 

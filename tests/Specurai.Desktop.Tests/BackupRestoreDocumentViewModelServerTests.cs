@@ -27,6 +27,7 @@ public class BackupRestoreDocumentViewModelServerTests
             Database = "TestDb"
         };
         conn.GetAllProfiles().Returns(new List<ConnectionProfile> { profile });
+        conn.GetEnabledProfiles().Returns(new List<ConnectionProfile> { profile });
         conn.GetCurrentProfile().Returns(profile);
         conn.GetConnectionString(profile.Id).Returns("Server=localhost;Database=TestDb;");
 

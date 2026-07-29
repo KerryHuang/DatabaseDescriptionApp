@@ -241,7 +241,7 @@ public partial class BackupRestoreDocumentViewModel : DocumentViewModel
         HistoryFilterConnections.Clear();
         HistoryFilterConnections.Add("全部");
 
-        var profiles = _connectionManager?.GetAllProfiles() ?? [];
+        var profiles = _connectionManager?.GetEnabledProfiles() ?? [];
         foreach (var profile in profiles)
         {
             ConnectionProfiles.Add(profile);

@@ -35,12 +35,22 @@
                     </StackPanel>
                     <ScrollViewer>
                         <StackPanel Margin="5" Spacing="4">
-                            <ListBox ItemsSource="{Binding Profiles}"
+                            <ListBox x:Name="ProfileList"
+                                     ItemsSource="{Binding Profiles}"
                                      SelectedItem="{Binding SelectedProfile}">
                                 <ListBox.ItemTemplate>
                                     <DataTemplate x:DataType="domain:ConnectionProfile">
-                                        <TextBlock Text="{Binding Converter={StaticResource ConnectionProfileDisplayConverter}}"
-                                                   ToolTip.Tip="{Binding Converter={StaticResource ConnectionProfileDisplayConverter}}"/>
+                                        <StackPanel Orientation="Horizontal" Spacing="6">
+                                            <CheckBox x:Name="EnabledCheck"
+                                                      IsChecked="{Binding IsEnabled, Mode=TwoWay}"
+                                                      ToolTip.Tip="停用後此連線不會出現在各功能的連線選擇中"
+                                                      Command="{Binding #ProfileList.((vm:ConnectionSetupViewModel)DataContext).ToggleProfileEnabledCommand}"
+                                                      CommandParameter="{Binding}"/>
+                                            <TextBlock VerticalAlignment="Center"
+                                                       Opacity="{Binding #EnabledCheck.IsChecked, Converter={StaticResource BoolToOpacityConverter}}"
+                                                       Text="{Binding Converter={StaticResource ConnectionProfileDisplayConverter}}"
+                                                       ToolTip.Tip="{Binding Converter={StaticResource ConnectionProfileDisplayConverter}}"/>
+                                        </StackPanel>
                                     </DataTemplate>
                                 </ListBox.ItemTemplate>
                             </ListBox>
@@ -105,6 +115,12 @@
                                     </ComboBox.ItemTemplate>
                                 </ComboBox>
                             </StackPanel>
+
+                            <!-- 啟用 -->
+                            <CheckBox Content="啟用此連線"
+                                      IsChecked="{Binding IsEnabled}"
+                                      IsEnabled="{Binding !IsExternalProfileSelected}"
+                                      ToolTip.Tip="停用後此連線不會出現在各功能的連線選擇中"/>
 
                             <!-- 驗證方式 -->
                             <StackPanel Spacing="8" Margin="0,5,0,0">

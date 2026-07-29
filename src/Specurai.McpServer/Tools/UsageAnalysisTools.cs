@@ -61,7 +61,7 @@ public static class UsageAnalysisTools
         {
             var baseProfile = ProfileResolver.Resolve(connectionManager, baseProfileNameOrId);
             if (baseProfile == null)
-                return $"找不到基準連線「{baseProfileNameOrId}」。";
+                return ProfileResolver.DescribeMissing(connectionManager, baseProfileNameOrId);
 
             var targetIds = ProfileResolver.ResolveMultiple(connectionManager, targetProfileNameOrIds);
             if (targetIds.Count == 0)

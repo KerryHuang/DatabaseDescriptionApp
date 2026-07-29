@@ -26,11 +26,11 @@ public static class SchemaCompareTools
         {
             var baseProfile = ProfileResolver.Resolve(connectionManager, baseProfileNameOrId);
             if (baseProfile == null)
-                return $"找不到基準連線「{baseProfileNameOrId}」。";
+                return ProfileResolver.DescribeMissing(connectionManager, baseProfileNameOrId);
 
             var targetProfile = ProfileResolver.Resolve(connectionManager, targetProfileNameOrId);
             if (targetProfile == null)
-                return $"找不到目標連線「{targetProfileNameOrId}」。";
+                return ProfileResolver.DescribeMissing(connectionManager, targetProfileNameOrId);
 
             var baseConnStr = connectionManager.GetConnectionString(baseProfile.Id);
             var targetConnStr = connectionManager.GetConnectionString(targetProfile.Id);
@@ -80,7 +80,7 @@ public static class SchemaCompareTools
         {
             var baseProfile = ProfileResolver.Resolve(connectionManager, baseProfileNameOrId);
             if (baseProfile == null)
-                return $"找不到基準連線「{baseProfileNameOrId}」。";
+                return ProfileResolver.DescribeMissing(connectionManager, baseProfileNameOrId);
 
             var baseConnStr = connectionManager.GetConnectionString(baseProfile.Id);
             if (string.IsNullOrEmpty(baseConnStr))

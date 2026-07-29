@@ -59,4 +59,52 @@ public class ConnectionToolsTests
         }
         cm.DidNotReceive().GetCurrentDatabase();
     }
+
+    [Fact]
+    public void SwitchConnection_目標連線已停用_回傳已停用訊息()
+    {
+        var cm = Substitute.For<IConnectionManager>();
+        var disabled = new ConnectionProfile
+        {
+            Name = "正式庫", Server = "s1", Database = "db1", IsEnabled = false
+        };
+        cm.GetEnabledProfiles().Returns([]);
+        cm.GetAllProfiles().Returns([disabled]);
+
+        var result = ConnectionTools.SwitchConnection(cm, "正式庫");
+
+        result.Should().Be("連線「正式庫」已停用，請先在連線設定中啟用。");
+    }
+
+    [Fact]
+    public void ListConnections_有停用連線_輸出包含IsEnabled()
+    {
+        var cm = Substitute.For<IConnectionManager>();
+        cm.GetAllProfiles().Returns([
+            new ConnectionProfile { Name = "停用的", Server = "s1", Database = "db1", IsEnabled = false }
+        ]);
+
+        var result = ConnectionTools.ListConnections(cm);
+
+        result.Should().Contain("\"IsEnabled\": false");
+    }
+
+    [Fact]
+    public void ResolveMultiple_未指定名稱_只回傳啟用的連線()
+    {
+        var cm = Substitute.For<IConnectionManager>();
+        var enabled = new ConnectionProfile
+        {
+            Name = "啟用的", Server = "s1", Database = "db1", IsEnabled = true
+        };
+        cm.GetEnabledProfiles().Returns([enabled]);
+        cm.GetAllProfiles().Returns([
+            enabled,
+            new ConnectionProfile { Name = "停用的", Server = "s2", Database = "db2", IsEnabled = false }
+        ]);
+
+        var ids = ProfileResolver.ResolveMultiple(cm, "");
+
+        ids.Should().ContainSingle().Which.Should().Be(enabled.Id);
+    }
 }

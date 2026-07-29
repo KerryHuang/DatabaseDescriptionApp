@@ -23,11 +23,11 @@ public static class MigrationTools
     {
         var baseProfile = string.IsNullOrEmpty(baseName)
             ? cm.GetCurrentProfile()
-            : cm.GetAllProfiles().FirstOrDefault(p => p.Name.Equals(baseName, StringComparison.OrdinalIgnoreCase));
+            : cm.GetEnabledProfiles().FirstOrDefault(p => p.Name.Equals(baseName, StringComparison.OrdinalIgnoreCase));
         if (baseProfile == null)
             return (null, null, string.IsNullOrEmpty(baseName) ? "未設定目前連線。" : $"找不到連線「{baseName}」。");
 
-        var targetProfile = cm.GetAllProfiles()
+        var targetProfile = cm.GetEnabledProfiles()
             .FirstOrDefault(p => p.Name.Equals(targetName, StringComparison.OrdinalIgnoreCase));
         if (targetProfile == null)
             return (null, null, $"找不到連線「{targetName}」。");
@@ -225,7 +225,7 @@ public static class MigrationTools
     {
         try
         {
-            var targetProfile = connectionManager.GetAllProfiles()
+            var targetProfile = connectionManager.GetEnabledProfiles()
                 .FirstOrDefault(p => p.Name.Equals(target, StringComparison.OrdinalIgnoreCase));
             if (targetProfile == null)
                 return $"找不到連線「{target}」。";

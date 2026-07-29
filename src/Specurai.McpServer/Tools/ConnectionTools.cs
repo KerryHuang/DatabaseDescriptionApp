@@ -35,7 +35,8 @@ public static class ConnectionTools
             IsCurrent = current?.Id == p.Id,
             // 目前使用中的資料庫（可能因 switch_database 而異於設定檔預設資料庫）
             CurrentDatabase = current?.Id == p.Id ? connectionManager.GetCurrentDatabase() : null,
-            p.IsDefault
+            p.IsDefault,
+            p.IsEnabled
         });
 
         return JsonSerializer.Serialize(result, JsonOptions);
@@ -49,14 +50,10 @@ public static class ConnectionTools
         IConnectionManager connectionManager,
         [Description("連線設定名稱或 ID")] string nameOrId)
     {
-        var profiles = connectionManager.GetAllProfiles();
-
-        var profile = profiles.FirstOrDefault(p =>
-            p.Name.Equals(nameOrId, StringComparison.OrdinalIgnoreCase) ||
-            p.Id.ToString().Equals(nameOrId, StringComparison.OrdinalIgnoreCase));
+        var profile = ProfileResolver.Resolve(connectionManager, nameOrId);
 
         if (profile == null)
-            return $"找不到名稱或 ID 為「{nameOrId}」的連線設定。";
+            return ProfileResolver.DescribeMissing(connectionManager, nameOrId);
 
         connectionManager.SetCurrentProfile(profile.Id);
         return $"已切換至連線「{profile.Name}」（{profile.Server}/{profile.Database}）";

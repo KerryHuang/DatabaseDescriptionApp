@@ -132,7 +132,7 @@ public partial class SchemaMigrationDocumentViewModel : DocumentViewModel
     private void LoadProfiles()
     {
         ConnectionProfiles.Clear();
-        foreach (var profile in _connectionManager?.GetAllProfiles() ?? [])
+        foreach (var profile in _connectionManager?.GetEnabledProfiles() ?? [])
             ConnectionProfiles.Add(profile);
 
         // 預設選取主頁目前的連線；若無則使用標記為預設的連線

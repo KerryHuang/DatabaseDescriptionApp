@@ -222,7 +222,7 @@ public partial class SchemaCompareDocumentViewModel : DocumentViewModel
         AvailableProfiles.Clear();
         TargetProfileItems.Clear();
 
-        var profiles = _connectionManager?.GetAllProfiles() ?? [];
+        var profiles = _connectionManager?.GetEnabledProfiles() ?? [];
         foreach (var profile in profiles)
         {
             AvailableProfiles.Add(profile);

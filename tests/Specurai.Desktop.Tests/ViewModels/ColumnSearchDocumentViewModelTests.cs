@@ -57,6 +57,7 @@ public class ColumnSearchDocumentViewModelTests
             new() { Name = "開發環境", Server = "localhost", Database = "DevDb" }
         };
         _connectionManager.GetAllProfiles().Returns(profiles);
+        _connectionManager.GetEnabledProfiles().Returns(profiles);
         _connectionManager.GetCurrentProfile().Returns(profiles[0]);
 
         // Act
@@ -65,6 +66,27 @@ public class ColumnSearchDocumentViewModelTests
         // Assert
         vm.ConnectionProfiles.Should().HaveCount(1);
         vm.SelectedProfile.Should().Be(profiles[0]);
+    }
+
+    [Fact]
+    public void LoadConnectionProfiles_有停用連線_不出現在連線清單()
+    {
+        // Arrange
+        var enabled = new ConnectionProfile
+        {
+            Name = "啟用的", Server = "s1", Database = "db1", IsEnabled = true
+        };
+        _connectionManager.GetEnabledProfiles().Returns([enabled]);
+        _connectionManager.GetAllProfiles().Returns([
+            enabled,
+            new ConnectionProfile { Name = "停用的", Server = "s2", Database = "db2", IsEnabled = false }
+        ]);
+
+        // Act
+        var vm = CreateViewModel();
+
+        // Assert
+        vm.ConnectionProfiles.Should().ContainSingle().Which.Name.Should().Be("啟用的");
     }
 
     [Fact]
@@ -77,6 +99,7 @@ public class ColumnSearchDocumentViewModelTests
             new() { Name = "正式環境", Server = "prod", Database = "ProdDb", Environment = DatabaseEnvironment.Production }
         };
         _connectionManager.GetAllProfiles().Returns(profiles);
+        _connectionManager.GetEnabledProfiles().Returns(profiles);
         _connectionManager.GetCurrentProfile().Returns(profiles[0]);
 
         // Act
@@ -99,6 +122,7 @@ public class ColumnSearchDocumentViewModelTests
             new() { Name = "預設環境", Server = "dev", Database = "DevDb", Environment = DatabaseEnvironment.Development, IsDefault = true }
         };
         _connectionManager.GetAllProfiles().Returns(profiles);
+        _connectionManager.GetEnabledProfiles().Returns(profiles);
         _connectionManager.GetCurrentProfile().Returns(profiles[2]);
 
         // Act
@@ -120,6 +144,7 @@ public class ColumnSearchDocumentViewModelTests
             new() { Name = "預設環境", Server = "dev", Database = "DevDb", Environment = DatabaseEnvironment.Development, IsDefault = true }
         };
         _connectionManager.GetAllProfiles().Returns(profiles);
+        _connectionManager.GetEnabledProfiles().Returns(profiles);
         _connectionManager.GetCurrentProfile().Returns(profiles[0]);
 
         // Act
@@ -380,6 +405,7 @@ public class ColumnSearchDocumentViewModelTests
             Database = "DevDb"
         };
         _connectionManager.GetAllProfiles().Returns(new List<ConnectionProfile> { profile });
+        _connectionManager.GetEnabledProfiles().Returns(new List<ConnectionProfile> { profile });
         _connectionManager.GetCurrentProfile().Returns(profile);
 
         var results = new List<ColumnSearchResult>
@@ -414,6 +440,7 @@ public class ColumnSearchDocumentViewModelTests
             Id = Guid.NewGuid(), Name = "環境B", Server = "s2", Database = "DbB"
         };
         _connectionManager.GetAllProfiles().Returns(new List<ConnectionProfile> { profile1, profile2 });
+        _connectionManager.GetEnabledProfiles().Returns(new List<ConnectionProfile> { profile1, profile2 });
         _connectionManager.GetCurrentProfile().Returns(profile1);
 
         var results = new List<ColumnSearchResult>
@@ -450,6 +477,7 @@ public class ColumnSearchDocumentViewModelTests
             Id = Guid.NewGuid(), Name = "測試", Server = "localhost", Database = "TestDb"
         };
         _connectionManager.GetAllProfiles().Returns(new List<ConnectionProfile> { profile });
+        _connectionManager.GetEnabledProfiles().Returns(new List<ConnectionProfile> { profile });
         _connectionManager.GetCurrentProfile().Returns(profile);
         _sqlQueryRepository.SearchColumnsAsync(Arg.Any<string>())
             .ThrowsAsync(new Exception("搜尋錯誤"));

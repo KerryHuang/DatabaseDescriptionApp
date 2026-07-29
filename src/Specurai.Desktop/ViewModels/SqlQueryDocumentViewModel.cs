@@ -118,7 +118,7 @@ public partial class SqlQueryDocumentViewModel : DocumentViewModel
     private void LoadConnectionProfiles()
     {
         ConnectionProfiles.Clear();
-        var profiles = _connectionManager?.GetAllProfiles() ?? [];
+        var profiles = _connectionManager?.GetEnabledProfiles() ?? [];
         foreach (var profile in profiles)
         {
             ConnectionProfiles.Add(profile);

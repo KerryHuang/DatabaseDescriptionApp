@@ -348,7 +348,7 @@ public partial class UsageAnalysisDocumentViewModel : DocumentViewModel
     private void LoadProfiles()
     {
         if (_connectionManager == null) return;
-        var profiles = _connectionManager.GetAllProfiles();
+        var profiles = _connectionManager.GetEnabledProfiles();
         AvailableProfiles.Clear();
         foreach (var p in profiles)
             AvailableProfiles.Add(p);
@@ -359,7 +359,7 @@ public partial class UsageAnalysisDocumentViewModel : DocumentViewModel
         TargetProfileItems.Clear();
         if (value == null || _connectionManager == null) return;
 
-        foreach (var p in _connectionManager.GetAllProfiles().Where(p => p.Id != value.Id))
+        foreach (var p in _connectionManager.GetEnabledProfiles().Where(p => p.Id != value.Id))
             TargetProfileItems.Add(new SelectableProfile { Profile = p });
     }
 }

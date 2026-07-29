@@ -397,6 +397,7 @@ public class MainWindowViewModelTests
     private MainWindowViewModel CreateVmForLoadObjects(ConnectionProfile profile, string? currentDatabase)
     {
         _connectionManager.GetAllProfiles().Returns(new List<ConnectionProfile> { profile });
+        _connectionManager.GetEnabledProfiles().Returns(new List<ConnectionProfile> { profile });
         _connectionManager.GetCurrentProfile().Returns(profile);
         _connectionManager.GetCurrentDatabase().Returns(currentDatabase);
         _tableQueryService.GetAllTablesAsync(Arg.Any<CancellationToken>())

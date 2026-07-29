@@ -52,6 +52,7 @@ public class SchemaMigrationDocumentViewModelTests
             new() { Name = "正式環境", Server = "prod-server", Database = "ProdDb" }
         };
         _connectionManager.GetAllProfiles().Returns(profiles);
+        _connectionManager.GetEnabledProfiles().Returns(profiles);
 
         // Act
         var vm = new SchemaMigrationDocumentViewModel(
@@ -75,6 +76,7 @@ public class SchemaMigrationDocumentViewModelTests
             defaultProfile
         };
         _connectionManager.GetAllProfiles().Returns(profiles);
+        _connectionManager.GetEnabledProfiles().Returns(profiles);
 
         // Act
         var vm = new SchemaMigrationDocumentViewModel(
@@ -95,6 +97,7 @@ public class SchemaMigrationDocumentViewModelTests
             new() { Name = "其他環境", Server = "other", Database = "OtherDb", IsDefault = false }
         };
         _connectionManager.GetAllProfiles().Returns(profiles);
+        _connectionManager.GetEnabledProfiles().Returns(profiles);
 
         // Act
         var vm = new SchemaMigrationDocumentViewModel(

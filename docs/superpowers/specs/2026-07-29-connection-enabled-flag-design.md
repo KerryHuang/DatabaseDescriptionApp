@@ -95,7 +95,7 @@ fail-safe 三處：
 
 連線設定畫面清單新增「啟用」CheckBox 欄，`IsChecked` 雙向綁定 `IsEnabled`，勾選變更即呼叫 `UpdateProfile` 存檔，不需另按儲存。
 
-停用列以灰階前景呈現。實作擇一：依專案慣例走 code-behind 的 `LoadingRow` 事件，或在欄位樣板上綁 `IsEnabled` 控制 `Opacity`。
+停用列以灰階呈現，作法是在欄位樣板上綁 `IsEnabled` 控制 `Opacity`。不走專案慣例的 code-behind `LoadingRow`：該事件只在列載入時觸發，勾選切換後不會重繪，灰階會停在舊狀態。
 
 編輯表單同步新增「啟用」CheckBox。`ConnectionSetupViewModel` 加上 `[ObservableProperty] private bool _isEnabled = true;`，並在 `OnSelectedProfileChanged`、`ClearForm` 與儲存路徑中一併處理。
 

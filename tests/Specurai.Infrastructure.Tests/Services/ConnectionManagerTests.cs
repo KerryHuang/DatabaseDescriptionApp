@@ -179,4 +179,102 @@ public class ConnectionManagerTests : IDisposable
             File.Delete(configPath);
         }
     }
+
+    [Fact]
+    public void GetEnabledProfiles_有停用連線_只回傳啟用的()
+    {
+        var configPath = Path.Combine(Path.GetTempPath(), $"specurai-{Guid.NewGuid()}.json");
+        try
+        {
+            var manager = new ConnectionManager(configPath);
+            manager.AddProfile(new ConnectionProfile
+            {
+                Name = "啟用的", Server = "s1", Database = "db1", IsEnabled = true
+            });
+            manager.AddProfile(new ConnectionProfile
+            {
+                Name = "停用的", Server = "s2", Database = "db2", IsEnabled = false
+            });
+
+            var enabled = manager.GetEnabledProfiles();
+
+            enabled.Should().ContainSingle().Which.Name.Should().Be("啟用的");
+            manager.GetAllProfiles().Should().HaveCount(2);
+        }
+        finally
+        {
+            File.Delete(configPath);
+        }
+    }
+
+    [Fact]
+    public void GetConnectionString_連線已停用_回傳Null()
+    {
+        var configPath = Path.Combine(Path.GetTempPath(), $"specurai-{Guid.NewGuid()}.json");
+        try
+        {
+            var manager = new ConnectionManager(configPath);
+            var profile = new ConnectionProfile
+            {
+                Name = "停用的", Server = "s1", Database = "db1", IsEnabled = false
+            };
+            manager.AddProfile(profile);
+
+            manager.GetConnectionString(profile.Id).Should().BeNull();
+        }
+        finally
+        {
+            File.Delete(configPath);
+        }
+    }
+
+    [Fact]
+    public void SetCurrentProfile_目標已停用_不切換()
+    {
+        var configPath = Path.Combine(Path.GetTempPath(), $"specurai-{Guid.NewGuid()}.json");
+        try
+        {
+            var manager = new ConnectionManager(configPath);
+            var enabled = new ConnectionProfile
+            {
+                Name = "啟用的", Server = "s1", Database = "db1", IsEnabled = true
+            };
+            var disabled = new ConnectionProfile
+            {
+                Name = "停用的", Server = "s2", Database = "db2", IsEnabled = false
+            };
+            manager.AddProfile(enabled);
+            manager.AddProfile(disabled);
+            manager.SetCurrentProfile(enabled.Id);
+
+            manager.SetCurrentProfile(disabled.Id);
+
+            manager.GetCurrentProfile()!.Id.Should().Be(enabled.Id);
+        }
+        finally
+        {
+            File.Delete(configPath);
+        }
+    }
+
+    [Fact]
+    public void GetConnectionString_臨時連線_不受停用邏輯影響()
+    {
+        var configPath = Path.Combine(Path.GetTempPath(), $"specurai-{Guid.NewGuid()}.json");
+        try
+        {
+            var manager = new ConnectionManager(configPath);
+            var temp = new ConnectionProfile
+            {
+                Name = "臨時", Server = "s1", Database = "db1"
+            };
+            manager.RegisterTemporaryProfiles([temp]);
+
+            manager.GetConnectionString(temp.Id).Should().NotBeNull();
+        }
+        finally
+        {
+            File.Delete(configPath);
+        }
+    }
 }

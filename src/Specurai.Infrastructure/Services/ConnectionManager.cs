@@ -37,11 +37,14 @@ public class ConnectionManager : IConnectionManager
             .OrderBy(p => p, ConnectionProfileComparer.Instance)
             .ToList().AsReadOnly();
 
+    public IReadOnlyList<ConnectionProfile> GetEnabledProfiles()
+        => GetAllProfiles().Where(p => p.IsEnabled).ToList().AsReadOnly();
+
     public ConnectionProfile? GetCurrentProfile()
     {
         if (_currentProfileId == null)
         {
-            var defaultProfile = _profiles.FirstOrDefault(p => p.IsDefault);
+            var defaultProfile = _profiles.FirstOrDefault(p => p.IsDefault && p.IsEnabled);
             if (defaultProfile != null)
             {
                 _currentProfileId = defaultProfile.Id;
@@ -53,7 +56,7 @@ public class ConnectionManager : IConnectionManager
 
     public void SetCurrentProfile(Guid profileId)
     {
-        var profile = _profiles.FirstOrDefault(p => p.Id == profileId);
+        var profile = _profiles.FirstOrDefault(p => p.Id == profileId && p.IsEnabled);
         if (profile != null)
         {
             _currentProfileId = profileId;
@@ -224,7 +227,11 @@ public class ConnectionManager : IConnectionManager
 
     public string? GetConnectionString(Guid profileId)
     {
-        var profile = _temporaryProfiles.Concat(_profiles).FirstOrDefault(p => p.Id == profileId);
+        var temporary = _temporaryProfiles.FirstOrDefault(p => p.Id == profileId);
+        if (temporary != null)
+            return BuildConnectionString(temporary);
+
+        var profile = _profiles.FirstOrDefault(p => p.Id == profileId && p.IsEnabled);
         return profile != null ? BuildConnectionString(profile) : null;
     }
 

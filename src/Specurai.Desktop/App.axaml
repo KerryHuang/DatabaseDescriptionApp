@@ -9,6 +9,7 @@
         <converters:TestResultColorConverter x:Key="TestResultColorConverter"/>
         <converters:DatabaseEnvironmentDisplayConverter x:Key="DatabaseEnvironmentDisplayConverter"/>
         <converters:ConnectionProfileDisplayConverter x:Key="ConnectionProfileDisplayConverter"/>
+        <converters:BoolToOpacityConverter x:Key="BoolToOpacityConverter"/>
     </Application.Resources>
 
     <Application.DataTemplates>

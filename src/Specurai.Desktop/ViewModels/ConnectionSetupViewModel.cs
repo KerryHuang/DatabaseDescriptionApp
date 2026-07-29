@@ -41,6 +41,9 @@ public partial class ConnectionSetupViewModel : ViewModelBase
     private bool _isDefault;
 
     [ObservableProperty]
+    private bool _isEnabled = true;
+
+    [ObservableProperty]
     private DatabaseEnvironment _environment = DatabaseEnvironment.Staging;
 
     [ObservableProperty]
@@ -153,6 +156,7 @@ public partial class ConnectionSetupViewModel : ViewModelBase
             Username = value.Username ?? string.Empty;
             Password = value.Password ?? string.Empty;
             IsDefault = value.IsDefault;
+            IsEnabled = value.IsEnabled;
             Environment = value.Environment;
             IsEditing = true;
         }
@@ -288,7 +292,8 @@ public partial class ConnectionSetupViewModel : ViewModelBase
             Username = UseWindowsAuth ? null : Username,
             Password = UseWindowsAuth ? null : Password,
             IsDefault = IsDefault,
-            Environment = Environment
+            Environment = Environment,
+            IsEnabled = IsEnabled
         };
     }
 
@@ -302,6 +307,22 @@ public partial class ConnectionSetupViewModel : ViewModelBase
         Password = string.Empty;
         IsDefault = false;
         Environment = DatabaseEnvironment.Staging;
+        IsEnabled = true;
         TestResult = string.Empty;
+    }
+
+    /// <summary>
+    /// 切換連線的啟用狀態並立即存檔（CheckBox 已先寫回 IsEnabled，此處只負責持久化）
+    /// </summary>
+    [RelayCommand]
+    private void ToggleProfileEnabled(ConnectionProfile? profile)
+    {
+        if (_connectionManager == null || profile == null) return;
+
+        _connectionManager.UpdateProfile(profile);
+
+        // 若切換的正是目前編輯中的連線，表單同步顯示新狀態
+        if (SelectedProfile?.Id == profile.Id)
+            IsEnabled = profile.IsEnabled;
     }
 }

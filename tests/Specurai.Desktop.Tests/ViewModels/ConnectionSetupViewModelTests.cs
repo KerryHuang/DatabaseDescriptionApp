@@ -683,4 +683,73 @@ public class ConnectionSetupViewModelTests
     }
 
     #endregion
+
+    #region IsEnabled 與 ToggleProfileEnabledCommand 測試
+
+    [Fact]
+    public void ToggleProfileEnabled_切換啟用_呼叫UpdateProfile存檔()
+    {
+        var connectionManager = Substitute.For<IConnectionManager>();
+        var profile = new ConnectionProfile
+        {
+            Name = "測試", Server = "s1", Database = "db1", IsEnabled = false
+        };
+        connectionManager.GetAllProfiles().Returns([profile]);
+        var vm = new ConnectionSetupViewModel(connectionManager);
+
+        vm.ToggleProfileEnabledCommand.Execute(profile);
+
+        connectionManager.Received(1).UpdateProfile(profile);
+    }
+
+    [Fact]
+    public void OnSelectedProfileChanged_選取停用的連線_表單顯示未啟用()
+    {
+        var connectionManager = Substitute.For<IConnectionManager>();
+        var profile = new ConnectionProfile
+        {
+            Name = "測試", Server = "s1", Database = "db1", IsEnabled = false
+        };
+        connectionManager.GetAllProfiles().Returns([profile]);
+        var vm = new ConnectionSetupViewModel(connectionManager);
+
+        vm.SelectedProfile = profile;
+
+        vm.IsEnabled.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Save_表單啟用為False_建立的Profile為停用()
+    {
+        var connectionManager = Substitute.For<IConnectionManager>();
+        connectionManager.GetAllProfiles().Returns([]);
+        var vm = new ConnectionSetupViewModel(connectionManager)
+        {
+            Name = "新連線",
+            Server = "s1",
+            Database = "db1",
+            IsEnabled = false
+        };
+
+        vm.SaveCommand.Execute(null);
+
+        connectionManager.Received(1).AddProfile(Arg.Is<ConnectionProfile>(p => !p.IsEnabled));
+    }
+
+    [Fact]
+    public void NewProfile_清空表單_啟用回到預設True()
+    {
+        var connectionManager = Substitute.For<IConnectionManager>();
+        connectionManager.GetAllProfiles().Returns([]);
+        var vm = new ConnectionSetupViewModel(connectionManager)
+        {
+            IsEnabled = false
+        };
+
+        vm.NewProfileCommand.Execute(null);
+
+        vm.IsEnabled.Should().BeTrue();
+    }
+
+    #endregion
 }

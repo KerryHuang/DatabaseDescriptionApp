@@ -277,4 +277,103 @@ public class ConnectionManagerTests : IDisposable
             File.Delete(configPath);
         }
     }
+
+    [Fact]
+    public void UpdateProfile_停用目前連線_自動切換至第一個啟用連線()
+    {
+        var configPath = Path.Combine(Path.GetTempPath(), $"specurai-{Guid.NewGuid()}.json");
+        try
+        {
+            var manager = new ConnectionManager(configPath);
+            var first = new ConnectionProfile { Name = "甲", Server = "s1", Database = "db1" };
+            var second = new ConnectionProfile { Name = "乙", Server = "s2", Database = "db2" };
+            manager.AddProfile(first);
+            manager.AddProfile(second);
+            manager.SetCurrentProfile(second.Id);
+
+            second.IsEnabled = false;
+            manager.UpdateProfile(second);
+
+            manager.GetCurrentProfile()!.Id.Should().Be(first.Id);
+        }
+        finally
+        {
+            File.Delete(configPath);
+        }
+    }
+
+    [Fact]
+    public void UpdateProfile_停用唯一連線_目前連線變為Null()
+    {
+        var configPath = Path.Combine(Path.GetTempPath(), $"specurai-{Guid.NewGuid()}.json");
+        try
+        {
+            var manager = new ConnectionManager(configPath);
+            var only = new ConnectionProfile { Name = "唯一", Server = "s1", Database = "db1" };
+            manager.AddProfile(only);
+            manager.SetCurrentProfile(only.Id);
+
+            only.IsEnabled = false;
+            manager.UpdateProfile(only);
+
+            manager.GetCurrentProfile().Should().BeNull();
+        }
+        finally
+        {
+            File.Delete(configPath);
+        }
+    }
+
+    [Fact]
+    public void UpdateProfile_停用預設連線_一併清除預設身分()
+    {
+        var configPath = Path.Combine(Path.GetTempPath(), $"specurai-{Guid.NewGuid()}.json");
+        try
+        {
+            var manager = new ConnectionManager(configPath);
+            var profile = new ConnectionProfile
+            {
+                Name = "預設的", Server = "s1", Database = "db1", IsDefault = true
+            };
+            manager.AddProfile(profile);
+
+            profile.IsEnabled = false;
+            manager.UpdateProfile(profile);
+
+            manager.GetAllProfiles().Single().IsDefault.Should().BeFalse();
+        }
+        finally
+        {
+            File.Delete(configPath);
+        }
+    }
+
+    [Fact]
+    public void UpdateProfile_停用目前連線_觸發CurrentProfileChanged()
+    {
+        var configPath = Path.Combine(Path.GetTempPath(), $"specurai-{Guid.NewGuid()}.json");
+        try
+        {
+            var manager = new ConnectionManager(configPath);
+            var first = new ConnectionProfile { Name = "甲", Server = "s1", Database = "db1" };
+            var second = new ConnectionProfile { Name = "乙", Server = "s2", Database = "db2" };
+            manager.AddProfile(first);
+            manager.AddProfile(second);
+            manager.SetCurrentProfile(second.Id);
+
+            ConnectionProfile? raised = null;
+            var raisedCount = 0;
+            manager.CurrentProfileChanged += (_, p) => { raised = p; raisedCount++; };
+
+            second.IsEnabled = false;
+            manager.UpdateProfile(second);
+
+            raisedCount.Should().Be(1);
+            raised!.Id.Should().Be(first.Id);
+        }
+        finally
+        {
+            File.Delete(configPath);
+        }
+    }
 }

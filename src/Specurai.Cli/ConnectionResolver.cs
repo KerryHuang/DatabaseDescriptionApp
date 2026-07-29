@@ -124,12 +124,28 @@ public class ConnectionResolver
     }
 
     /// <summary>
-    /// 從已儲存的 profile 名稱查找
+    /// 從已儲存的 profile 名稱查找（只找啟用的連線）
     /// </summary>
     private ConnectionProfile? FromProfileName(string name)
     {
-        return _connectionManager.GetAllProfiles()
+        return _connectionManager.GetEnabledProfiles()
             .FirstOrDefault(p => p.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>
+    /// 產生「找不到連線」的錯誤訊息；若該連線存在但已停用，回傳更明確的說明。
+    /// </summary>
+    public static string DescribeMissing(IConnectionManager connectionManager, string name)
+    {
+        var disabled = connectionManager.GetAllProfiles()
+            .FirstOrDefault(p =>
+                !p.IsEnabled &&
+                (p.Name.Equals(name, StringComparison.OrdinalIgnoreCase) ||
+                 p.Id.ToString().Equals(name, StringComparison.OrdinalIgnoreCase)));
+
+        return disabled != null
+            ? $"連線「{disabled.Name}」已停用，請先在連線設定中啟用。"
+            : $"找不到連線「{name}」";
     }
 }
 

@@ -29,7 +29,7 @@ public static class ColumnsCommand
         command.SetHandler(async (keyword, profilesStr, exact, table) =>
         {
             var cm = Program.Services.GetRequiredService<IConnectionManager>();
-            var allProfiles = cm.GetAllProfiles();
+            var allProfiles = cm.GetEnabledProfiles();
 
             IReadOnlyList<Guid> profileIds;
             if (!string.IsNullOrWhiteSpace(profilesStr))

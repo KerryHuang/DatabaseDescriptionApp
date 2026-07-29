@@ -111,7 +111,7 @@ public static class UsageCommand
 
             var baseProfile = string.IsNullOrEmpty(baseName)
                 ? cm.GetCurrentProfile()
-                : cm.GetAllProfiles().FirstOrDefault(p => p.Name.Equals(baseName, StringComparison.OrdinalIgnoreCase));
+                : cm.GetEnabledProfiles().FirstOrDefault(p => p.Name.Equals(baseName, StringComparison.OrdinalIgnoreCase));
 
             if (baseProfile == null)
             {
@@ -124,9 +124,9 @@ public static class UsageCommand
             var targetIds = new List<Guid>();
             foreach (var tn in targetNames)
             {
-                var tp = cm.GetAllProfiles().FirstOrDefault(p => p.Name.Equals(tn, StringComparison.OrdinalIgnoreCase));
+                var tp = cm.GetEnabledProfiles().FirstOrDefault(p => p.Name.Equals(tn, StringComparison.OrdinalIgnoreCase));
                 if (tp != null) targetIds.Add(tp.Id);
-                else CliOutput.Warning($"找不到連線「{tn}」，已跳過");
+                else CliOutput.Warning($"{ConnectionResolver.DescribeMissing(cm, tn)}，已跳過");
             }
 
             if (targetIds.Count == 0)

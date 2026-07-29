@@ -64,6 +64,7 @@ public class ConnectionResolverTests
     {
         var target = new ConnectionProfile { Name = "測試環境", Server = "test-server", Database = "TestDB" };
         _connectionManager.GetAllProfiles().Returns(new List<ConnectionProfile> { target });
+        _connectionManager.GetEnabledProfiles().Returns(new List<ConnectionProfile> { target });
 
         var result = _resolver.Resolve(new GlobalOptions { Profile = "測試環境" });
 
@@ -75,10 +76,53 @@ public class ConnectionResolverTests
     {
         var profile = new ConnectionProfile { Name = "Production", Server = "prod", Database = "ProdDB" };
         _connectionManager.GetAllProfiles().Returns(new List<ConnectionProfile> { profile });
+        _connectionManager.GetEnabledProfiles().Returns(new List<ConnectionProfile> { profile });
 
         var result = _resolver.Resolve(new GlobalOptions { Profile = "production" });
 
         result.Should().Be(profile);
+    }
+
+    [Fact]
+    public void DescribeMissing_連線存在但已停用_回傳已停用訊息()
+    {
+        var cm = Substitute.For<IConnectionManager>();
+        cm.GetEnabledProfiles().Returns([]);
+        cm.GetAllProfiles().Returns([
+            new ConnectionProfile { Name = "正式庫", Server = "s1", Database = "db1", IsEnabled = false }
+        ]);
+
+        var message = ConnectionResolver.DescribeMissing(cm, "正式庫");
+
+        message.Should().Be("連線「正式庫」已停用，請先在連線設定中啟用。");
+    }
+
+    [Fact]
+    public void DescribeMissing_連線不存在_回傳找不到訊息()
+    {
+        var cm = Substitute.For<IConnectionManager>();
+        cm.GetEnabledProfiles().Returns([]);
+        cm.GetAllProfiles().Returns([]);
+
+        var message = ConnectionResolver.DescribeMissing(cm, "不存在");
+
+        message.Should().Be("找不到連線「不存在」");
+    }
+
+    [Fact]
+    public void Resolve_指定的Profile已停用_回傳Null()
+    {
+        var cm = Substitute.For<IConnectionManager>();
+        var disabled = new ConnectionProfile
+        {
+            Name = "停用的", Server = "s1", Database = "db1", IsEnabled = false
+        };
+        cm.GetEnabledProfiles().Returns([]);
+        cm.GetAllProfiles().Returns([disabled]);
+
+        var profile = new ConnectionResolver(cm).Resolve(new GlobalOptions { Profile = "停用的" });
+
+        profile.Should().BeNull();
     }
 
     [Fact(DisplayName = "Resolve: ConnStdin 有 StdinProfiles 時應回傳第一個")]

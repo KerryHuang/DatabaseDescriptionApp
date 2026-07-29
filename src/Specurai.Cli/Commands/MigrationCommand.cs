@@ -38,17 +38,17 @@ public static class MigrationCommand
     {
         var baseProfile = string.IsNullOrEmpty(baseName)
             ? cm.GetCurrentProfile()
-            : cm.GetAllProfiles().FirstOrDefault(p => p.Name.Equals(baseName, StringComparison.OrdinalIgnoreCase));
+            : cm.GetEnabledProfiles().FirstOrDefault(p => p.Name.Equals(baseName, StringComparison.OrdinalIgnoreCase));
         if (baseProfile == null)
         {
-            CliOutput.Error(string.IsNullOrEmpty(baseName) ? "未設定目前連線" : $"找不到連線「{baseName}」");
+            CliOutput.Error(string.IsNullOrEmpty(baseName) ? "未設定目前連線" : ConnectionResolver.DescribeMissing(cm, baseName));
             return (null, null);
         }
-        var targetProfile = cm.GetAllProfiles()
+        var targetProfile = cm.GetEnabledProfiles()
             .FirstOrDefault(p => p.Name.Equals(targetName, StringComparison.OrdinalIgnoreCase));
         if (targetProfile == null)
         {
-            CliOutput.Error($"找不到連線「{targetName}」");
+            CliOutput.Error(ConnectionResolver.DescribeMissing(cm, targetName));
             return (null, null);
         }
         return (baseProfile, targetProfile);
@@ -192,7 +192,7 @@ public static class MigrationCommand
 
             var cm = Program.Services.GetRequiredService<IConnectionManager>();
             var executor = Program.Services.GetRequiredService<ISchemaMigrationExecutor>();
-            var targetConn = cm.BuildConnectionString(cm.GetAllProfiles()
+            var targetConn = cm.BuildConnectionString(cm.GetEnabledProfiles()
                 .First(p => p.Name.Equals(targetName, StringComparison.OrdinalIgnoreCase)));
 
             if (!CliOutput.JsonMode)
@@ -239,7 +239,7 @@ public static class MigrationCommand
 
             var cm = Program.Services.GetRequiredService<IConnectionManager>();
             var executor = Program.Services.GetRequiredService<ISchemaMigrationExecutor>();
-            var targetConn = cm.BuildConnectionString(cm.GetAllProfiles()
+            var targetConn = cm.BuildConnectionString(cm.GetEnabledProfiles()
                 .First(p => p.Name.Equals(targetName, StringComparison.OrdinalIgnoreCase)));
 
             if (!CliOutput.JsonMode)
@@ -309,11 +309,11 @@ public static class MigrationCommand
         cmd.SetHandler(async (targetName, sizeMb) =>
         {
             var cm = Program.Services.GetRequiredService<IConnectionManager>();
-            var targetProfile = cm.GetAllProfiles()
+            var targetProfile = cm.GetEnabledProfiles()
                 .FirstOrDefault(p => p.Name.Equals(targetName, StringComparison.OrdinalIgnoreCase));
             if (targetProfile == null)
             {
-                CliOutput.Error($"找不到連線「{targetName}」");
+                CliOutput.Error(ConnectionResolver.DescribeMissing(cm, targetName));
                 Environment.ExitCode = 1;
                 return;
             }

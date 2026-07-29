@@ -257,4 +257,17 @@ public class ConnectionProfileTests
         ((int)DatabaseEnvironment.Staging).Should().Be(2);
         ((int)DatabaseEnvironment.Production).Should().Be(3);
     }
+
+    [Fact]
+    public void IsEnabled_未指定時_預設為啟用()
+    {
+        var profile = new ConnectionProfile
+        {
+            Name = "測試",
+            Server = "localhost",
+            Database = "TestDb"
+        };
+
+        profile.IsEnabled.Should().BeTrue();
+    }
 }

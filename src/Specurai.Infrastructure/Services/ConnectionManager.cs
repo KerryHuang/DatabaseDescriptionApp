@@ -51,7 +51,7 @@ public class ConnectionManager : IConnectionManager
             }
         }
 
-        return _profiles.FirstOrDefault(p => p.Id == _currentProfileId);
+        return _profiles.FirstOrDefault(p => p.Id == _currentProfileId && p.IsEnabled);
     }
 
     public void SetCurrentProfile(Guid profileId)
@@ -68,6 +68,12 @@ public class ConnectionManager : IConnectionManager
 
     public void AddProfile(ConnectionProfile profile)
     {
+        // 停用的連線不該保留預設身分，否則會偷走既有預設連線的預設身分
+        if (!profile.IsEnabled)
+        {
+            profile.IsDefault = false;
+        }
+
         if (profile.IsDefault)
         {
             foreach (var p in _profiles)
@@ -95,7 +101,8 @@ public class ConnectionManager : IConnectionManager
         {
             foreach (var p in _profiles)
             {
-                p.IsDefault = false;
+                if (p.Id != profile.Id)
+                    p.IsDefault = false;
             }
         }
 
@@ -106,7 +113,6 @@ public class ConnectionManager : IConnectionManager
         }
 
         _profiles[index] = profile;
-        SaveProfiles();
 
         // 停用目前連線時自動切離至第一個啟用的連線，沒有就變成無連線
         if (!profile.IsEnabled && _currentProfileId == profile.Id)
@@ -114,9 +120,12 @@ public class ConnectionManager : IConnectionManager
             var fallback = _profiles.FirstOrDefault(p => p.IsEnabled);
             _currentProfileId = fallback?.Id;
             _currentDatabaseOverride = null;
+            SaveProfiles();
             CurrentProfileChanged?.Invoke(this, fallback);
             return;
         }
+
+        SaveProfiles();
 
         if (_currentProfileId == profile.Id)
         {

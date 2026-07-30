@@ -349,6 +349,120 @@ public class ConnectionManagerTests : IDisposable
     }
 
     [Fact]
+    public void UpdateProfile_停用目前連線_重啟後GetCurrentProfile不回傳該連線()
+    {
+        var configPath = Path.Combine(Path.GetTempPath(), $"specurai-{Guid.NewGuid()}.json");
+        try
+        {
+            var manager = new ConnectionManager(configPath);
+            var only = new ConnectionProfile { Name = "唯一", Server = "s1", Database = "db1" };
+            manager.AddProfile(only);
+            manager.SetCurrentProfile(only.Id);
+
+            only.IsEnabled = false;
+            manager.UpdateProfile(only);
+
+            // 模擬重啟／換行程：用同一份設定檔另建一個 ConnectionManager
+            var reloaded = new ConnectionManager(configPath);
+
+            reloaded.GetCurrentProfile().Should().BeNull();
+        }
+        finally
+        {
+            File.Delete(configPath);
+        }
+    }
+
+    [Fact]
+    public void GetCurrentProfile_CurrentProfileId指向停用連線_不回傳該連線()
+    {
+        var configPath = Path.Combine(Path.GetTempPath(), $"specurai-{Guid.NewGuid()}.json");
+        var disabledId = Guid.NewGuid();
+        var json = $$"""
+        {
+          "Profiles": [
+            {
+              "Id": "{{disabledId}}",
+              "Name": "停用連線",
+              "Server": "localhost",
+              "Database": "Db",
+              "AuthType": 0,
+              "IsDefault": false,
+              "IsEnabled": false,
+              "Environment": 2
+            }
+          ],
+          "CurrentProfileId": "{{disabledId}}"
+        }
+        """;
+        File.WriteAllText(configPath, json);
+
+        try
+        {
+            var manager = new ConnectionManager(configPath);
+
+            manager.GetCurrentProfile().Should().BeNull();
+        }
+        finally
+        {
+            File.Delete(configPath);
+        }
+    }
+
+    [Fact]
+    public void AddProfile_新增停用且預設連線_不清除既有預設連線的預設身分()
+    {
+        var configPath = Path.Combine(Path.GetTempPath(), $"specurai-{Guid.NewGuid()}.json");
+        try
+        {
+            var manager = new ConnectionManager(configPath);
+            var existingDefault = new ConnectionProfile
+            {
+                Name = "既有預設", Server = "s1", Database = "db1", IsDefault = true
+            };
+            manager.AddProfile(existingDefault);
+
+            var newDisabledDefault = new ConnectionProfile
+            {
+                Name = "新停用預設", Server = "s2", Database = "db2", IsDefault = true, IsEnabled = false
+            };
+            manager.AddProfile(newDisabledDefault);
+
+            manager.GetAllProfiles().First(p => p.Id == existingDefault.Id).IsDefault.Should().BeTrue();
+            manager.GetAllProfiles().First(p => p.Id == newDisabledDefault.Id).IsDefault.Should().BeFalse();
+        }
+        finally
+        {
+            File.Delete(configPath);
+        }
+    }
+
+    [Fact]
+    public void UpdateProfile_就地修改預設連線的其他欄位_IsDefault不應被清除()
+    {
+        var configPath = Path.Combine(Path.GetTempPath(), $"specurai-{Guid.NewGuid()}.json");
+        try
+        {
+            var manager = new ConnectionManager(configPath);
+            var profile = new ConnectionProfile
+            {
+                Name = "預設連線", Server = "s1", Database = "db1", IsDefault = true
+            };
+            manager.AddProfile(profile);
+
+            // 就地修改同一個參考的欄位（模擬 CLI conn update／MCP update_connection 的用法）
+            profile.Server = "s1-new";
+            manager.UpdateProfile(profile);
+
+            manager.GetAllProfiles().Single().IsDefault.Should().BeTrue();
+        }
+        finally
+        {
+            File.Delete(configPath);
+        }
+    }
+
+    [Fact]
     public void UpdateProfile_停用目前連線_觸發CurrentProfileChanged()
     {
         var configPath = Path.Combine(Path.GetTempPath(), $"specurai-{Guid.NewGuid()}.json");

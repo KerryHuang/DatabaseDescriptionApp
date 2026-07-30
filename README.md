@@ -347,6 +347,8 @@ specurai conn switch "正式環境"
 specurai conn test
 ```
 
+`conn list` 會以紅字標示已停用的連線（名稱以灰階呈現）；`--json` 輸出包含 `IsEnabled` 欄位。指定停用的連線（`--profile`、`conn switch`、Schema 比對的目標連線等）會回「連線「X」已停用，請先在連線設定中啟用。」，與「找不到連線「X」」區分開來。啟用／停用僅能在桌面應用程式的連線設定畫面操作，`conn add` / `conn update` 沒有對應參數。
+
 **連線傳入方式（5 種擇一）**
 
 | 方式 | 使用情境 |
@@ -437,11 +439,13 @@ specurai --json schema compare --base "正式" --target "測試"
 
 | 工具 | 說明 |
 |------|------|
-| `list_connections` | 列出所有連線設定 |
-| `switch_connection` | 切換目前連線 |
+| `list_connections` | 列出所有連線設定（含 `IsEnabled`） |
+| `switch_connection` | 切換目前連線（不會選用已停用的連線） |
 | `test_connection` | 測試連線 |
 | `add_connection` / `update_connection` / `delete_connection` | 連線 CRUD ⚠️ |
 | `export_connections` / `import_connections` | 匯出/匯入 JSON ⚠️（import） |
+
+停用的連線不會被 `switch_connection` 與比對／移轉類工具選用，指定停用連線會回「連線「X」已停用，請先在連線設定中啟用。」；啟用／停用僅能在桌面應用程式的連線設定畫面操作。
 
 **資料庫瀏覽**
 

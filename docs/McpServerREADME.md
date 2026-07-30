@@ -99,7 +99,7 @@ claude mcp add specurai -s user -- /絕對路徑/Specurai.McpServer
 
 | 分類 | 工具 |
 |------|------|
-| 連線管理 | `list_connections`、`switch_connection`、`test_connection`、`add_connection` ⚠️、`update_connection` ⚠️、`delete_connection` ⚠️、`export_connections`、`import_connections` ⚠️ |
+| 連線管理 | `list_connections`（含 `IsEnabled`）、`switch_connection`（不選用已停用的連線）、`test_connection`、`add_connection` ⚠️、`update_connection` ⚠️、`delete_connection` ⚠️、`export_connections`、`import_connections` ⚠️ |
 | 資料表查詢 | `list_tables`、`get_columns`、`get_indexes`、`get_relations`、`get_parameters`、`get_definition` |
 | SQL 查詢 | `execute_readonly_sql`、`dry_run_sql`、`search_columns`、`search_columns_multi_database`、`get_create_table_sql` |
 | 描述管理 | `update_table_description`、`update_column_description` |
@@ -111,6 +111,8 @@ claude mcp add specurai -s user -- /絕對路徑/Specurai.McpServer
 | 使用狀態分析 | `scan_usage`、`compare_usage_multi_environment`、`generate_drop_table_sql`、`generate_drop_column_sql` |
 | 維護計劃 | `check_maintenance_prerequisites`、`check_maintenance_steps`、`generate_maintenance_plan_sql`、`execute_maintenance_plan` ⚠️ |
 | 匯出 | `export_all_to_excel`、`export_table_to_excel` |
+
+停用的連線不會被 `switch_connection` 與比對／移轉類工具選用，指定停用連線會回「連線「X」已停用，請先在連線設定中啟用。」；啟用／停用僅能在桌面應用程式的連線設定畫面操作。
 
 ## 疑難排解
 

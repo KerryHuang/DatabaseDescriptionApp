@@ -136,6 +136,22 @@ chmod +x Specurai.AppImage
 
 連線成功後，左側會顯示資料庫物件清單。
 
+### 停用不用的連線
+
+連線清單每一列前方都有勾選框，用來啟用／停用該連線：
+
+- 勾選狀態變更**立即生效並存檔**，不需要再按「儲存」。
+- 停用的連線會以灰階呈現，方便辨識。
+- 編輯表單也有一個「啟用此連線」勾選框，效果相同。
+
+停用連線後：
+
+- 該連線不會出現在物件瀏覽、SQL 查詢、欄位搜尋、結構比對、結構移轉、備份還原、使用狀況分析等功能的連線選單中。
+- 若停用的是目前使用中的連線，會自動切離到第一個啟用的連線；若沒有其他啟用的連線，則變成無連線狀態。
+- 停用的連線在連線設定畫面仍可正常編輯、刪除、匯出，並不會被隱藏或鎖定。
+
+> 啟用／停用僅能在此連線設定畫面操作，CLI 與 MCP 皆無對應功能。
+
 ---
 
 ## 瀏覽資料庫物件
@@ -1143,6 +1159,8 @@ specurai migration log-resize --target Y --size-mb 10240
 | Windows | `%APPDATA%\Specurai\connections.json` |
 | macOS | `~/Library/Application Support/Specurai/connections.json` |
 | Linux | `~/.config/Specurai/connections.json`（若有設 `$XDG_CONFIG_HOME` 則改用之） |
+
+每個連線設定多了 `IsEnabled` 欄位，用來記錄是否啟用；舊版本產生的設定檔沒有這個欄位，載入後一律視為啟用。
 
 > ⚠️ **注意**：連線設定包含密碼資訊，請妥善保管。
 

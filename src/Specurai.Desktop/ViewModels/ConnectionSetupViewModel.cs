@@ -310,21 +310,4 @@ public partial class ConnectionSetupViewModel : ViewModelBase
         IsEnabled = true;
         TestResult = string.Empty;
     }
-
-    /// <summary>
-    /// 切換連線的啟用狀態並立即存檔（CheckBox 已先寫回 IsEnabled，此處只負責持久化）
-    /// </summary>
-    [RelayCommand]
-    private void ToggleProfileEnabled(ConnectionProfile? profile)
-    {
-        if (_connectionManager == null || profile == null) return;
-
-        _connectionManager.UpdateProfile(profile);
-
-        // 若切換的正是目前編輯中的連線，表單同步顯示新狀態
-        if (SelectedProfile?.Id == profile.Id)
-            IsEnabled = profile.IsEnabled;
-
-        OnPropertyChanged(nameof(CanConnect));
-    }
 }

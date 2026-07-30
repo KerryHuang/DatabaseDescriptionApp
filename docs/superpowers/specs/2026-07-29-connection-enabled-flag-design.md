@@ -78,9 +78,10 @@ fail-safe 三處：
 改用 `GetEnabledProfiles()`（選用型）：
 
 - Desktop：`MainWindowViewModel`（連線選單）、`SqlQueryDocumentViewModel`、`ColumnSearchDocumentViewModel`、`BackupRestoreDocumentViewModel`、`SchemaCompareDocumentViewModel`、`SchemaMigrationDocumentViewModel`、`UsageAnalysisDocumentViewModel`
-- Application：`ColumnSearchService`
 - CLI：`ConnectionResolver`、`ColumnsCommand`、`SqlCommand`、`SchemaCommand`、`UsageCommand`、`MigrationCommand`
 - MCP：`ProfileResolver`（`Resolve` 與 `ResolveMultiple`）、`ConnectionTools`、`MigrationTools`
+
+`ColumnSearchService` 不在此列：它刻意維持 `GetAllProfiles()`，因為多資料庫欄位搜尋要能顯示每個 profile 的名稱（包含已停用的），跳過停用連線是靠 `GetConnectionString(profileId)` 對停用連線回傳 `null`、該次查詢被跳過來達成，而不是在來源清單上過濾。
 
 ### 明確指定停用連線時的錯誤訊息
 

@@ -20,6 +20,17 @@ internal static class ProfileResolver
     }
 
     /// <summary>
+    /// 依名稱或 ID 解析連線設定檔（含已停用的，供管理型工具使用）
+    /// </summary>
+    public static ConnectionProfile? ResolveAny(IConnectionManager cm, string nameOrId)
+    {
+        var profiles = cm.GetAllProfiles();
+        return profiles.FirstOrDefault(p =>
+            p.Name.Equals(nameOrId, StringComparison.OrdinalIgnoreCase) ||
+            p.Id.ToString().Equals(nameOrId, StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>
     /// 解析逗號分隔的名稱/ID 清單為 Guid 清單，空字串回傳所有已啟用的 Profile ID
     /// </summary>
     public static List<Guid> ResolveMultiple(IConnectionManager cm, string commaSeparated)

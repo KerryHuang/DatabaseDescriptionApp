@@ -107,4 +107,36 @@ public class ConnectionToolsTests
 
         ids.Should().ContainSingle().Which.Should().Be(enabled.Id);
     }
+
+    [Fact]
+    public void UpdateConnection_目標連線已停用_應能成功解析並更新()
+    {
+        var cm = Substitute.For<IConnectionManager>();
+        var disabled = new ConnectionProfile
+        {
+            Name = "正式庫", Server = "s1", Database = "db1", IsEnabled = false
+        };
+        cm.GetAllProfiles().Returns([disabled]);
+
+        var result = ConnectionCrudTools.UpdateConnection(cm, "正式庫", newServer: "s2");
+
+        result.Should().Be("已更新連線「正式庫」。");
+        cm.Received(1).UpdateProfile(Arg.Is<ConnectionProfile>(p => p.Server == "s2"));
+    }
+
+    [Fact]
+    public void DeleteConnection_目標連線已停用_應能成功解析並刪除()
+    {
+        var cm = Substitute.For<IConnectionManager>();
+        var disabled = new ConnectionProfile
+        {
+            Name = "正式庫", Server = "s1", Database = "db1", IsEnabled = false
+        };
+        cm.GetAllProfiles().Returns([disabled]);
+
+        var result = ConnectionCrudTools.DeleteConnection(cm, "正式庫", confirm: true);
+
+        result.Should().Be("已刪除連線「正式庫」。");
+        cm.Received(1).DeleteProfile(disabled.Id);
+    }
 }

@@ -35,22 +35,13 @@
                     </StackPanel>
                     <ScrollViewer>
                         <StackPanel Margin="5" Spacing="4">
-                            <ListBox x:Name="ProfileList"
-                                     ItemsSource="{Binding Profiles}"
+                            <ListBox ItemsSource="{Binding Profiles}"
                                      SelectedItem="{Binding SelectedProfile}">
                                 <ListBox.ItemTemplate>
                                     <DataTemplate x:DataType="domain:ConnectionProfile">
-                                        <StackPanel Orientation="Horizontal" Spacing="6">
-                                            <CheckBox x:Name="EnabledCheck"
-                                                      IsChecked="{Binding IsEnabled, Mode=TwoWay}"
-                                                      ToolTip.Tip="停用後此連線不會出現在各功能的連線選擇中"
-                                                      Command="{Binding #ProfileList.((vm:ConnectionSetupViewModel)DataContext).ToggleProfileEnabledCommand}"
-                                                      CommandParameter="{Binding}"/>
-                                            <TextBlock VerticalAlignment="Center"
-                                                       Opacity="{Binding #EnabledCheck.IsChecked, Converter={StaticResource BoolToOpacityConverter}}"
-                                                       Text="{Binding Converter={StaticResource ConnectionProfileDisplayConverter}}"
-                                                       ToolTip.Tip="{Binding Converter={StaticResource ConnectionProfileDisplayConverter}}"/>
-                                        </StackPanel>
+                                        <TextBlock Opacity="{Binding IsEnabled, Converter={StaticResource BoolToOpacityConverter}}"
+                                                   Text="{Binding Converter={StaticResource ConnectionProfileDisplayConverter}}"
+                                                   ToolTip.Tip="{Binding Converter={StaticResource ConnectionProfileDisplayConverter}}"/>
                                     </DataTemplate>
                                 </ListBox.ItemTemplate>
                             </ListBox>

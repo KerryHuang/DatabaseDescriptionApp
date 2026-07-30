@@ -483,26 +483,6 @@ public class ConnectionSetupViewModelTests
         vm.CanConnect.Should().BeFalse();
     }
 
-    [Fact]
-    public void CanConnect_勾選切換啟用狀態後_按鈕狀態應更新()
-    {
-        var connectionManager = Substitute.For<IConnectionManager>();
-        var profile = new ConnectionProfile
-        {
-            Name = "測試", Server = "s1", Database = "db1", IsEnabled = false
-        };
-        connectionManager.GetAllProfiles().Returns([profile]);
-        var vm = new ConnectionSetupViewModel(connectionManager);
-        vm.SelectedProfile = profile;
-        vm.CanConnect.Should().BeFalse();
-
-        // 使用者勾選「啟用此連線」；View 已先寫回 profile.IsEnabled，再觸發 ToggleProfileEnabledCommand
-        profile.IsEnabled = true;
-        vm.ToggleProfileEnabledCommand.Execute(profile);
-
-        vm.CanConnect.Should().BeTrue();
-    }
-
     #endregion
 
     #region Environment 欄位測試
@@ -717,23 +697,7 @@ public class ConnectionSetupViewModelTests
 
     #endregion
 
-    #region IsEnabled 與 ToggleProfileEnabledCommand 測試
-
-    [Fact]
-    public void ToggleProfileEnabled_切換啟用_呼叫UpdateProfile存檔()
-    {
-        var connectionManager = Substitute.For<IConnectionManager>();
-        var profile = new ConnectionProfile
-        {
-            Name = "測試", Server = "s1", Database = "db1", IsEnabled = false
-        };
-        connectionManager.GetAllProfiles().Returns([profile]);
-        var vm = new ConnectionSetupViewModel(connectionManager);
-
-        vm.ToggleProfileEnabledCommand.Execute(profile);
-
-        connectionManager.Received(1).UpdateProfile(profile);
-    }
+    #region IsEnabled 測試
 
     [Fact]
     public void OnSelectedProfileChanged_選取停用的連線_表單顯示未啟用()
@@ -767,6 +731,25 @@ public class ConnectionSetupViewModelTests
         vm.SaveCommand.Execute(null);
 
         connectionManager.Received(1).AddProfile(Arg.Is<ConnectionProfile>(p => !p.IsEnabled));
+    }
+
+    [Fact]
+    public void Save_編輯既有連線並取消啟用_以停用狀態呼叫UpdateProfile()
+    {
+        var connectionManager = Substitute.For<IConnectionManager>();
+        var profile = new ConnectionProfile
+        {
+            Name = "測試", Server = "s1", Database = "db1", IsEnabled = true
+        };
+        connectionManager.GetAllProfiles().Returns([profile]);
+        var vm = new ConnectionSetupViewModel(connectionManager);
+        vm.SelectedProfile = profile;
+
+        vm.IsEnabled = false;
+        vm.SaveCommand.Execute(null);
+
+        connectionManager.Received(1).UpdateProfile(
+            Arg.Is<ConnectionProfile>(p => p.Id == profile.Id && !p.IsEnabled));
     }
 
     [Fact]

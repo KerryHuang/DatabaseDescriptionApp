@@ -161,7 +161,8 @@ public static class ConnectionCrudTools
                     AuthType = profile.AuthType,
                     Username = profile.Username,
                     Password = profile.Password,
-                    IsDefault = false
+                    IsDefault = false,
+                    IsEnabled = profile.IsEnabled
                 };
                 connectionManager.AddProfile(newProfile);
                 count++;

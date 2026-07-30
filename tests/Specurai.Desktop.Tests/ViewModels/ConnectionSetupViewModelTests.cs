@@ -470,6 +470,39 @@ public class ConnectionSetupViewModelTests
         vm.CanConnect.Should().BeTrue();
     }
 
+    [Fact]
+    public void CanConnect_選取停用的內部連線_應為False()
+    {
+        _connectionManager.GetAllProfiles().Returns(new List<ConnectionProfile>());
+        var vm = new ConnectionSetupViewModel(_connectionManager);
+        vm.SelectedProfile = new ConnectionProfile
+        {
+            Name = "停用連線", Server = "s", Database = "db", IsEnabled = false
+        };
+
+        vm.CanConnect.Should().BeFalse();
+    }
+
+    [Fact]
+    public void CanConnect_勾選切換啟用狀態後_按鈕狀態應更新()
+    {
+        var connectionManager = Substitute.For<IConnectionManager>();
+        var profile = new ConnectionProfile
+        {
+            Name = "測試", Server = "s1", Database = "db1", IsEnabled = false
+        };
+        connectionManager.GetAllProfiles().Returns([profile]);
+        var vm = new ConnectionSetupViewModel(connectionManager);
+        vm.SelectedProfile = profile;
+        vm.CanConnect.Should().BeFalse();
+
+        // 使用者勾選「啟用此連線」；View 已先寫回 profile.IsEnabled，再觸發 ToggleProfileEnabledCommand
+        profile.IsEnabled = true;
+        vm.ToggleProfileEnabledCommand.Execute(profile);
+
+        vm.CanConnect.Should().BeTrue();
+    }
+
     #endregion
 
     #region Environment 欄位測試

@@ -83,7 +83,7 @@ public partial class ConnectionSetupViewModel : ViewModelBase
     public bool IsExternalProfileSelected => SelectedExternalProfile != null;
 
     public bool CanConnect =>
-        SelectedProfile != null || SelectedExternalProfile != null;
+        (SelectedProfile != null && SelectedProfile.IsEnabled) || SelectedExternalProfile != null;
 
     partial void OnSelectedExternalProfileChanged(ConnectionProfile? value)
     {
@@ -324,5 +324,7 @@ public partial class ConnectionSetupViewModel : ViewModelBase
         // 若切換的正是目前編輯中的連線，表單同步顯示新狀態
         if (SelectedProfile?.Id == profile.Id)
             IsEnabled = profile.IsEnabled;
+
+        OnPropertyChanged(nameof(CanConnect));
     }
 }

@@ -31,6 +31,8 @@ public partial class SqlQueryDocumentViewModel : DocumentViewModel
         = new(ReferenceEqualityComparer.Instance);
     private Dictionary<string, string> _columnDescriptions = new(StringComparer.OrdinalIgnoreCase);
     private string? _localConnectionString;
+    /// <summary>選到的連線設定檔已停用（GetConnectionString 回 null）：查詢不可靜默改用目前連線</summary>
+    private bool _selectedConnectionDisabled;
     private static int _instanceCount;
 
     [ObservableProperty]
@@ -161,12 +163,24 @@ public partial class SqlQueryDocumentViewModel : DocumentViewModel
                 // 保持 null，讓查詢在執行當下透過 Repository 的 Func<string?>
                 // 重新解析 GetCurrentConnectionString()，跟隨最新切換的資料庫。
                 _localConnectionString = null;
+                _selectedConnectionDisabled = false;
             }
             else
             {
                 // 使用者手動選擇了「不同」的連線設定檔：屬於明確指定，
                 // 才釘住該設定檔的預設資料庫連線字串。
                 _localConnectionString = _connectionManager.GetConnectionString(value.Id);
+
+                if (_localConnectionString == null)
+                {
+                    // 該連線已被停用（清單可能是舊的）：不可落入「跟隨目前連線」的路徑，
+                    // 否則查詢會靜默跑到另一個資料庫。明確告知使用者改選其他連線，並擋下查詢執行。
+                    _selectedConnectionDisabled = true;
+                    StatusMessage = "此連線已停用，請改選其他連線。";
+                    return;
+                }
+
+                _selectedConnectionDisabled = false;
             }
 
             StatusMessage = $"已切換至：{value.Name}";
@@ -199,6 +213,12 @@ public partial class SqlQueryDocumentViewModel : DocumentViewModel
     {
         if (_sqlQueryRepository == null || string.IsNullOrWhiteSpace(SqlText))
             return;
+
+        if (_selectedConnectionDisabled)
+        {
+            StatusMessage = "此連線已停用，請改選其他連線。";
+            return;
+        }
 
         var (sql, isSelection) = GetEffectiveSql();
         var selectionNote = isSelection ? "（選取範圍）" : "";
@@ -299,6 +319,12 @@ public partial class SqlQueryDocumentViewModel : DocumentViewModel
     {
         if (_sqlDryRunRepository == null || string.IsNullOrWhiteSpace(SqlText))
             return;
+
+        if (_selectedConnectionDisabled)
+        {
+            StatusMessage = "此連線已停用，請改選其他連線。";
+            return;
+        }
 
         var (sql, isSelection) = GetEffectiveSql();
         var selectionNote = isSelection ? "（選取範圍）" : "";

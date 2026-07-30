@@ -65,7 +65,7 @@ public static class ConnectionCrudTools
     {
         try
         {
-            var profile = ProfileResolver.Resolve(connectionManager, nameOrId);
+            var profile = ProfileResolver.ResolveAny(connectionManager, nameOrId);
             if (profile == null)
                 return $"找不到連線「{nameOrId}」。";
 
@@ -96,7 +96,7 @@ public static class ConnectionCrudTools
     {
         try
         {
-            var profile = ProfileResolver.Resolve(connectionManager, nameOrId);
+            var profile = ProfileResolver.ResolveAny(connectionManager, nameOrId);
             if (profile == null)
                 return $"找不到連線「{nameOrId}」。";
 

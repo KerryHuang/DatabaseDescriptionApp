@@ -162,6 +162,7 @@ public static class ConnectionCrudTools
                     Username = profile.Username,
                     Password = profile.Password,
                     IsDefault = false,
+                    Environment = profile.Environment,
                     IsEnabled = profile.IsEnabled
                 };
                 connectionManager.AddProfile(newProfile);

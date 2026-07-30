@@ -154,4 +154,36 @@ public class ConnectionToolsTests
         result.Should().Be("已刪除連線「正式庫」。");
         cm.Received(1).DeleteProfile(disabled.Id);
     }
+
+    [Fact]
+    public void ImportConnections_匯入檔標記正式環境_保留Environment()
+    {
+        var cm = Substitute.For<IConnectionManager>();
+        var exportService = Substitute.For<IConnectionExportService>();
+        var imported = new ConnectionProfile
+        {
+            Name = "正式庫",
+            Server = "s1",
+            Database = "db1",
+            Environment = DatabaseEnvironment.Production
+        };
+        exportService.ImportFromJson(Arg.Any<byte[]>())
+            .Returns(new ConnectionExportData { Profiles = [imported] });
+
+        var filePath = Path.Combine(Path.GetTempPath(), $"specurai-import-{Guid.NewGuid()}.json");
+        File.WriteAllText(filePath, "{}");
+
+        try
+        {
+            var result = ConnectionCrudTools.ImportConnections(cm, exportService, filePath);
+
+            result.Should().Be("已匯入 1 個連線設定。");
+            cm.Received(1).AddProfile(Arg.Is<ConnectionProfile>(p =>
+                p.Environment == DatabaseEnvironment.Production));
+        }
+        finally
+        {
+            File.Delete(filePath);
+        }
+    }
 }

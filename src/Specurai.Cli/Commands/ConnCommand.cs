@@ -5,6 +5,7 @@ using Spectre.Console;
 using Specurai.Application.Services;
 using Specurai.Cli.Output;
 using Specurai.Domain.Entities;
+using Specurai.Cli;
 
 namespace Specurai.Cli.Commands;
 
@@ -277,7 +278,8 @@ public static class ConnCommand
         command.SetHandler((name) =>
         {
             var cm = Program.Services.GetRequiredService<IConnectionManager>();
-            var profiles = cm.GetAllProfiles();
+            // conn switch 是選用型命令，只能切到啟用的連線
+            var profiles = cm.GetEnabledProfiles();
 
             if (string.IsNullOrEmpty(name) && !CliOutput.JsonMode)
             {
@@ -306,12 +308,11 @@ public static class ConnCommand
                 return;
             }
 
-            var profile = profiles.FirstOrDefault(p =>
-                p.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+            var profile = ResolveSwitchTarget(cm, name);
 
             if (profile == null)
             {
-                CliOutput.Error($"找不到連線「{name}」");
+                CliOutput.Error(ConnectionResolver.DescribeMissing(cm, name));
                 Environment.ExitCode = 1;
                 return;
             }
@@ -564,6 +565,12 @@ public static class ConnCommand
 
         return command;
     }
+
+    /// <summary>
+    /// 解析 conn switch 的目標連線；只從啟用的連線中查找（選用型命令，鏡像 MCP switch_connection 行為）。
+    /// </summary>
+    internal static ConnectionProfile? ResolveSwitchTarget(IConnectionManager cm, string name)
+        => cm.GetEnabledProfiles().FirstOrDefault(p => p.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>
     /// 將非 null 的新值套用到既有連線設定（鏡像 MCP UpdateConnection 行為）。

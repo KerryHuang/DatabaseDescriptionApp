@@ -107,6 +107,37 @@ public class ConnCommandUpdateExportTests
         }
     }
 
+    [Fact(DisplayName = "ResolveSwitchTarget: 目標連線已停用應回傳 null")]
+    public void ResolveSwitchTarget_TargetDisabled_ShouldReturnNull()
+    {
+        var disabled = new ConnectionProfile
+        {
+            Name = "正式庫", Server = "s1", Database = "db1", IsEnabled = false
+        };
+        var cm = Substitute.For<IConnectionManager>();
+        cm.GetEnabledProfiles().Returns(new List<ConnectionProfile>().AsReadOnly());
+        cm.GetAllProfiles().Returns(new List<ConnectionProfile> { disabled }.AsReadOnly());
+
+        var result = ConnCommand.ResolveSwitchTarget(cm, "正式庫");
+
+        result.Should().BeNull();
+    }
+
+    [Fact(DisplayName = "ResolveSwitchTarget: 目標連線啟用應回傳該連線")]
+    public void ResolveSwitchTarget_TargetEnabled_ShouldReturnProfile()
+    {
+        var enabled = new ConnectionProfile
+        {
+            Name = "測試庫", Server = "s1", Database = "db1", IsEnabled = true
+        };
+        var cm = Substitute.For<IConnectionManager>();
+        cm.GetEnabledProfiles().Returns(new List<ConnectionProfile> { enabled }.AsReadOnly());
+
+        var result = ConnCommand.ResolveSwitchTarget(cm, "測試庫");
+
+        result.Should().Be(enabled);
+    }
+
     [Fact(DisplayName = "ExportProfilesToFile: 應將 includePasswords 旗標傳給服務")]
     public void ExportProfilesToFile_ShouldPassIncludePasswordsFlag()
     {

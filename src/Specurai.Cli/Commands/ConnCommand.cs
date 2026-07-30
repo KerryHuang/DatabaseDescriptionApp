@@ -5,7 +5,6 @@ using Spectre.Console;
 using Specurai.Application.Services;
 using Specurai.Cli.Output;
 using Specurai.Domain.Entities;
-using Specurai.Cli;
 
 namespace Specurai.Cli.Commands;
 
@@ -286,7 +285,7 @@ public static class ConnCommand
                 // 互動模式：選單
                 if (profiles.Count == 0)
                 {
-                    CliOutput.Info("尚未設定任何連線。");
+                    CliOutput.Info("沒有啟用的連線可切換，請先在連線設定中啟用。");
                     return;
                 }
 

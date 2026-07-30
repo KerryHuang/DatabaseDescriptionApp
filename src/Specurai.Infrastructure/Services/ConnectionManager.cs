@@ -51,7 +51,20 @@ public class ConnectionManager : IConnectionManager
             }
         }
 
-        return _profiles.FirstOrDefault(p => p.Id == _currentProfileId && p.IsEnabled);
+        var current = _profiles.FirstOrDefault(p => p.Id == _currentProfileId && p.IsEnabled);
+        if (current == null && _currentProfileId != null)
+        {
+            // CurrentProfileId 指向停用連線時自我修復，改試著找啟用的預設連線
+            _currentProfileId = null;
+            var defaultProfile = _profiles.FirstOrDefault(p => p.IsDefault && p.IsEnabled);
+            if (defaultProfile != null)
+            {
+                _currentProfileId = defaultProfile.Id;
+                current = defaultProfile;
+            }
+        }
+
+        return current;
     }
 
     public void SetCurrentProfile(Guid profileId)
@@ -97,6 +110,12 @@ public class ConnectionManager : IConnectionManager
         if (index < 0)
             return;
 
+        // 停用的連線不該保留預設身分，否則會留下一個永遠選不到的預設連線
+        if (!profile.IsEnabled)
+        {
+            profile.IsDefault = false;
+        }
+
         if (profile.IsDefault)
         {
             foreach (var p in _profiles)
@@ -104,12 +123,6 @@ public class ConnectionManager : IConnectionManager
                 if (p.Id != profile.Id)
                     p.IsDefault = false;
             }
-        }
-
-        // 停用的連線不該保留預設身分，否則會留下一個永遠選不到的預設連線
-        if (!profile.IsEnabled)
-        {
-            profile.IsDefault = false;
         }
 
         _profiles[index] = profile;

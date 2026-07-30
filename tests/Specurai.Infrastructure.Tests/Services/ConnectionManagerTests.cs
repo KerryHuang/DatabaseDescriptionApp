@@ -463,6 +463,84 @@ public class ConnectionManagerTests : IDisposable
     }
 
     [Fact]
+    public void UpdateProfile_把非預設連線改成停用且預設_不清除既有預設連線的預設身分()
+    {
+        var configPath = Path.Combine(Path.GetTempPath(), $"specurai-{Guid.NewGuid()}.json");
+        try
+        {
+            var manager = new ConnectionManager(configPath);
+            var existingDefault = new ConnectionProfile
+            {
+                Name = "既有預設", Server = "s1", Database = "db1", IsDefault = true
+            };
+            var other = new ConnectionProfile
+            {
+                Name = "另一個", Server = "s2", Database = "db2", IsDefault = false
+            };
+            manager.AddProfile(existingDefault);
+            manager.AddProfile(other);
+
+            other.IsDefault = true;
+            other.IsEnabled = false;
+            manager.UpdateProfile(other);
+
+            manager.GetAllProfiles().First(p => p.Id == existingDefault.Id).IsDefault.Should().BeTrue();
+            manager.GetAllProfiles().First(p => p.Id == other.Id).IsDefault.Should().BeFalse();
+        }
+        finally
+        {
+            File.Delete(configPath);
+        }
+    }
+
+    [Fact]
+    public void GetCurrentProfile_CurrentProfileId指向停用連線但有啟用的預設連線_應回傳該預設連線()
+    {
+        var configPath = Path.Combine(Path.GetTempPath(), $"specurai-{Guid.NewGuid()}.json");
+        var disabledId = Guid.NewGuid();
+        var defaultId = Guid.NewGuid();
+        var json = $$"""
+        {
+          "Profiles": [
+            {
+              "Id": "{{disabledId}}",
+              "Name": "停用連線",
+              "Server": "localhost",
+              "Database": "Db",
+              "AuthType": 0,
+              "IsDefault": false,
+              "IsEnabled": false,
+              "Environment": 2
+            },
+            {
+              "Id": "{{defaultId}}",
+              "Name": "啟用的預設連線",
+              "Server": "localhost",
+              "Database": "DefaultDb",
+              "AuthType": 0,
+              "IsDefault": true,
+              "IsEnabled": true,
+              "Environment": 2
+            }
+          ],
+          "CurrentProfileId": "{{disabledId}}"
+        }
+        """;
+        File.WriteAllText(configPath, json);
+
+        try
+        {
+            var manager = new ConnectionManager(configPath);
+
+            manager.GetCurrentProfile()!.Id.Should().Be(defaultId);
+        }
+        finally
+        {
+            File.Delete(configPath);
+        }
+    }
+
+    [Fact]
     public void UpdateProfile_停用目前連線_觸發CurrentProfileChanged()
     {
         var configPath = Path.Combine(Path.GetTempPath(), $"specurai-{Guid.NewGuid()}.json");

@@ -140,6 +140,42 @@ public class ColumnSearchServiceTests
         results[0].DatabaseName.Should().Be("NormalDb");
     }
 
+    [Fact]
+    public async Task SearchColumnsMultiAsync_連線已停用_應跳過該資料庫並仍能取得其顯示名稱()
+    {
+        // 對應審查補測試項目：ColumnSearchService 刻意維持 GetAllProfiles()（取顯示名稱用，
+        // 停用連線也該顯示名字），跳過停用連線的行為是靠 GetConnectionString 回 null 達成，
+        // 這裡驗證的正是這個行為，不是去改 ColumnSearchService 的實作。
+        var disabledId = Guid.NewGuid();
+        var enabledId = Guid.NewGuid();
+        var disabledProfile = new ConnectionProfile
+        {
+            Id = disabledId, Name = "已停用環境", Server = "server1", Database = "DisabledDb", IsEnabled = false
+        };
+        var enabledProfile = new ConnectionProfile
+        {
+            Id = enabledId, Name = "正常環境", Server = "server2", Database = "NormalDb"
+        };
+
+        _connectionManager.GetConnectionString(disabledId).Returns((string?)null);
+        _connectionManager.GetConnectionString(enabledId).Returns("Server=server2;Database=NormalDb");
+        _connectionManager.GetAllProfiles().Returns(new List<ConnectionProfile> { disabledProfile, enabledProfile });
+
+        var repo = Substitute.For<ISqlQueryRepository>();
+        repo.SearchColumnsAsync("Name", Arg.Any<bool>(), Arg.Any<string?>(), Arg.Any<CancellationToken>()).Returns(new List<ColumnSearchResult>
+        {
+            new() { ColumnName = "Name", ObjectName = "Users", SchemaName = "dbo", ObjectType = "TABLE", DataType = "nvarchar(50)" }
+        });
+
+        ISqlQueryRepository RepoFactory(string? connStr) => repo;
+        var service = new ColumnSearchService(_connectionManager, RepoFactory);
+
+        var results = await service.SearchColumnsMultiAsync("Name", new[] { disabledId, enabledId });
+
+        results.Should().HaveCount(1);
+        results[0].DatabaseName.Should().Be("NormalDb");
+    }
+
     #endregion
 
     #region 部分失敗

@@ -2,6 +2,7 @@ using FluentAssertions;
 using NSubstitute;
 using Specurai.Application.Services;
 using Specurai.Desktop.ViewModels;
+using Specurai.Domain.Entities;
 
 namespace Specurai.Desktop.Tests.ViewModels;
 
@@ -60,5 +61,23 @@ public class UsageAnalysisDocumentViewModelTests
     {
         var vm = new UsageAnalysisDocumentViewModel();
         vm.StatusMessage.Should().Contain("掃描");
+    }
+
+    [Fact]
+    public void SelectedBaseProfile變更_目標連線清單只列啟用連線且排除自身()
+    {
+        // 對應審查補測試項目：OnSelectedBaseProfileChanged 目前完全沒有觸及。
+        // TargetProfileItems 應只來自 GetEnabledProfiles()，且排除 base profile 自身。
+        var basis = new ConnectionProfile { Name = "基準", Server = "s0", Database = "db0" };
+        var target1 = new ConnectionProfile { Name = "目標1", Server = "s1", Database = "db1" };
+        var target2 = new ConnectionProfile { Name = "目標2", Server = "s2", Database = "db2" };
+        _connectionManager.GetEnabledProfiles().Returns(new List<ConnectionProfile> { basis, target1, target2 });
+
+        var vm = new UsageAnalysisDocumentViewModel(_service, _connectionManager);
+
+        vm.SelectedBaseProfile = basis;
+
+        vm.TargetProfileItems.Select(item => item.Profile.Name)
+            .Should().BeEquivalentTo(new[] { "目標1", "目標2" });
     }
 }

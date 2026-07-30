@@ -125,6 +125,21 @@ public class ConnectionToolsTests
     }
 
     [Fact]
+    public void DescribeMissing_以Guid字串指定停用連線_回傳已停用訊息()
+    {
+        var cm = Substitute.For<IConnectionManager>();
+        var disabled = new ConnectionProfile
+        {
+            Name = "正式庫", Server = "s1", Database = "db1", IsEnabled = false
+        };
+        cm.GetAllProfiles().Returns([disabled]);
+
+        var result = ProfileResolver.DescribeMissing(cm, disabled.Id.ToString());
+
+        result.Should().Be("連線「正式庫」已停用，請先在連線設定中啟用。");
+    }
+
+    [Fact]
     public void DeleteConnection_目標連線已停用_應能成功解析並刪除()
     {
         var cm = Substitute.For<IConnectionManager>();

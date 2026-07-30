@@ -275,6 +275,38 @@ public class SqlQueryDocumentViewModelTests
         _connectionManager.Received().GetConnectionString(otherProfile.Id);
     }
 
+    [Fact]
+    public async Task SelectedProfile_選到的連線已被停用_應顯示明確訊息且查詢不應靜默改用其他連線()
+    {
+        // 對應 m7：文件開啟期間某連線被停用後，清單是陳舊的，使用者仍選得到它，
+        // GetConnectionString 回 null 不該落進「跟隨目前連線」的路徑（否則查詢會靜默跑到另一個資料庫）。
+        // Arrange
+        var currentProfile = new ConnectionProfile
+        {
+            Id = Guid.NewGuid(), Name = "目前連線", Server = "s1", Database = "CurrentDb"
+        };
+        var disabledProfile = new ConnectionProfile
+        {
+            Id = Guid.NewGuid(), Name = "已停用", Server = "s2", Database = "DisabledDb"
+        };
+        _connectionManager.GetAllProfiles().Returns(new List<ConnectionProfile> { currentProfile, disabledProfile });
+        _connectionManager.GetCurrentProfile().Returns(currentProfile);
+        _connectionManager.GetConnectionString(disabledProfile.Id).Returns((string?)null);
+        _sqlQueryRepository.GetColumnDescriptionsAsync()
+            .Returns(new Dictionary<string, string>());
+
+        var vm = new SqlQueryDocumentViewModel(_sqlQueryRepository, _connectionManager);
+
+        // Act
+        vm.SelectedProfile = disabledProfile;
+        vm.SqlText = "SELECT 1";
+        await vm.ExecuteQueryCommand.ExecuteAsync(null);
+
+        // Assert：訊息要明確告知已停用，且不能走「無連線字串＝跟隨目前連線」的查詢路徑
+        vm.StatusMessage.Should().Contain("已停用");
+        await _sqlQueryRepository.DidNotReceive().ExecuteQueryWithSchemaAsync(Arg.Any<string>());
+    }
+
     #endregion
 
     #region ClearQueryCommand 測試

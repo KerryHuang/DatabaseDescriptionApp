@@ -112,6 +112,49 @@ public class ConnectionExportServiceTests
         imported.Profiles.Should().BeEmpty();
     }
 
+    [Fact]
+    public void ExportToJson再匯入_停用連線_停用狀態應保真()
+    {
+        var profiles = new List<ConnectionProfile>
+        {
+            new()
+            {
+                Name = "正式庫", Server = "prod", Database = "ProdDb", IsEnabled = false
+            }
+        };
+
+        var data = _service.ExportToJson(profiles, includePasswords: false);
+
+        var imported = _service.ImportFromJson(data);
+        imported.Profiles.Single().IsEnabled.Should().BeFalse();
+    }
+
+    [Fact]
+    public void ImportFromJson_舊格式無IsEnabled欄位_視為啟用()
+    {
+        var oldFormatJson = """
+        {
+          "Version": 1,
+          "ExportedAt": "2026-01-01T00:00:00Z",
+          "Profiles": [
+            {
+              "Id": "22222222-2222-2222-2222-222222222222",
+              "Name": "舊連線",
+              "Server": "localhost",
+              "Database": "OldDb",
+              "AuthType": 0,
+              "IsDefault": false,
+              "Environment": 2
+            }
+          ]
+        }
+        """;
+
+        var imported = _service.ImportFromJson(System.Text.Encoding.UTF8.GetBytes(oldFormatJson));
+
+        imported.Profiles.Single().IsEnabled.Should().BeTrue();
+    }
+
     #endregion
 
     #region 加密匯出/匯入

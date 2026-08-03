@@ -260,13 +260,19 @@ public partial class ConnectionSetupViewModel : ViewModelBase
         try
         {
             var result = await _externalConnectionSource.SyncAsync();
+
+            // 與既有內部連線設定相同者不重複列出（含已停用的內部連線）
+            var newProfiles = result.Profiles
+                .Where(e => !Profiles.Any(e.HasSameConnectionSettings))
+                .ToList();
+            var duplicateCount = result.Profiles.Count - newProfiles.Count;
+
             ExternalProfiles.Clear();
-            foreach (var p in result.Profiles)
+            foreach (var p in newProfiles)
                 ExternalProfiles.Add(p);
 
-            SyncStatusMessage = result.FailedItems.Count == 0
-                ? $"已同步 {result.Profiles.Count} 個外部連線"
-                : $"已同步 {result.Profiles.Count} 個，{result.FailedItems.Count} 個失敗";
+            SyncStatusMessage = BuildSyncStatusMessage(
+                newProfiles.Count, duplicateCount, result.FailedItems.Count);
         }
         catch (Exception ex)
         {
@@ -276,6 +282,16 @@ public partial class ConnectionSetupViewModel : ViewModelBase
         {
             IsSyncing = false;
         }
+    }
+
+    private static string BuildSyncStatusMessage(int newCount, int duplicateCount, int failedCount)
+    {
+        var message = $"已同步 {newCount} 個外部連線";
+        if (duplicateCount > 0)
+            message += $"（{duplicateCount} 個與現有連線重複已略過）";
+        if (failedCount > 0)
+            message += $"，{failedCount} 個失敗";
+        return message;
     }
 
     private ConnectionProfile CreateProfileFromForm(Guid? id = null)

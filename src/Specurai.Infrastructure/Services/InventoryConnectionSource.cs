@@ -135,25 +135,37 @@ public class InventoryConnectionSource : IExternalConnectionSource
         var envGroup = $"customer_{customer.CustomerName}_{env}";
         var dbYmlPath = Path.Combine(groupVarsDir, envGroup, "database.yml");
 
-        if (!File.Exists(dbYmlPath)) return null;
+        // 環境層 database.yml 為選用；沒有時所有值走 all/database.yml 的預設
+        var dbYml = new Dictionary<string, object>();
+        if (File.Exists(dbYmlPath))
+        {
+            try
+            {
+                // 空白或全為註解的檔案會反序列化為 null
+                dbYml = YamlDeserializer.Deserialize<Dictionary<string, object>>(
+                    await File.ReadAllTextAsync(dbYmlPath)) ?? [];
+            }
+            catch { return null; }
+        }
 
-        string? database = null;
+        string database;
         try
         {
-            var dbYml = YamlDeserializer.Deserialize<Dictionary<string, object>>(
-                await File.ReadAllTextAsync(dbYmlPath));
-            database = ExtractMainDatabase(dbYml);
+            database = ExtractMainDatabase(dbYml)
+                ?? await ResolveDatabaseByEnvAsync(customer.CustomerName, env, groupVarsDir)
+                ?? DefaultDatabaseName(customer.CustomerName, env);
         }
         catch { return null; }
-
-        if (string.IsNullOrEmpty(database)) return null;
 
         var vaultVars = await MergeVaultVarsAsync(
             customer.CustomerName, env, groupVarsDir, keyFilePath);
 
-        var isContainer = customer.MssqlHost.Equals(
+        // mssql_host 可在環境層 database.yml 覆寫（部分客戶只在此定義）
+        var mssqlHost = dbYml.GetValueOrDefault("mssql_host")?.ToString() ?? customer.MssqlHost;
+
+        var isContainer = mssqlHost.Equals(
             "container", StringComparison.OrdinalIgnoreCase);
-        var server = isContainer ? customer.TailscaleIp : customer.MssqlHost;
+        var server = isContainer ? customer.TailscaleIp : mssqlHost;
 
         if (string.IsNullOrEmpty(server)) return null;
 
@@ -173,7 +185,8 @@ public class InventoryConnectionSource : IExternalConnectionSource
             Database = database,
             AuthType = AuthenticationType.SqlServerAuthentication,
             Username = username,
-            Password = password
+            Password = password,
+            Environment = ToDatabaseEnvironment(env)
         };
     }
 
@@ -182,9 +195,52 @@ public class InventoryConnectionSource : IExternalConnectionSource
         if (dbYml.TryGetValue("main_sql_override", out var overrideObj) &&
             overrideObj is Dictionary<object, object> overrideDict &&
             overrideDict.TryGetValue("database", out var db))
-            return db?.ToString();
+        {
+            var name = db?.ToString();
+            return string.IsNullOrWhiteSpace(name) ? null : name;
+        }
         return null;
     }
+
+    /// <summary>
+    /// 取客戶層 database.yml 釘住的 legacy 資料庫名稱（main_sql_database_by_env）。
+    /// 解析失敗時往外拋，讓該環境列為失敗——退回猜測名稱會連到不存在的資料庫。
+    /// </summary>
+    private static async Task<string?> ResolveDatabaseByEnvAsync(
+        string customerName, string env, string groupVarsDir)
+    {
+        var path = Path.Combine(groupVarsDir, $"customer_{customerName}", "database.yml");
+        if (!File.Exists(path)) return null;
+
+        var yml = YamlDeserializer.Deserialize<Dictionary<string, object>>(
+            await File.ReadAllTextAsync(path)) ?? [];
+
+        if (yml.TryGetValue("main_sql_database_by_env", out var byEnvObj) &&
+            byEnvObj is Dictionary<object, object> byEnv &&
+            byEnv.TryGetValue(ToEnvTag(env), out var db))
+        {
+            var name = db?.ToString();
+            return string.IsNullOrWhiteSpace(name) ? null : name;
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// 2026-06 起的縮寫制預設命名：正式為 &lt;CUSTOMER&gt;，其餘環境加 -stg 後綴。
+    /// </summary>
+    private static string DefaultDatabaseName(string customerName, string env) =>
+        customerName.ToUpperInvariant() + (ToEnvTag(env) == "prod" ? string.Empty : "-stg");
+
+    /// <summary>對應上游 all/core.yml 的 env_tag：僅 dev／staging 保留原名，其餘皆為 prod。</summary>
+    private static string ToEnvTag(string env) => env is "dev" or "staging" ? env : "prod";
+
+    private static DatabaseEnvironment ToDatabaseEnvironment(string env) => env switch
+    {
+        "production" => DatabaseEnvironment.Production,
+        "dev" => DatabaseEnvironment.Development,
+        _ => DatabaseEnvironment.Testing
+    };
 
     private async Task<Dictionary<string, string>> MergeVaultVarsAsync(
         string customerName, string env, string groupVarsDir, string keyFilePath)

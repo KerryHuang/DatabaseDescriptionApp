@@ -70,4 +70,15 @@ public class ConnectionProfile
     /// 是否啟用（停用的連線不會出現在各功能的連線選擇中）
     /// </summary>
     public bool IsEnabled { get; set; } = true;
+
+    /// <summary>
+    /// 判斷兩筆連線是否指向同一個資料庫且使用同一組身分。
+    /// 用於外部來源同步時排除與既有連線重複的項目；不比對密碼、名稱與環境。
+    /// </summary>
+    public bool HasSameConnectionSettings(ConnectionProfile other) =>
+        AuthType == other.AuthType &&
+        string.Equals(Server, other.Server, StringComparison.OrdinalIgnoreCase) &&
+        string.Equals(Database, other.Database, StringComparison.OrdinalIgnoreCase) &&
+        string.Equals(Username ?? string.Empty, other.Username ?? string.Empty,
+            StringComparison.OrdinalIgnoreCase);
 }

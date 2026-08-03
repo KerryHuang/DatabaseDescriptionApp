@@ -620,9 +620,10 @@ public class ConnectionSetupViewModelTests
 
     private ConnectionSetupViewModel CreateVmWithExternal(
         IExternalConnectionSource? source = null,
-        IExternalSourceSettings? settings = null)
+        IExternalSourceSettings? settings = null,
+        List<ConnectionProfile>? localProfiles = null)
     {
-        _connectionManager.GetAllProfiles().Returns(new List<ConnectionProfile>());
+        _connectionManager.GetAllProfiles().Returns(localProfiles ?? new List<ConnectionProfile>());
         return new ConnectionSetupViewModel(
             _connectionManager,
             source ?? CreateExternalSource(),
@@ -675,6 +676,122 @@ public class ConnectionSetupViewModelTests
         await vm.SyncExternalSourceCommand.ExecuteAsync(null);
 
         vm.SyncStatusMessage.Should().Contain("2");
+    }
+
+    [Fact]
+    public async Task SyncExternalSourceCommand_與內部連線設定相同_不列入外部連線()
+    {
+        var local = new ConnectionProfile
+        {
+            Name = "我建的連線",
+            Server = "SQL01",
+            Database = "MYDB",
+            AuthType = AuthenticationType.SqlServerAuthentication,
+            Username = "MIS",
+            Password = "舊密碼"
+        };
+        var external = new List<ConnectionProfile>
+        {
+            new()
+            {
+                Name = "重複 - 正式",
+                Server = "sql01",
+                Database = "mydb",
+                AuthType = AuthenticationType.SqlServerAuthentication,
+                Username = "mis",
+                Password = "vault 解出的密碼"
+            },
+            new()
+            {
+                Name = "新的 - 測試",
+                Server = "sql02",
+                Database = "otherdb",
+                AuthType = AuthenticationType.SqlServerAuthentication,
+                Username = "mis"
+            }
+        };
+        var vm = CreateVmWithExternal(
+            source: CreateExternalSource(external),
+            settings: CreateExternalSettings("some/path"),
+            localProfiles: [local]);
+
+        await vm.SyncExternalSourceCommand.ExecuteAsync(null);
+
+        vm.ExternalProfiles.Should().ContainSingle()
+            .Which.Name.Should().Be("新的 - 測試");
+    }
+
+    [Fact]
+    public async Task SyncExternalSourceCommand_與已停用的內部連線相同_仍不列入外部連線()
+    {
+        var local = new ConnectionProfile
+        {
+            Name = "停用的連線",
+            Server = "sql01",
+            Database = "mydb",
+            AuthType = AuthenticationType.SqlServerAuthentication,
+            Username = "mis",
+            IsEnabled = false
+        };
+        var external = new List<ConnectionProfile>
+        {
+            new()
+            {
+                Name = "重複 - 正式",
+                Server = "sql01",
+                Database = "mydb",
+                AuthType = AuthenticationType.SqlServerAuthentication,
+                Username = "mis"
+            }
+        };
+        var vm = CreateVmWithExternal(
+            source: CreateExternalSource(external),
+            settings: CreateExternalSettings("some/path"),
+            localProfiles: [local]);
+
+        await vm.SyncExternalSourceCommand.ExecuteAsync(null);
+
+        vm.ExternalProfiles.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task SyncExternalSourceCommand_有重複項_狀態訊息顯示略過筆數()
+    {
+        var local = new ConnectionProfile
+        {
+            Name = "我建的連線",
+            Server = "sql01",
+            Database = "mydb",
+            AuthType = AuthenticationType.SqlServerAuthentication,
+            Username = "mis"
+        };
+        var external = new List<ConnectionProfile>
+        {
+            new()
+            {
+                Name = "重複 - 正式",
+                Server = "sql01",
+                Database = "mydb",
+                AuthType = AuthenticationType.SqlServerAuthentication,
+                Username = "mis"
+            },
+            new()
+            {
+                Name = "新的 - 測試",
+                Server = "sql02",
+                Database = "otherdb",
+                AuthType = AuthenticationType.SqlServerAuthentication,
+                Username = "mis"
+            }
+        };
+        var vm = CreateVmWithExternal(
+            source: CreateExternalSource(external),
+            settings: CreateExternalSettings("some/path"),
+            localProfiles: [local]);
+
+        await vm.SyncExternalSourceCommand.ExecuteAsync(null);
+
+        vm.SyncStatusMessage.Should().Contain("1 個外部連線").And.Contain("1 個與現有連線重複");
     }
 
     [Fact]

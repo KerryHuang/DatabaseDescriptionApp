@@ -270,4 +270,104 @@ public class ConnectionProfileTests
 
         profile.IsEnabled.Should().BeTrue();
     }
+
+    private static ConnectionProfile SqlAuthProfile(
+        string name = "連線",
+        string server = "sql01",
+        string database = "MyDb",
+        string? username = "mis",
+        string? password = "pwd") =>
+        new()
+        {
+            Name = name,
+            Server = server,
+            Database = database,
+            AuthType = AuthenticationType.SqlServerAuthentication,
+            Username = username,
+            Password = password
+        };
+
+    [Fact]
+    public void HasSameConnectionSettings_所有比對欄位相同_應為真()
+    {
+        SqlAuthProfile().HasSameConnectionSettings(SqlAuthProfile()).Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData("SQL01", "MYDB", "MIS")]
+    [InlineData("sql01", "mydb", "mis")]
+    public void HasSameConnectionSettings_伺服器與資料庫與帳號大小寫不同_應為真(
+        string server, string database, string username)
+    {
+        SqlAuthProfile()
+            .HasSameConnectionSettings(SqlAuthProfile(server: server, database: database, username: username))
+            .Should().BeTrue();
+    }
+
+    [Fact]
+    public void HasSameConnectionSettings_伺服器不同_應為假()
+    {
+        SqlAuthProfile().HasSameConnectionSettings(SqlAuthProfile(server: "sql02")).Should().BeFalse();
+    }
+
+    [Fact]
+    public void HasSameConnectionSettings_資料庫不同_應為假()
+    {
+        SqlAuthProfile().HasSameConnectionSettings(SqlAuthProfile(database: "OtherDb")).Should().BeFalse();
+    }
+
+    [Fact]
+    public void HasSameConnectionSettings_帳號不同_應為假()
+    {
+        SqlAuthProfile().HasSameConnectionSettings(SqlAuthProfile(username: "sa")).Should().BeFalse();
+    }
+
+    [Fact]
+    public void HasSameConnectionSettings_驗證方式不同_應為假()
+    {
+        var windowsAuth = SqlAuthProfile();
+        windowsAuth.AuthType = AuthenticationType.WindowsAuthentication;
+
+        windowsAuth.HasSameConnectionSettings(SqlAuthProfile()).Should().BeFalse();
+    }
+
+    [Fact]
+    public void HasSameConnectionSettings_僅密碼不同_應為真()
+    {
+        SqlAuthProfile().HasSameConnectionSettings(SqlAuthProfile(password: "另一組密碼"))
+            .Should().BeTrue();
+    }
+
+    [Fact]
+    public void HasSameConnectionSettings_名稱與環境與啟用狀態不同_應為真()
+    {
+        var other = SqlAuthProfile(name: "另一個名稱");
+        other.Environment = DatabaseEnvironment.Production;
+        other.IsEnabled = false;
+
+        SqlAuthProfile().HasSameConnectionSettings(other).Should().BeTrue();
+    }
+
+    [Fact]
+    public void HasSameConnectionSettings_Windows驗證下帳號為null與空字串_應為真()
+    {
+        var nullUser = new ConnectionProfile
+        {
+            Name = "A",
+            Server = "sql01",
+            Database = "MyDb",
+            AuthType = AuthenticationType.WindowsAuthentication,
+            Username = null
+        };
+        var emptyUser = new ConnectionProfile
+        {
+            Name = "B",
+            Server = "sql01",
+            Database = "MyDb",
+            AuthType = AuthenticationType.WindowsAuthentication,
+            Username = string.Empty
+        };
+
+        nullUser.HasSameConnectionSettings(emptyUser).Should().BeTrue();
+    }
 }

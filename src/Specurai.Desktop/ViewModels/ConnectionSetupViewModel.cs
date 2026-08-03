@@ -267,6 +267,7 @@ public partial class ConnectionSetupViewModel : ViewModelBase
                 .ToList();
             var duplicateCount = result.Profiles.Count - newProfiles.Count;
 
+            SelectedExternalProfile = null;
             ExternalProfiles.Clear();
             foreach (var p in newProfiles)
                 ExternalProfiles.Add(p);

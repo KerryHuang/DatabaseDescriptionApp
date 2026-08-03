@@ -602,11 +602,12 @@ public class ConnectionSetupViewModelTests
     #region 外部連線 Sync 測試
 
     private IExternalConnectionSource CreateExternalSource(
-        IReadOnlyList<ConnectionProfile>? profiles = null)
+        IReadOnlyList<ConnectionProfile>? profiles = null,
+        IReadOnlyList<string>? failedItems = null)
     {
         var source = Substitute.For<IExternalConnectionSource>();
         source.SyncAsync().Returns(new ExternalConnectionResult(
-            profiles ?? new List<ConnectionProfile>(), []));
+            profiles ?? new List<ConnectionProfile>(), failedItems ?? []));
         return source;
     }
 
@@ -792,6 +793,67 @@ public class ConnectionSetupViewModelTests
         await vm.SyncExternalSourceCommand.ExecuteAsync(null);
 
         vm.SyncStatusMessage.Should().Contain("1 個外部連線").And.Contain("1 個與現有連線重複");
+    }
+
+    [Fact]
+    public async Task SyncExternalSourceCommand_同時有重複與失敗_狀態訊息兩者並陳()
+    {
+        var local = new ConnectionProfile
+        {
+            Name = "我建的連線",
+            Server = "sql01",
+            Database = "mydb",
+            AuthType = AuthenticationType.SqlServerAuthentication,
+            Username = "mis"
+        };
+        var external = new List<ConnectionProfile>
+        {
+            new()
+            {
+                Name = "重複 - 正式",
+                Server = "sql01",
+                Database = "mydb",
+                AuthType = AuthenticationType.SqlServerAuthentication,
+                Username = "mis"
+            },
+            new()
+            {
+                Name = "新的 - 測試",
+                Server = "sql02",
+                Database = "otherdb",
+                AuthType = AuthenticationType.SqlServerAuthentication,
+                Username = "mis"
+            }
+        };
+        var vm = CreateVmWithExternal(
+            source: CreateExternalSource(external, ["acme/production", "beta/staging"]),
+            settings: CreateExternalSettings("some/path"),
+            localProfiles: [local]);
+
+        await vm.SyncExternalSourceCommand.ExecuteAsync(null);
+
+        vm.SyncStatusMessage.Should()
+            .Contain("1 個外部連線")
+            .And.Contain("1 個與現有連線重複")
+            .And.Contain("2 個失敗");
+    }
+
+    [Fact]
+    public async Task SyncExternalSourceCommand_執行後_清除先前選取的外部連線()
+    {
+        var external = new List<ConnectionProfile>
+        {
+            new() { Name = "外部 - 正式", Server = "10.0.0.1", Database = "ext_db" }
+        };
+        var vm = CreateVmWithExternal(
+            source: CreateExternalSource(external),
+            settings: CreateExternalSettings("some/path"));
+        await vm.SyncExternalSourceCommand.ExecuteAsync(null);
+        vm.SelectedExternalProfile = vm.ExternalProfiles[0];
+
+        await vm.SyncExternalSourceCommand.ExecuteAsync(null);
+
+        vm.SelectedExternalProfile.Should().BeNull();
     }
 
     [Fact]

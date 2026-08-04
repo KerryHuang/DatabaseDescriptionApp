@@ -2,6 +2,7 @@ using System.Data;
 using Microsoft.Data.SqlClient;
 using Specurai.Domain.Entities;
 using Specurai.Domain.Interfaces;
+using Specurai.Infrastructure.Services;
 
 namespace Specurai.Infrastructure.Repositories;
 
@@ -11,10 +12,21 @@ namespace Specurai.Infrastructure.Repositories;
 public class SqlQueryRepository : ISqlQueryRepository
 {
     private readonly Func<string?> _connectionStringProvider;
+    private static readonly SqlReadOnlyValidator ReadOnlyValidator = new();
 
     public SqlQueryRepository(Func<string?> connectionStringProvider)
     {
         _connectionStringProvider = connectionStringProvider;
+    }
+
+    /// <summary>
+    /// 唯讀驗證：非 SELECT 等唯讀語句一律擋下（在開啟連線之前）
+    /// </summary>
+    private static void EnsureReadOnly(string sql)
+    {
+        var validation = ReadOnlyValidator.Validate(sql);
+        if (!validation.IsValid)
+            throw new InvalidOperationException(validation.RejectReason);
     }
 
     public async Task<DataTable> ExecuteQueryAsync(string sql, CancellationToken ct = default)
@@ -28,6 +40,8 @@ public class SqlQueryRepository : ISqlQueryRepository
 
     public async Task<DataTable> ExecuteQueryAsync(string sql, string connectionString, CancellationToken ct = default)
     {
+        EnsureReadOnly(sql);
+
         await using var connection = new SqlConnection(connectionString);
         await connection.OpenAsync(ct);
 
@@ -278,6 +292,8 @@ public class SqlQueryRepository : ISqlQueryRepository
 
     public async Task<QueryResultWithSchema> ExecuteQueryWithSchemaAsync(string sql, string connectionString, CancellationToken ct = default)
     {
+        EnsureReadOnly(sql);
+
         await using var connection = new SqlConnection(connectionString);
         await connection.OpenAsync(ct);
 

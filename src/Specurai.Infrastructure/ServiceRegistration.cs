@@ -32,8 +32,10 @@ public static class ServiceRegistration
             new ParameterRepository(() => sp.GetRequiredService<IConnectionManager>().GetCurrentConnectionString()));
         services.AddSingleton<ISqlQueryRepository>(sp =>
             new SqlQueryRepository(() => sp.GetRequiredService<IConnectionManager>().GetCurrentConnectionString()));
-        services.AddSingleton<ISqlDryRunRepository>(sp =>
+        services.AddSingleton<SqlDryRunRepository>(sp =>
             new SqlDryRunRepository(() => sp.GetRequiredService<IConnectionManager>().GetCurrentConnectionString()));
+        services.AddSingleton<ISqlDryRunRepository>(sp => sp.GetRequiredService<SqlDryRunRepository>());
+        services.AddSingleton<ISqlDmlExecuteRepository>(sp => sp.GetRequiredService<SqlDryRunRepository>());
         services.AddSingleton<IColumnTypeRepository>(sp =>
             new ColumnTypeRepository(() => sp.GetRequiredService<IConnectionManager>().GetCurrentConnectionString()));
         services.AddSingleton<IDatabaseRecoveryModelRepository>(sp =>
@@ -94,6 +96,12 @@ public static class ServiceRegistration
             new ColumnSearchService(
                 sp.GetRequiredService<IConnectionManager>(),
                 connStr => new SqlQueryRepository(() => connStr)));
+
+        // Application - DML 執行（非正式環境限定）
+        services.AddSingleton<IDmlExecutionService>(sp => new DmlExecutionService(
+            sp.GetRequiredService<IConnectionManager>(),
+            sp.GetRequiredService<ISqlDryRunRepository>(),
+            sp.GetRequiredService<ISqlDmlExecuteRepository>()));
 
         // Infrastructure - Agent Job
         services.AddSingleton<IDatabaseInfoRepository>(sp =>

@@ -2,6 +2,7 @@ using System.Data;
 using System.Text.Json;
 using FluentAssertions;
 using NSubstitute;
+using Specurai.Application.Services;
 using Specurai.Domain.Entities;
 using Specurai.Domain.Interfaces;
 using Specurai.McpServer.Tools;
@@ -114,5 +115,73 @@ public class SqlToolsTests
 
         result.Should().Contain("Dry run 執行失敗");
         result.Should().Contain("未設定資料庫連線");
+    }
+
+    [Fact(DisplayName = "execute_sql: confirm=false 應以預演模式呼叫服務並附確認提示")]
+    public async Task ExecuteSql_ConfirmFalse_ShouldPreviewWithHint()
+    {
+        var service = Substitute.For<IDmlExecutionService>();
+        service.ExecuteAsync(Arg.Any<string>(), false, null, Arg.Any<CancellationToken>())
+            .Returns(new DryRunResult
+            {
+                IsValid = true,
+                StatementType = DryRunStatementType.Delete,
+                AffectedRowCount = 2
+            });
+
+        var result = await SqlTools.ExecuteSql(service, "DELETE FROM T WHERE Id < 3", confirm: false);
+
+        await service.Received(1).ExecuteAsync("DELETE FROM T WHERE Id < 3", false, null, Arg.Any<CancellationToken>());
+        using var doc = JsonDocument.Parse(result);
+        doc.RootElement.GetProperty("Committed").GetBoolean().Should().BeFalse();
+        doc.RootElement.GetProperty("DatabaseChanged").GetBoolean().Should().BeFalse();
+        result.Should().Contain("confirm:true");
+    }
+
+    [Fact(DisplayName = "execute_sql: confirm=true 應實際執行並回報已寫入")]
+    public async Task ExecuteSql_ConfirmTrue_ShouldExecuteAndReportCommitted()
+    {
+        var service = Substitute.For<IDmlExecutionService>();
+        service.ExecuteAsync(Arg.Any<string>(), true, null, Arg.Any<CancellationToken>())
+            .Returns(new DryRunResult
+            {
+                IsValid = true,
+                StatementType = DryRunStatementType.Delete,
+                AffectedRowCount = 2,
+                Committed = true
+            });
+
+        var result = await SqlTools.ExecuteSql(service, "DELETE FROM T WHERE Id < 3", confirm: true);
+
+        using var doc = JsonDocument.Parse(result);
+        doc.RootElement.GetProperty("Committed").GetBoolean().Should().BeTrue();
+        doc.RootElement.GetProperty("DatabaseChanged").GetBoolean().Should().BeTrue();
+    }
+
+    [Fact(DisplayName = "execute_sql: 正式環境拒絕應回傳原因")]
+    public async Task ExecuteSql_ProductionRejected_ShouldReturnReason()
+    {
+        var service = Substitute.For<IDmlExecutionService>();
+        service.ExecuteAsync(Arg.Any<string>(), Arg.Any<bool>(), null, Arg.Any<CancellationToken>())
+            .Returns(new DryRunResult { IsValid = false, RejectReason = "連線「正式庫」為正式環境，不允許執行 DML" });
+
+        var result = await SqlTools.ExecuteSql(service, "DELETE FROM T", confirm: true);
+
+        using var doc = JsonDocument.Parse(result);
+        doc.RootElement.GetProperty("Valid").GetBoolean().Should().BeFalse();
+        doc.RootElement.GetProperty("RejectReason").GetString().Should().Contain("正式環境");
+        doc.RootElement.GetProperty("DatabaseChanged").GetBoolean().Should().BeFalse();
+    }
+
+    [Fact(DisplayName = "execute_readonly_sql: 唯讀驗證擋下的例外應回傳訊息")]
+    public async Task ExecuteReadonlySql_ValidatorRejected_ShouldReturnMessage()
+    {
+        var repo = Substitute.For<ISqlQueryRepository>();
+        repo.ExecuteQueryAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns<Task<DataTable>>(_ => throw new InvalidOperationException("查詢僅支援 SELECT 等唯讀操作"));
+
+        var result = await SqlTools.ExecuteReadonlySql(repo, "WITH cte AS (SELECT 1 AS A) DELETE FROM cte");
+
+        result.Should().Contain("唯讀");
     }
 }

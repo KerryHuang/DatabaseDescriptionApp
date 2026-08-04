@@ -23,16 +23,6 @@ public static class SqlTools
         ISqlQueryRepository sqlQueryRepository,
         [Description("要執行的 SQL 查詢語句（僅限 SELECT 等唯讀操作）")] string sql)
     {
-        // 基本的安全檢查：阻擋明顯的寫入操作
-        var normalizedSql = sql.Trim().ToUpperInvariant();
-        var dangerousKeywords = new[] { "INSERT ", "UPDATE ", "DELETE ", "DROP ", "ALTER ", "CREATE ", "TRUNCATE ", "EXEC ", "EXECUTE " };
-
-        foreach (var keyword in dangerousKeywords)
-        {
-            if (normalizedSql.StartsWith(keyword, StringComparison.Ordinal))
-                return $"安全限制：不允許執行 {keyword.Trim()} 操作。此工具僅支援唯讀查詢。";
-        }
-
         try
         {
             var dataTable = await sqlQueryRepository.ExecuteQueryAsync(sql);
@@ -144,6 +134,65 @@ public static class SqlTools
         catch (Exception ex)
         {
             return $"Dry run 執行失敗：{ex.Message}";
+        }
+    }
+
+    /// <summary>
+    /// 實際執行單一 DML（僅限非正式環境；預設預演，confirm:true 才 COMMIT）
+    /// </summary>
+    [McpServerTool, Description("實際執行單一 DML（INSERT/UPDATE/DELETE）（⚠️ 破壞性操作：confirm:true 時會 COMMIT 寫入資料庫；僅限非正式環境連線，Production 一律拒絕；預設 confirm=false 僅預演，回報影響筆數與前後對照，需 confirm:true 才實際執行）")]
+    public static async Task<string> ExecuteSql(
+        IDmlExecutionService dmlExecutionService,
+        [Description("要執行的單一 DML 陳述式（INSERT/UPDATE/DELETE）")] string sql,
+        [Description("是否實際執行（預設 false 僅預演）")] bool confirm = false)
+    {
+        try
+        {
+            var result = await dmlExecutionService.ExecuteAsync(sql, confirm);
+
+            if (!result.IsValid)
+            {
+                return JsonSerializer.Serialize(new
+                {
+                    Valid = false,
+                    result.RejectReason,
+                    SyntaxErrors = result.SyntaxErrors.Select(e => new { e.Line, e.Column, e.Message }),
+                    Committed = false,
+                    DatabaseChanged = false
+                }, JsonOptions);
+            }
+
+            if (result.ExecutionError != null)
+            {
+                return JsonSerializer.Serialize(new
+                {
+                    Valid = true,
+                    StatementType = result.StatementType.ToString(),
+                    result.ExecutionError,
+                    result.Warnings,
+                    Committed = false,
+                    DatabaseChanged = false
+                }, JsonOptions);
+            }
+
+            return JsonSerializer.Serialize(new
+            {
+                Valid = true,
+                StatementType = result.StatementType.ToString(),
+                result.AffectedRowCount,
+                PreviewColumns = result.PreviewTable?.Columns.Cast<DataColumn>()
+                    .Select(c => c.ColumnName).ToArray(),
+                PreviewRows = result.PreviewTable == null ? null : DataTableToRows(result.PreviewTable),
+                result.PreviewTruncated,
+                result.Warnings,
+                result.Committed,
+                DatabaseChanged = result.Committed,
+                Hint = result.Committed ? null : "以上為預演結果（已回滾）。確認無誤後加 confirm:true 實際執行。"
+            }, JsonOptions);
+        }
+        catch (Exception ex)
+        {
+            return $"DML 執行失敗：{ex.Message}";
         }
     }
 

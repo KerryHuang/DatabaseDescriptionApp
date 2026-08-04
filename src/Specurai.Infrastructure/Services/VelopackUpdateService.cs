@@ -54,7 +54,7 @@ public sealed class VelopackUpdateService : IUpdateService
             {
                 NewVersion = target.Version.ToString(),
                 ReleaseNotes = target.NotesMarkdown ?? string.Empty,
-                ReleaseUrl = $"https://github.com/releases/tag/v{target.Version}",
+                ReleaseUrl = $"{_githubRepoUrl}/releases/tag/v{target.Version}",
                 CanAutoApply = true,
             };
         }

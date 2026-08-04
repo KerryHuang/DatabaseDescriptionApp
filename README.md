@@ -13,7 +13,7 @@
 - [使用](#使用)
   - [桌面應用程式快捷鍵](#桌面應用程式快捷鍵)
   - [CLI 命令](#cli-命令)
-  - [MCP Server 工具清單](#mcp-server-工具清單56-個)
+  - [MCP Server 工具清單](#mcp-server-工具清單57-個)
 - [技術架構](#技術架構)
 - [從原始碼建置](#從原始碼建置)
 - [連線設定共用位置](#連線設定共用位置)
@@ -82,7 +82,7 @@ specurai tables list
 | 索引管理 | 缺少索引建議、未使用索引清理 | Ctrl+I / Ctrl+J |
 | 維護計劃 | 精靈式建立 SQL Agent Job：備份、還原、CHECKDB 排程、Recovery Model、使用者權限、autogrowth 調整、資料檔預擴 | Ctrl+Shift+D |
 | Excel 匯出 | 全庫規格一鍵匯出 | Ctrl+E |
-| MCP Server | 56 個 AI 工具，共用桌面連線設定，支援所有 MCP 客戶端 | — |
+| MCP Server | 57 個 AI 工具，共用桌面連線設定，支援所有 MCP 客戶端 | — |
 | 自動更新 | 啟動時背景檢查 GitHub Release，新版本以右上角徽章通知；Windows/Linux 一鍵更新，macOS 以對話框提供下載連結與 `xattr` 指令 | — |
 
 詳細操作步驟請見 [docs/UserGuide.md](docs/UserGuide.md)。
@@ -388,6 +388,8 @@ specurai describe column dbo.Users.Email "電子郵件"
 # SQL 查詢與搜尋
 specurai sql query "SELECT TOP 10 * FROM dbo.Users"
 specurai sql dry-run "UPDATE dbo.Users SET Name = N'新名' WHERE Id = 1"   # 預演 DML，一律回滾
+specurai sql execute "UPDATE dbo.Users SET Name = N'新名' WHERE Id = 1"   # 僅限非正式環境，預設先預演
+specurai sql execute "UPDATE dbo.Users SET Name = N'新名' WHERE Id = 1" --confirm   # 加 --confirm 才實際 COMMIT
 specurai sql search-columns Email --all-profiles
 
 # 匯出
@@ -431,7 +433,7 @@ specurai --json perf waits --top 5
 specurai --json schema compare --base "正式" --target "測試"
 ```
 
-### MCP Server 工具清單（56 個）
+### MCP Server 工具清單（57 個）
 
 ⚠️ 標記表示寫入或破壞性操作。
 
@@ -466,8 +468,9 @@ specurai --json schema compare --base "正式" --target "測試"
 
 | 工具 | 說明 |
 |------|------|
-| `execute_readonly_sql` | 唯讀 SQL |
+| `execute_readonly_sql` | 唯讀 SQL（ScriptDom AST 白名單驗證，僅放行 SELECT，擋 CTE-DML、多句批次、SELECT INTO、EXEC） |
 | `dry_run_sql` | Dry Run 預演單一 DML（一律回滾） |
+| `execute_sql` | 實際執行單一 DML ⚠️（僅限非正式環境；預設 `confirm=false` 僅預演，`confirm:true` 才 COMMIT；Production 一律拒絕） |
 | `search_columns` / `search_columns_multi_database` | 欄位名稱搜尋（單/多資料庫） |
 | `get_create_table_sql` | 產生 CREATE TABLE |
 

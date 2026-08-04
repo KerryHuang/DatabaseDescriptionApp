@@ -28,6 +28,7 @@ public partial class MainWindowViewModel : ViewModelBase
     private readonly ISqlDryRunRepository? _sqlDryRunRepository;
     private readonly IUpdateSqlGenerator? _updateSqlGenerator;
     private readonly IColumnTypeRepository? _columnTypeRepository;
+    private readonly IDmlExecutionService? _dmlExecutionService;
 
     [ObservableProperty]
     private ObjectTreeViewModel? _objectTree;
@@ -120,7 +121,8 @@ public partial class MainWindowViewModel : ViewModelBase
         IUpdateSqlGenerator updateSqlGenerator,
         IColumnTypeRepository columnTypeRepository,
         ObjectTreeViewModel objectTree,
-        UpdateNotificationViewModel updateNotification)
+        UpdateNotificationViewModel updateNotification,
+        IDmlExecutionService? dmlExecutionService = null)
     {
         _connectionManager = connectionManager;
         _exportService = exportService;
@@ -129,6 +131,7 @@ public partial class MainWindowViewModel : ViewModelBase
         _sqlDryRunRepository = sqlDryRunRepository;
         _updateSqlGenerator = updateSqlGenerator;
         _columnTypeRepository = columnTypeRepository;
+        _dmlExecutionService = dmlExecutionService;
         ObjectTree = objectTree;
         UpdateNotification = updateNotification;
 
@@ -416,7 +419,8 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         if (_sqlQueryRepository == null || _connectionManager == null) return;
 
-        var doc = new SqlQueryDocumentViewModel(_sqlQueryRepository, _connectionManager, _sqlDryRunRepository, _updateSqlGenerator);
+        var doc = new SqlQueryDocumentViewModel(_sqlQueryRepository, _connectionManager, _sqlDryRunRepository, _updateSqlGenerator, _dmlExecutionService);
+        doc.ConfirmExecuteCallback = ConfirmSaveCallback;
         doc.CloseRequested += OnDocumentCloseRequested;
         Documents.Add(doc);
         SelectedDocument = doc;
@@ -431,7 +435,8 @@ public partial class MainWindowViewModel : ViewModelBase
         if (table.Type != "BASE TABLE" && table.Type != "VIEW") return;
 
         var sql = $"SELECT TOP 200 * FROM [{table.Schema}].[{table.Name}]";
-        var doc = new SqlQueryDocumentViewModel(_sqlQueryRepository, _connectionManager, _sqlDryRunRepository, _updateSqlGenerator);
+        var doc = new SqlQueryDocumentViewModel(_sqlQueryRepository, _connectionManager, _sqlDryRunRepository, _updateSqlGenerator, _dmlExecutionService);
+        doc.ConfirmExecuteCallback = ConfirmSaveCallback;
         doc.CloseRequested += OnDocumentCloseRequested;
         Documents.Add(doc);
         SelectedDocument = doc;

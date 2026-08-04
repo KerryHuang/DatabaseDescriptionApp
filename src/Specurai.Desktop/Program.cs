@@ -48,7 +48,7 @@ sealed class Program
             var currentVersion = typeof(MainWindowViewModel).Assembly.GetName().Version?.ToString(3) ?? "0.0.0";
             return UpdateServiceFactory.Create(
                 sp.GetRequiredService<HttpClient>(),
-                owner: "kerryhuang317",
+                owner: "KerryHuang",
                 repo: "DatabaseDescriptionApp",
                 currentVersion: currentVersion);
         });

@@ -470,9 +470,19 @@ public partial class SqlQueryDocumentViewModel : DocumentViewModel
                 return;
             }
 
+            // 跟隨目前連線時，SelectedProfile 可能是開分頁當下的快照，與執行當下的實際連線／資料庫不同步
+            // （使用者事後於側邊欄切換連線或資料庫）；確認訊息一律以執行當下的真實目標為準。
+            var targetName = _localConnectionString == null
+                ? _connectionManager?.GetCurrentProfile()?.Name ?? SelectedProfile?.Name
+                : SelectedProfile?.Name;
+            var targetDatabase = _localConnectionString == null
+                ? _connectionManager?.GetCurrentDatabase()
+                : SelectedProfile?.Database;
+            var targetNote = string.IsNullOrEmpty(targetDatabase) ? "" : $"（資料庫：{targetDatabase}）";
+
             var confirmed = ConfirmExecuteCallback != null
                 && await ConfirmExecuteCallback(
-                    $"將對「{SelectedProfile?.Name}」執行 {preview.StatementType}，影響 {preview.AffectedRowCount} 筆。\n" +
+                    $"將對「{targetName}」{targetNote}執行 {preview.StatementType}，影響 {preview.AffectedRowCount} 筆。\n" +
                     "此操作會 COMMIT 寫入資料庫，確定執行？");
 
             if (!confirmed)
@@ -522,7 +532,8 @@ public partial class SqlQueryDocumentViewModel : DocumentViewModel
 
             RowCount = result.AffectedRowCount;
             DryRunWarnings = string.Join("\n", result.Warnings);
-            StatusMessage = $"執行完成{selectionNote}：影響 {result.AffectedRowCount} 筆（{result.StatementType}）｜已寫入資料庫";
+            var committedNote = result.Committed ? "已寫入資料庫" : "未確認已寫入，請檢查";
+            StatusMessage = $"執行完成{selectionNote}：影響 {result.AffectedRowCount} 筆（{result.StatementType}）｜{committedNote}";
             AddToHistory(sql);
         }
         catch (Exception ex)

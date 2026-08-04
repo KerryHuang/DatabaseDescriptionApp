@@ -102,4 +102,55 @@ public class SqlQueryDocumentViewModelDmlTests
         asked.Should().BeFalse();
         vm.StatusMessage.Should().Contain("陳述式");
     }
+
+    [Fact(DisplayName = "CanExecuteDml_切換至已停用連線_應為false")]
+    public void CanExecuteDml_SwitchToDisabledConnection_ShouldBeFalse()
+    {
+        var current = Profile(DatabaseEnvironment.Testing, "目前連線");
+        var other = Profile(DatabaseEnvironment.Testing, "已停用連線");
+        var cm = Substitute.For<IConnectionManager>();
+        cm.GetEnabledProfiles().Returns([current, other]);
+        cm.GetCurrentProfile().Returns(current);
+        cm.GetConnectionString(other.Id).Returns((string?)null);
+        var queryRepo = Substitute.For<ISqlQueryRepository>();
+
+        var vm = new SqlQueryDocumentViewModel(
+            queryRepo, cm,
+            Substitute.For<ISqlDryRunRepository>(),
+            updateSqlGenerator: null,
+            dmlExecutionService: Substitute.For<IDmlExecutionService>());
+
+        vm.SelectedProfile = other;
+
+        vm.CanExecuteDml.Should().BeFalse();
+    }
+
+    [Fact(DisplayName = "ExecuteDml_連線已停用_不應呼叫服務")]
+    public async Task ExecuteDml_SelectedConnectionDisabled_ShouldNotCallService()
+    {
+        var current = Profile(DatabaseEnvironment.Testing, "目前連線");
+        var other = Profile(DatabaseEnvironment.Testing, "已停用連線");
+        var cm = Substitute.For<IConnectionManager>();
+        cm.GetEnabledProfiles().Returns([current, other]);
+        cm.GetCurrentProfile().Returns(current);
+        cm.GetConnectionString(other.Id).Returns((string?)null);
+        var queryRepo = Substitute.For<ISqlQueryRepository>();
+        var service = Substitute.For<IDmlExecutionService>();
+
+        var vm = new SqlQueryDocumentViewModel(
+            queryRepo, cm,
+            Substitute.For<ISqlDryRunRepository>(),
+            updateSqlGenerator: null,
+            dmlExecutionService: service);
+
+        vm.SelectedProfile = other;
+        vm.SqlText = "DELETE FROM T";
+        vm.ConfirmExecuteCallback = _ => Task.FromResult(true);
+
+        await vm.ExecuteDmlCommand.ExecuteAsync(null);
+
+        await service.DidNotReceive().ExecuteAsync(
+            Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<Guid?>(), Arg.Any<CancellationToken>());
+        vm.StatusMessage.Should().Contain("已停用");
+    }
 }

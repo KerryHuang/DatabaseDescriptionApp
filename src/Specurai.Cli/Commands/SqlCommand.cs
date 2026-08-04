@@ -18,6 +18,7 @@ public static class SqlCommand
         var command = new Command("sql", "SQL 查詢");
         command.AddCommand(CreateQueryCommand());
         command.AddCommand(CreateDryRunCommand());
+        command.AddCommand(CreateExecuteCommand());
         command.AddCommand(CreateSearchColumnsCommand());
         return command;
     }
@@ -156,122 +157,198 @@ public static class SqlCommand
         }, sqlArg);
 
         return command;
+    }
 
-        // 將預覽表轉置為「一個來源欄位一列」的呈現：
-        // UPDATE 的 舊_欄位/新_欄位 別名配對成「欄位｜舊值｜新值」；
-        // INSERT/DELETE（或無法配對時）退回「欄位｜值」單值呈現。
-        // 多筆預覽時加上「筆」欄區分列序。
-        static Table BuildPreviewTable(DataTable preview)
+    private static Command CreateExecuteCommand()
+    {
+        var sqlArg = new Argument<string>("sql", "單一 DML 陳述式（INSERT/UPDATE/DELETE）");
+        var confirmOption = new Option<bool>("--confirm", "實際執行並 COMMIT（未指定時僅預演）");
+        var command = new Command("execute",
+            "實際執行單一 DML（僅限非正式環境；預設先預演，加 --confirm 才寫入資料庫）") { sqlArg, confirmOption };
+
+        command.SetHandler(async (sql, confirm) =>
         {
-            // 解析 舊_/新_ 前綴配對（別名由 SqlDryRunAnalyzer 產生）
-            var paired = true;
-            foreach (DataColumn col in preview.Columns)
+            var service = Program.Services.GetRequiredService<IDmlExecutionService>();
+
+            try
             {
-                if (!col.ColumnName.StartsWith("舊_", StringComparison.Ordinal)
-                    && !col.ColumnName.StartsWith("新_", StringComparison.Ordinal))
+                var result = await service.ExecuteAsync(sql, confirm);
+
+                if (CliOutput.JsonMode)
                 {
-                    paired = false;
-                    break;
+                    OutputJson(result);
+                    if (!result.IsValid || result.ExecutionError != null)
+                        Environment.ExitCode = 1;
+                    return;
+                }
+
+                if (!result.IsValid)
+                {
+                    foreach (var error in result.SyntaxErrors)
+                        CliOutput.Error($"語法錯誤（第 {error.Line} 行第 {error.Column} 列）：{error.Message}");
+                    if (result.RejectReason != null)
+                        CliOutput.Error(result.RejectReason);
+                    Environment.ExitCode = 1;
+                    return;
+                }
+
+                if (result.ExecutionError != null)
+                {
+                    CliOutput.Error(result.ExecutionError);
+                    foreach (var warning in result.Warnings)
+                        CliOutput.Warning(warning);
+                    CliOutput.Info("已回滾，資料庫未變更。");
+                    Environment.ExitCode = 1;
+                    return;
+                }
+
+                CliOutput.Info($"語法：有效（{result.StatementType}）");
+                CliOutput.Info($"影響筆數：{result.AffectedRowCount} 筆");
+
+                if (result.PreviewTable is { Rows.Count: > 0 })
+                {
+                    AnsiConsole.Write(BuildPreviewTable(result.PreviewTable));
+                    if (result.PreviewTruncated)
+                        CliOutput.Info($"預覽僅顯示前 {result.PreviewTable.Rows.Count} 筆。");
+                }
+
+                foreach (var warning in result.Warnings)
+                    CliOutput.Warning(warning);
+
+                if (result.Committed)
+                {
+                    CliOutput.Info("已 COMMIT，資料庫已變更。");
+                }
+                else
+                {
+                    CliOutput.Info("以上為預演結果（已回滾）。確認無誤後加 --confirm 實際執行。");
                 }
             }
-
-            // fields：來源欄位名稱 → (舊值欄索引, 新值欄索引)；單值模式時只用 OldIndex
-            var fields = new List<(string Name, int OldIndex, int NewIndex)>();
-            var fieldIndexByName = new Dictionary<string, int>();
-            for (var i = 0; i < preview.Columns.Count; i++)
+            catch (Exception ex)
             {
-                var columnName = preview.Columns[i].ColumnName;
-                var isOld = !paired || columnName.StartsWith("舊_", StringComparison.Ordinal);
-                var name = paired ? columnName[2..] : columnName;
+                CliOutput.Error($"執行失敗：{ex.Message}");
+                Environment.ExitCode = 1;
+            }
+        }, sqlArg, confirmOption);
 
-                if (!fieldIndexByName.TryGetValue(name, out var fi))
-                {
-                    fi = fields.Count;
-                    fieldIndexByName[name] = fi;
-                    fields.Add((name, -1, -1));
-                }
-                var field = fields[fi];
-                fields[fi] = isOld ? (field.Name, i, field.NewIndex) : (field.Name, field.OldIndex, i);
-            }
+        return command;
+    }
 
-            var showRowNumber = preview.Rows.Count > 1;
-            var table = new Table().Title("前後資料對照");
-            if (showRowNumber)
-                table.AddColumn("筆");
-            table.AddColumn("欄位");
-            if (paired)
+    // 將預覽表轉置為「一個來源欄位一列」的呈現：
+    // UPDATE 的 舊_欄位/新_欄位 別名配對成「欄位｜舊值｜新值」；
+    // INSERT/DELETE（或無法配對時）退回「欄位｜值」單值呈現。
+    // 多筆預覽時加上「筆」欄區分列序。
+    private static Table BuildPreviewTable(DataTable preview)
+    {
+        // 解析 舊_/新_ 前綴配對（別名由 SqlDryRunAnalyzer 產生）
+        var paired = true;
+        foreach (DataColumn col in preview.Columns)
+        {
+            if (!col.ColumnName.StartsWith("舊_", StringComparison.Ordinal)
+                && !col.ColumnName.StartsWith("新_", StringComparison.Ordinal))
             {
-                table.AddColumn("舊值");
-                table.AddColumn("新值");
+                paired = false;
+                break;
             }
-            else
-            {
-                table.AddColumn("值");
-            }
-
-            var rowNumber = 0;
-            foreach (DataRow row in preview.Rows)
-            {
-                rowNumber++;
-                foreach (var (name, oldIndex, newIndex) in fields)
-                {
-                    var cells = new List<string>();
-                    if (showRowNumber)
-                        cells.Add(rowNumber.ToString());
-                    cells.Add(name.EscapeMarkup());
-                    cells.Add(oldIndex >= 0 ? FormatPreviewCell(row[oldIndex]) : "");
-                    if (paired)
-                        cells.Add(newIndex >= 0 ? FormatPreviewCell(row[newIndex]) : "");
-                    table.AddRow(cells.ToArray());
-                }
-            }
-            return table;
         }
 
-        // 將預覽儲存格整理後再輸出：先去除 char 欄位的尾端填補空白，再截斷過長內容，
-        // 避免超長字串進一步放大 Spectre.Console 的版面計算成本。
-        static string FormatPreviewCell(object value)
+        // fields：來源欄位名稱 → (舊值欄索引, 新值欄索引)；單值模式時只用 OldIndex
+        var fields = new List<(string Name, int OldIndex, int NewIndex)>();
+        var fieldIndexByName = new Dictionary<string, int>();
+        for (var i = 0; i < preview.Columns.Count; i++)
         {
-            const int MaxCellLength = 60;
-            var text = (value == DBNull.Value ? "" : value?.ToString() ?? "").Trim();
-            if (text.Length > MaxCellLength)
+            var columnName = preview.Columns[i].ColumnName;
+            var isOld = !paired || columnName.StartsWith("舊_", StringComparison.Ordinal);
+            var name = paired ? columnName[2..] : columnName;
+
+            if (!fieldIndexByName.TryGetValue(name, out var fi))
             {
-                // 避免從代理對（surrogate pair）中間截斷產生無效字元
-                var cut = char.IsHighSurrogate(text[MaxCellLength - 1]) ? MaxCellLength - 1 : MaxCellLength;
-                text = text[..cut] + "…";
+                fi = fields.Count;
+                fieldIndexByName[name] = fi;
+                fields.Add((name, -1, -1));
             }
-            return text.EscapeMarkup();
+            var field = fields[fi];
+            fields[fi] = isOld ? (field.Name, i, field.NewIndex) : (field.Name, field.OldIndex, i);
         }
 
-        static void OutputJson(Specurai.Domain.Entities.DryRunResult result)
+        var showRowNumber = preview.Rows.Count > 1;
+        var table = new Table().Title("前後資料對照");
+        if (showRowNumber)
+            table.AddColumn("筆");
+        table.AddColumn("欄位");
+        if (paired)
         {
-            var previewRows = new List<Dictionary<string, object?>>();
-            if (result.PreviewTable != null)
-            {
-                foreach (DataRow row in result.PreviewTable.Rows)
-                {
-                    var dict = new Dictionary<string, object?>();
-                    foreach (DataColumn col in result.PreviewTable.Columns)
-                        dict[col.ColumnName] = row[col] == DBNull.Value ? null : row[col];
-                    previewRows.Add(dict);
-                }
-            }
-
-            CliOutput.Success(new
-            {
-                Valid = result.IsValid,
-                StatementType = result.StatementType.ToString(),
-                result.RejectReason,
-                SyntaxErrors = result.SyntaxErrors.Select(e => new { e.Line, e.Column, e.Message }).ToList(),
-                result.AffectedRowCount,
-                PreviewRows = previewRows,
-                result.PreviewTruncated,
-                result.Warnings,
-                result.ExecutionError,
-                RolledBack = result.IsValid,
-                DatabaseChanged = false
-            }, previewRows.Count);
+            table.AddColumn("舊值");
+            table.AddColumn("新值");
         }
+        else
+        {
+            table.AddColumn("值");
+        }
+
+        var rowNumber = 0;
+        foreach (DataRow row in preview.Rows)
+        {
+            rowNumber++;
+            foreach (var (name, oldIndex, newIndex) in fields)
+            {
+                var cells = new List<string>();
+                if (showRowNumber)
+                    cells.Add(rowNumber.ToString());
+                cells.Add(name.EscapeMarkup());
+                cells.Add(oldIndex >= 0 ? FormatPreviewCell(row[oldIndex]) : "");
+                if (paired)
+                    cells.Add(newIndex >= 0 ? FormatPreviewCell(row[newIndex]) : "");
+                table.AddRow(cells.ToArray());
+            }
+        }
+        return table;
+    }
+
+    // 將預覽儲存格整理後再輸出：先去除 char 欄位的尾端填補空白，再截斷過長內容，
+    // 避免超長字串進一步放大 Spectre.Console 的版面計算成本。
+    private static string FormatPreviewCell(object value)
+    {
+        const int MaxCellLength = 60;
+        var text = (value == DBNull.Value ? "" : value?.ToString() ?? "").Trim();
+        if (text.Length > MaxCellLength)
+        {
+            // 避免從代理對（surrogate pair）中間截斷產生無效字元
+            var cut = char.IsHighSurrogate(text[MaxCellLength - 1]) ? MaxCellLength - 1 : MaxCellLength;
+            text = text[..cut] + "…";
+        }
+        return text.EscapeMarkup();
+    }
+
+    private static void OutputJson(Specurai.Domain.Entities.DryRunResult result)
+    {
+        var previewRows = new List<Dictionary<string, object?>>();
+        if (result.PreviewTable != null)
+        {
+            foreach (DataRow row in result.PreviewTable.Rows)
+            {
+                var dict = new Dictionary<string, object?>();
+                foreach (DataColumn col in result.PreviewTable.Columns)
+                    dict[col.ColumnName] = row[col] == DBNull.Value ? null : row[col];
+                previewRows.Add(dict);
+            }
+        }
+
+        CliOutput.Success(new
+        {
+            Valid = result.IsValid,
+            StatementType = result.StatementType.ToString(),
+            result.RejectReason,
+            SyntaxErrors = result.SyntaxErrors.Select(e => new { e.Line, e.Column, e.Message }).ToList(),
+            result.AffectedRowCount,
+            PreviewRows = previewRows,
+            result.PreviewTruncated,
+            result.Warnings,
+            result.ExecutionError,
+            RolledBack = result.IsValid && !result.Committed,
+            DatabaseChanged = result.Committed,
+            result.Committed
+        }, previewRows.Count);
     }
 
     private static Command CreateSearchColumnsCommand()

@@ -18,6 +18,9 @@ public class SqlReadOnlyValidationResult
 /// 唯讀 SQL 驗證器：以 ScriptDom 解析整個批次，逐句白名單檢查（純離線，不碰資料庫）。
 /// 允許：SELECT（不含 INTO）、DECLARE、變數 SET、工作階段 SET 選項、SET ISOLATION LEVEL。
 /// 其餘（DML/DDL/EXEC/MERGE/TRUNCATE 等）一律拒絕；EXEC 因無法靜態判斷 SP 內容是否唯讀，一律拒絕。
+/// 已知限制（不改行為，僅記錄）：OPENQUERY／OPENROWSET 在 AST 上仍是 SELECT 語句會被放行，
+/// 實際能否寫入遠端資料仍取決於 linked server／ad hoc distributed queries 是否啟用；
+/// SELECT NEXT VALUE FOR 雖屬唯讀查詢，但會消耗 SEQUENCE 序號。
 /// </summary>
 public class SqlReadOnlyValidator
 {

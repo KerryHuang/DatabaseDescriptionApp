@@ -158,6 +158,47 @@ public class SqlToolsTests
         doc.RootElement.GetProperty("DatabaseChanged").GetBoolean().Should().BeTrue();
     }
 
+    [Fact(DisplayName = "execute_sql: COMMIT 結果不確定時 DatabaseChanged 應為 null")]
+    public async Task ExecuteSql_CommitUncertain_ShouldReturnNullDatabaseChanged()
+    {
+        var service = Substitute.For<IDmlExecutionService>();
+        service.ExecuteAsync(Arg.Any<string>(), true, null, Arg.Any<CancellationToken>())
+            .Returns(new DryRunResult
+            {
+                IsValid = true,
+                StatementType = DryRunStatementType.Delete,
+                ExecutionError = "COMMIT 失敗，交易結果不確定，請查詢資料庫確認：連線逾時",
+                CommitUncertain = true
+            });
+
+        var result = await SqlTools.ExecuteSql(service, "DELETE FROM T WHERE Id < 3", confirm: true);
+
+        using var doc = JsonDocument.Parse(result);
+        doc.RootElement.GetProperty("CommitUncertain").GetBoolean().Should().BeTrue();
+        doc.RootElement.GetProperty("DatabaseChanged").ValueKind.Should().Be(JsonValueKind.Null);
+        doc.RootElement.GetProperty("Committed").ValueKind.Should().Be(JsonValueKind.Null);
+    }
+
+    [Fact(DisplayName = "execute_sql: 一般執行失敗（非 COMMIT 不確定）DatabaseChanged 應為 false")]
+    public async Task ExecuteSql_ExecutionErrorNotUncertain_ShouldReturnFalseDatabaseChanged()
+    {
+        var service = Substitute.For<IDmlExecutionService>();
+        service.ExecuteAsync(Arg.Any<string>(), true, null, Arg.Any<CancellationToken>())
+            .Returns(new DryRunResult
+            {
+                IsValid = true,
+                StatementType = DryRunStatementType.Delete,
+                ExecutionError = "執行失敗（已回滾）：REFERENCE 條件約束衝突",
+                CommitUncertain = false
+            });
+
+        var result = await SqlTools.ExecuteSql(service, "DELETE FROM T WHERE Id < 3", confirm: true);
+
+        using var doc = JsonDocument.Parse(result);
+        doc.RootElement.GetProperty("CommitUncertain").GetBoolean().Should().BeFalse();
+        doc.RootElement.GetProperty("DatabaseChanged").GetBoolean().Should().BeFalse();
+    }
+
     [Fact(DisplayName = "execute_sql: 正式環境拒絕應回傳原因")]
     public async Task ExecuteSql_ProductionRejected_ShouldReturnReason()
     {

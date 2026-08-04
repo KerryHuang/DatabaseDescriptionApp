@@ -197,7 +197,9 @@ public static class SqlCommand
                     CliOutput.Error(result.ExecutionError);
                     foreach (var warning in result.Warnings)
                         CliOutput.Warning(warning);
-                    CliOutput.Info("已回滾，資料庫未變更。");
+                    CliOutput.Info(result.CommitUncertain
+                        ? "交易結果不確定，請查詢資料庫確認。"
+                        : "已回滾，資料庫未變更。");
                     Environment.ExitCode = 1;
                     return;
                 }
@@ -334,21 +336,59 @@ public static class SqlCommand
             }
         }
 
-        CliOutput.Success(new
+        // COMMIT 失敗、交易結果不確定時，RolledBack／DatabaseChanged／Committed 一律輸出 JSON null，
+        // 避免誤導機器消費者判斷資料庫未變更（見 CommitUncertain 定義）。
+        // 全域 JsonOptions 設有 WhenWritingNull，會直接省略整個 key；改用具名 DTO 搭配
+        // JsonIgnore(Condition = Never) 覆寫，確保這三個欄位就算是 null 也一定會出現在輸出中。
+        bool? rolledBack = result.CommitUncertain ? null : result.IsValid && !result.Committed;
+        bool? databaseChanged = result.CommitUncertain ? null : result.Committed;
+        bool? committed = result.CommitUncertain ? null : result.Committed;
+
+        CliOutput.Success(new DryRunJsonResult
         {
             Valid = result.IsValid,
             StatementType = result.StatementType.ToString(),
-            result.RejectReason,
+            RejectReason = result.RejectReason,
             SyntaxErrors = result.SyntaxErrors.Select(e => new { e.Line, e.Column, e.Message }).ToList(),
-            result.AffectedRowCount,
+            AffectedRowCount = result.AffectedRowCount,
             PreviewRows = previewRows,
-            result.PreviewTruncated,
-            result.Warnings,
-            result.ExecutionError,
-            RolledBack = result.IsValid && !result.Committed,
-            DatabaseChanged = result.Committed,
-            result.Committed
+            PreviewTruncated = result.PreviewTruncated,
+            Warnings = result.Warnings,
+            ExecutionError = result.ExecutionError,
+            RolledBack = rolledBack,
+            DatabaseChanged = databaseChanged,
+            Committed = committed,
+            CommitUncertain = result.CommitUncertain
         }, previewRows.Count);
+    }
+
+    /// <summary>
+    /// dry-run／execute JSON 輸出結構。RolledBack／DatabaseChanged／Committed 在 COMMIT
+    /// 結果不確定時皆為 null，需 JsonIgnore(Never) 覆寫全域的 WhenWritingNull 設定，
+    /// 確保欄位一定出現（值為 JSON null）而非被整個省略。
+    /// </summary>
+    private class DryRunJsonResult
+    {
+        public bool Valid { get; init; }
+        public required string StatementType { get; init; }
+        public string? RejectReason { get; init; }
+        public required IReadOnlyList<object> SyntaxErrors { get; init; }
+        public int AffectedRowCount { get; init; }
+        public required IReadOnlyList<Dictionary<string, object?>> PreviewRows { get; init; }
+        public bool PreviewTruncated { get; init; }
+        public required IReadOnlyList<string> Warnings { get; init; }
+        public string? ExecutionError { get; init; }
+
+        [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.Never)]
+        public bool? RolledBack { get; init; }
+
+        [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.Never)]
+        public bool? DatabaseChanged { get; init; }
+
+        [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.Never)]
+        public bool? Committed { get; init; }
+
+        public bool CommitUncertain { get; init; }
     }
 
     private static Command CreateSearchColumnsCommand()

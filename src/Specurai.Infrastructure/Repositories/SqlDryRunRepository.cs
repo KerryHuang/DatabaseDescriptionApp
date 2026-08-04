@@ -185,7 +185,8 @@ public class SqlDryRunRepository : ISqlDryRunRepository, ISqlDmlExecuteRepositor
                         IsValid = true,
                         StatementType = analysis.StatementType,
                         Warnings = warnings,
-                        ExecutionError = $"COMMIT 失敗，交易結果不確定，請查詢資料庫確認：{ex.Message}"
+                        ExecutionError = $"COMMIT 失敗，交易結果不確定，請查詢資料庫確認：{ex.Message}",
+                        CommitUncertain = true
                     };
                 }
             }
@@ -247,7 +248,8 @@ public class SqlDryRunRepository : ISqlDryRunRepository, ISqlDmlExecuteRepositor
                         IsValid = true,
                         StatementType = analysis.StatementType,
                         Warnings = warnings,
-                        ExecutionError = $"COMMIT 失敗，交易結果不確定，請查詢資料庫確認：{ex.Message}"
+                        ExecutionError = $"COMMIT 失敗，交易結果不確定，請查詢資料庫確認：{ex.Message}",
+                        CommitUncertain = true
                     };
                 }
             }

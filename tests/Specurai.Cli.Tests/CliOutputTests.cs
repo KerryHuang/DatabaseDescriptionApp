@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using FluentAssertions;
 using Specurai.Cli.Output;
 
@@ -87,6 +88,29 @@ public class CliOutputTests : IDisposable
 
         output.Should().Contain("\"success\"");
         output.Should().Contain("true");
+    }
+
+    // 全域 JsonOptions 設有 WhenWritingNull，一般屬性為 null 時整個 key 會被省略。
+    // SqlCommand.OutputJson 對 RolledBack／DatabaseChanged／Committed 需要「值為 null 但 key 仍存在」
+    // （COMMIT 結果不確定時），因此標註 JsonIgnore(Condition = Never) 覆寫此行為。
+    // 這裡驗證該覆寫機制本身有效，不受全域省略設定影響。
+    private class NullableFieldDto
+    {
+        public bool Normal { get; init; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.Never)]
+        public bool? AlwaysPresent { get; init; }
+    }
+
+    [Fact(DisplayName = "Success: JsonIgnore(Never) 屬性應保留 null 值而非被省略")]
+    public void Success_JsonIgnoreNeverProperty_ShouldKeepNullKey()
+    {
+        var output = Capture(() => CliOutput.Success(new NullableFieldDto { Normal = true, AlwaysPresent = null }));
+
+        var doc = JsonDocument.Parse(output);
+        var data = doc.RootElement.GetProperty("data");
+        data.TryGetProperty("alwaysPresent", out var field).Should().BeTrue();
+        field.ValueKind.Should().Be(JsonValueKind.Null);
     }
 
     private string Capture(Action action)

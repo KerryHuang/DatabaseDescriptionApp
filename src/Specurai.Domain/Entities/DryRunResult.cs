@@ -29,7 +29,7 @@ public class DryRunSyntaxError
 }
 
 /// <summary>
-/// Dry Run 預演結果（永遠回滾，不會修改資料）
+/// DML 預演／執行結果：dry run 一律回滾；execute 成功時 COMMIT（見 <see cref="Committed"/>）。
 /// </summary>
 public class DryRunResult
 {
@@ -62,4 +62,7 @@ public class DryRunResult
 
     /// <summary>是否已 COMMIT 寫入資料庫（dry run 一律 false）</summary>
     public bool Committed { get; init; }
+
+    /// <summary>COMMIT 失敗、交易結果不確定時為 true；dry run 與一般執行失敗（COMMIT 前即失敗）皆為 false</summary>
+    public bool CommitUncertain { get; init; }
 }

@@ -29,6 +29,7 @@ public class SqlDmlExecuteRepositoryTests
 
         result.IsValid.Should().BeFalse();
         result.Committed.Should().BeFalse();
+        result.CommitUncertain.Should().BeFalse();
     }
 
     [Fact(DisplayName = "ExecuteAsync_語法錯誤_應回傳錯誤明細且未Commit")]

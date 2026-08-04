@@ -164,14 +164,19 @@ public static class SqlTools
 
             if (result.ExecutionError != null)
             {
+                // COMMIT 失敗、交易結果不確定時，Committed／DatabaseChanged 都不能斷言為 false，改輸出 null
+                bool? committed = result.CommitUncertain ? null : false;
+                bool? databaseChanged = result.CommitUncertain ? null : false;
+
                 return JsonSerializer.Serialize(new
                 {
                     Valid = true,
                     StatementType = result.StatementType.ToString(),
                     result.ExecutionError,
                     result.Warnings,
-                    Committed = false,
-                    DatabaseChanged = false
+                    Committed = committed,
+                    result.CommitUncertain,
+                    DatabaseChanged = databaseChanged
                 }, JsonOptions);
             }
 

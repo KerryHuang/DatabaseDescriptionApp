@@ -8,9 +8,12 @@ using Specurai.Infrastructure.Services;
 namespace Specurai.Infrastructure.Repositories;
 
 /// <summary>
-/// SQL Dry Run Repository 實作：在交易中執行單一 DML 擷取預演結果，最後一律 ROLLBACK
+/// SQL Dry Run Repository 實作：在交易中執行單一 DML 擷取預演結果。
+/// 同時實作 <see cref="ISqlDryRunRepository"/>（一律 ROLLBACK）與
+/// <see cref="ISqlDmlExecuteRepository"/>（成功時 COMMIT），兩者共用同一套
+/// 解析、OUTPUT 注入與 Trigger fallback 邏輯，只有交易收尾方式不同。
 /// </summary>
-public class SqlDryRunRepository : ISqlDryRunRepository
+public class SqlDryRunRepository : ISqlDryRunRepository, ISqlDmlExecuteRepository
 {
     /// <summary>前後對照預覽筆數上限</summary>
     private const int PreviewRowLimit = 100;
@@ -35,7 +38,26 @@ public class SqlDryRunRepository : ISqlDryRunRepository
         return await DryRunAsync(sql, connectionString, ct);
     }
 
-    public async Task<DryRunResult> DryRunAsync(string sql, string connectionString, CancellationToken ct = default)
+    public Task<DryRunResult> DryRunAsync(string sql, string connectionString, CancellationToken ct = default)
+        => RunAsync(sql, connectionString, commit: false, ct);
+
+    public async Task<DryRunResult> ExecuteAsync(string sql, CancellationToken ct = default)
+    {
+        var connectionString = _connectionStringProvider();
+        if (string.IsNullOrEmpty(connectionString))
+            throw new InvalidOperationException("未設定資料庫連線");
+
+        return await ExecuteAsync(sql, connectionString, ct);
+    }
+
+    public Task<DryRunResult> ExecuteAsync(string sql, string connectionString, CancellationToken ct = default)
+        => RunAsync(sql, connectionString, commit: true, ct);
+
+    /// <summary>
+    /// 共用核心：解析、OUTPUT 注入、Trigger fallback 邏輯與 DryRunAsync 完全相同，
+    /// 差異只在交易收尾——commit 為 true 時成功即 COMMIT，否則一律 ROLLBACK。
+    /// </summary>
+    private async Task<DryRunResult> RunAsync(string sql, string connectionString, bool commit, CancellationToken ct)
     {
         // 離線解析與驗證：不通過就不連資料庫
         var analysis = _analyzer.Analyze(sql);
@@ -51,7 +73,7 @@ public class SqlDryRunRepository : ISqlDryRunRepository
         }
 
         var warnings = new List<string>();
-        if (analysis.StatementType == DryRunStatementType.Insert)
+        if (!commit && analysis.StatementType == DryRunStatementType.Insert)
             warnings.Add("若目標資料表有 IDENTITY 欄位，序號在回滾後仍會被消耗。");
 
         await using var connection = new SqlConnection(connectionString);
@@ -62,7 +84,7 @@ public class SqlDryRunRepository : ISqlDryRunRepository
         if (analysis.HasUserOutputIntoClause)
         {
             warnings.Add("使用者自帶 OUTPUT INTO，結果已寫入指定目標（將隨交易回滾），僅回報影響筆數。");
-            return await ExecuteCountOnlyAsync(connection, sql, analysis, warnings, ct);
+            return await ExecuteCountOnlyAsync(connection, sql, analysis, warnings, commit, ct);
         }
 
         // OUTPUT 注入：UPDATE 需先查目標表欄位以產生 舊_欄位/新_欄位 別名對照
@@ -85,13 +107,13 @@ public class SqlDryRunRepository : ISqlDryRunRepository
 
         try
         {
-            return await ExecutePreviewAsync(connection, rewrittenSql, analysis, warnings, ct);
+            return await ExecutePreviewAsync(connection, rewrittenSql, analysis, warnings, commit, ct);
         }
         catch (SqlException ex) when (ex.Number == TriggerOutputErrorNumber && !analysis.HasUserOutputClause)
         {
             // 目標表有觸發程序：退回原句執行，只回報影響筆數
             warnings.Add("目標資料表有觸發程序（Trigger），無法提供前後資料對照，僅回報影響筆數。");
-            return await ExecuteCountOnlyAsync(connection, sql, analysis, warnings, ct);
+            return await ExecuteCountOnlyAsync(connection, sql, analysis, warnings, commit, ct);
         }
         catch (SqlException ex)
         {
@@ -100,45 +122,58 @@ public class SqlDryRunRepository : ISqlDryRunRepository
                 IsValid = true,
                 StatementType = analysis.StatementType,
                 Warnings = warnings,
-                ExecutionError = $"此語句實際執行將會失敗：{ex.Message}"
+                ExecutionError = commit
+                    ? $"執行失敗（已回滾）：{ex.Message}"
+                    : $"此語句實際執行將會失敗：{ex.Message}"
             };
         }
     }
 
     /// <summary>
-    /// 在交易中執行含 OUTPUT 的 DML，讀取前後對照後回滾
+    /// 在交易中執行含 OUTPUT 的 DML，讀取前後對照後依 commit 決定 COMMIT 或 ROLLBACK
     /// </summary>
     private static async Task<DryRunResult> ExecutePreviewAsync(
         SqlConnection connection, string sql, SqlDryRunAnalysis analysis,
-        List<string> warnings, CancellationToken ct)
+        List<string> warnings, bool commit, CancellationToken ct)
     {
         await using var transaction = (SqlTransaction)await connection.BeginTransactionAsync(ct);
+        var committed = false;
         try
         {
             await using var command = new SqlCommand(sql, connection, transaction) { CommandTimeout = 30 };
-            using var reader = await command.ExecuteReaderAsync(ct);
 
             var preview = new DataTable();
-            for (var i = 0; i < reader.FieldCount; i++)
+            var total = 0;
+            // reader 必須在 Commit 前關閉，因此用區塊限制其生命週期
             {
-                var name = reader.GetName(i);
-                // 未別名的 deleted.*/inserted.* 會產生重複欄位名稱，加序號避免 DataTable 衝突
-                if (preview.Columns.Contains(name))
-                    name = $"{name}_{i}";
-                preview.Columns.Add(name, typeof(object));
+                using var reader = await command.ExecuteReaderAsync(ct);
+                for (var i = 0; i < reader.FieldCount; i++)
+                {
+                    var name = reader.GetName(i);
+                    // 未別名的 deleted.*/inserted.* 會產生重複欄位名稱，加序號避免 DataTable 衝突
+                    if (preview.Columns.Contains(name))
+                        name = $"{name}_{i}";
+                    preview.Columns.Add(name, typeof(object));
+                }
+
+                while (await reader.ReadAsync(ct))
+                {
+                    total++;
+                    if (total > PreviewRowLimit)
+                        continue;
+
+                    var row = preview.NewRow();
+                    for (var i = 0; i < reader.FieldCount; i++)
+                        row[i] = reader.IsDBNull(i) ? DBNull.Value : reader.GetValue(i);
+                    preview.Rows.Add(row);
+                }
             }
 
-            var total = 0;
-            while (await reader.ReadAsync(ct))
+            if (commit)
             {
-                total++;
-                if (total > PreviewRowLimit)
-                    continue;
-
-                var row = preview.NewRow();
-                for (var i = 0; i < reader.FieldCount; i++)
-                    row[i] = reader.IsDBNull(i) ? DBNull.Value : reader.GetValue(i);
-                preview.Rows.Add(row);
+                // 交易收尾不使用呼叫端的取消權杖，確保必定送出
+                await transaction.CommitAsync(CancellationToken.None);
+                committed = true;
             }
 
             return new DryRunResult
@@ -148,35 +183,44 @@ public class SqlDryRunRepository : ISqlDryRunRepository
                 AffectedRowCount = total,
                 PreviewTable = preview,
                 PreviewTruncated = total > PreviewRowLimit,
-                Warnings = warnings
+                Warnings = warnings,
+                Committed = committed
             };
         }
         finally
         {
-            // 一律回滾（不使用呼叫端的取消權杖，確保回滾必定送出）
-            await transaction.RollbackAsync(CancellationToken.None);
+            if (!committed)
+                await transaction.RollbackAsync(CancellationToken.None);
         }
     }
 
     /// <summary>
-    /// Trigger fallback：在交易中執行原句，只取得影響筆數後回滾
+    /// Trigger fallback：在交易中執行原句，只取得影響筆數後依 commit 決定 COMMIT 或 ROLLBACK
     /// </summary>
     private static async Task<DryRunResult> ExecuteCountOnlyAsync(
         SqlConnection connection, string sql, SqlDryRunAnalysis analysis,
-        List<string> warnings, CancellationToken ct)
+        List<string> warnings, bool commit, CancellationToken ct)
     {
         await using var transaction = (SqlTransaction)await connection.BeginTransactionAsync(ct);
+        var committed = false;
         try
         {
             await using var command = new SqlCommand(sql, connection, transaction) { CommandTimeout = 30 };
             var affected = await command.ExecuteNonQueryAsync(ct);
+
+            if (commit)
+            {
+                await transaction.CommitAsync(CancellationToken.None);
+                committed = true;
+            }
 
             return new DryRunResult
             {
                 IsValid = true,
                 StatementType = analysis.StatementType,
                 AffectedRowCount = affected,
-                Warnings = warnings
+                Warnings = warnings,
+                Committed = committed
             };
         }
         catch (SqlException ex)
@@ -186,12 +230,15 @@ public class SqlDryRunRepository : ISqlDryRunRepository
                 IsValid = true,
                 StatementType = analysis.StatementType,
                 Warnings = warnings,
-                ExecutionError = $"此語句實際執行將會失敗：{ex.Message}"
+                ExecutionError = commit
+                    ? $"執行失敗（已回滾）：{ex.Message}"
+                    : $"此語句實際執行將會失敗：{ex.Message}"
             };
         }
         finally
         {
-            await transaction.RollbackAsync(CancellationToken.None);
+            if (!committed)
+                await transaction.RollbackAsync(CancellationToken.None);
         }
     }
 

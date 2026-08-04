@@ -171,9 +171,23 @@ public class SqlDryRunRepository : ISqlDryRunRepository, ISqlDmlExecuteRepositor
 
             if (commit)
             {
-                // 交易收尾不使用呼叫端的取消權杖，確保必定送出
-                await transaction.CommitAsync(CancellationToken.None);
-                committed = true;
+                try
+                {
+                    // 交易收尾不使用呼叫端的取消權杖，確保必定送出
+                    await transaction.CommitAsync(CancellationToken.None);
+                    committed = true;
+                }
+                catch (SqlException ex)
+                {
+                    // COMMIT 本身失敗（如提交過程中斷線）：結果不確定，不能宣稱已回滾
+                    return new DryRunResult
+                    {
+                        IsValid = true,
+                        StatementType = analysis.StatementType,
+                        Warnings = warnings,
+                        ExecutionError = $"COMMIT 失敗，交易結果不確定，請查詢資料庫確認：{ex.Message}"
+                    };
+                }
             }
 
             return new DryRunResult
@@ -190,7 +204,17 @@ public class SqlDryRunRepository : ISqlDryRunRepository, ISqlDmlExecuteRepositor
         finally
         {
             if (!committed)
-                await transaction.RollbackAsync(CancellationToken.None);
+            {
+                try
+                {
+                    await transaction.RollbackAsync(CancellationToken.None);
+                }
+                catch (SqlException)
+                {
+                    // 本地 rollback 失敗不得蓋掉原始例外：連線已斷時 SQL Server 會自行回滾未提交交易，
+                    // 本地 rollback 失敗不代表資料風險，吞掉即可
+                }
+            }
         }
     }
 
@@ -210,8 +234,22 @@ public class SqlDryRunRepository : ISqlDryRunRepository, ISqlDmlExecuteRepositor
 
             if (commit)
             {
-                await transaction.CommitAsync(CancellationToken.None);
-                committed = true;
+                try
+                {
+                    await transaction.CommitAsync(CancellationToken.None);
+                    committed = true;
+                }
+                catch (SqlException ex)
+                {
+                    // COMMIT 本身失敗（如提交過程中斷線）：結果不確定，不能宣稱已回滾
+                    return new DryRunResult
+                    {
+                        IsValid = true,
+                        StatementType = analysis.StatementType,
+                        Warnings = warnings,
+                        ExecutionError = $"COMMIT 失敗，交易結果不確定，請查詢資料庫確認：{ex.Message}"
+                    };
+                }
             }
 
             return new DryRunResult
@@ -238,7 +276,17 @@ public class SqlDryRunRepository : ISqlDryRunRepository, ISqlDmlExecuteRepositor
         finally
         {
             if (!committed)
-                await transaction.RollbackAsync(CancellationToken.None);
+            {
+                try
+                {
+                    await transaction.RollbackAsync(CancellationToken.None);
+                }
+                catch (SqlException)
+                {
+                    // 本地 rollback 失敗不得蓋掉原始例外：連線已斷時 SQL Server 會自行回滾未提交交易，
+                    // 本地 rollback 失敗不代表資料風險，吞掉即可
+                }
+            }
         }
     }
 

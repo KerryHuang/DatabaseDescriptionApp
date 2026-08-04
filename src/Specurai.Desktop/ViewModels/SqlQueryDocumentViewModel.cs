@@ -24,6 +24,7 @@ public partial class SqlQueryDocumentViewModel : DocumentViewModel
     private readonly IConnectionManager? _connectionManager;
     private readonly ISqlDryRunRepository? _sqlDryRunRepository;
     private readonly IUpdateSqlGenerator? _updateSqlGenerator;
+    private readonly IDmlExecutionService? _dmlExecutionService;
     private QueryResultWithSchema? _lastQueryResult;
 
     /// <summary>原值快照：以列物件參照為鍵，排序/重排不影響配對</summary>
@@ -71,6 +72,16 @@ public partial class SqlQueryDocumentViewModel : DocumentViewModel
     /// <summary>顯示產生 SQL 的回呼（View 掛 SqlPreviewWindow）</summary>
     public Func<string, Task>? ShowGeneratedSqlAsync { get; set; }
 
+    /// <summary>執行 DML 前的確認回呼（View 掛真對話框，測試掛假回呼）；null 或回傳 false 時不執行</summary>
+    public Func<string, Task<bool>>? ConfirmExecuteCallback { get; set; }
+
+    /// <summary>是否可執行 DML：非正式環境連線且服務可用（Production 一律停用）</summary>
+    public bool CanExecuteDml =>
+        _dmlExecutionService != null
+        && SelectedProfile != null
+        && SelectedProfile.Environment != DatabaseEnvironment.Production
+        && !_selectedConnectionDisabled;
+
     /// <summary>是否有 Dry Run 警告需要顯示（供警告列 IsVisible 綁定）</summary>
     public bool HasDryRunWarnings => !string.IsNullOrEmpty(DryRunWarnings);
 
@@ -102,12 +113,14 @@ public partial class SqlQueryDocumentViewModel : DocumentViewModel
         ISqlQueryRepository sqlQueryRepository,
         IConnectionManager connectionManager,
         ISqlDryRunRepository? sqlDryRunRepository = null,
-        IUpdateSqlGenerator? updateSqlGenerator = null)
+        IUpdateSqlGenerator? updateSqlGenerator = null,
+        IDmlExecutionService? dmlExecutionService = null)
     {
         _sqlQueryRepository = sqlQueryRepository;
         _connectionManager = connectionManager;
         _sqlDryRunRepository = sqlDryRunRepository;
         _updateSqlGenerator = updateSqlGenerator;
+        _dmlExecutionService = dmlExecutionService;
         _instanceId = ++_instanceCount;
         Title = $"SQL 查詢 {_instanceId}";
         Icon = "📝";
@@ -177,6 +190,8 @@ public partial class SqlQueryDocumentViewModel : DocumentViewModel
                     // 否則查詢會靜默跑到另一個資料庫。明確告知使用者改選其他連線，並擋下查詢執行。
                     _selectedConnectionDisabled = true;
                     StatusMessage = "此連線已停用，請改選其他連線。";
+                    OnPropertyChanged(nameof(CanExecuteDml));
+                    ExecuteDmlCommand.NotifyCanExecuteChanged();
                     return;
                 }
 
@@ -186,6 +201,9 @@ public partial class SqlQueryDocumentViewModel : DocumentViewModel
             StatusMessage = $"已切換至：{value.Name}";
             _ = LoadColumnDescriptionsAsync();
         }
+
+        OnPropertyChanged(nameof(CanExecuteDml));
+        ExecuteDmlCommand.NotifyCanExecuteChanged();
     }
 
     /// <summary>
@@ -394,6 +412,122 @@ public partial class SqlQueryDocumentViewModel : DocumentViewModel
         catch (Exception ex)
         {
             StatusMessage = $"Dry run 失敗：{ex.Message}";
+        }
+        finally
+        {
+            IsExecuting = false;
+        }
+    }
+
+    /// <summary>
+    /// 執行 DML：先預演取得影響筆數，經使用者確認後才 COMMIT 寫入。
+    /// 環境閘門在 IDmlExecutionService（Production 拒絕），此處僅控制 UI 可用性與確認流程。
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanExecuteDml))]
+    private async Task ExecuteDmlAsync()
+    {
+        if (_dmlExecutionService == null || string.IsNullOrWhiteSpace(SqlText))
+            return;
+
+        if (_selectedConnectionDisabled)
+        {
+            StatusMessage = "此連線已停用，請改選其他連線。";
+            return;
+        }
+
+        var (sql, isSelection) = GetEffectiveSql();
+        var selectionNote = isSelection ? "（選取範圍）" : "";
+        // 目前連線（_localConnectionString == null）傳 null 跟隨資料庫覆寫；
+        // 明確選擇的其他連線傳其 Id
+        var profileId = _localConnectionString == null ? (Guid?)null : SelectedProfile?.Id;
+
+        try
+        {
+            IsExecuting = true;
+            StatusMessage = "預演中...";
+            QueryResults.Clear();
+            ResultColumns.Clear();
+            DryRunWarnings = string.Empty;
+            RowCount = 0;
+            IsResultEditable = false;
+            _lastQueryResult = null;
+            _originalByRow.Clear();
+
+            var preview = await _dmlExecutionService.ExecuteAsync(sql, confirm: false, profileId);
+
+            if (!preview.IsValid)
+            {
+                StatusMessage = preview.SyntaxErrors.Count > 0
+                    ? $"語法錯誤（第 {preview.SyntaxErrors[0].Line} 行第 {preview.SyntaxErrors[0].Column} 列）：{preview.SyntaxErrors[0].Message}"
+                    : preview.RejectReason ?? "驗證未通過";
+                return;
+            }
+
+            if (preview.ExecutionError != null)
+            {
+                StatusMessage = preview.ExecutionError;
+                DryRunWarnings = string.Join("\n", preview.Warnings);
+                return;
+            }
+
+            var confirmed = ConfirmExecuteCallback != null
+                && await ConfirmExecuteCallback(
+                    $"將對「{SelectedProfile?.Name}」執行 {preview.StatementType}，影響 {preview.AffectedRowCount} 筆。\n" +
+                    "此操作會 COMMIT 寫入資料庫，確定執行？");
+
+            if (!confirmed)
+            {
+                StatusMessage = "已取消，資料庫未變更。";
+                return;
+            }
+
+            StatusMessage = "執行中...";
+            var result = await _dmlExecutionService.ExecuteAsync(sql, confirm: true, profileId);
+
+            if (!result.IsValid)
+            {
+                StatusMessage = result.RejectReason ?? "驗證未通過";
+                return;
+            }
+
+            if (result.ExecutionError != null)
+            {
+                StatusMessage = result.ExecutionError;
+                DryRunWarnings = string.Join("\n", result.Warnings);
+                return;
+            }
+
+            if (result.PreviewTable != null)
+            {
+                foreach (DataColumn col in result.PreviewTable.Columns)
+                {
+                    ResultColumns.Add(new DataGridTextColumn
+                    {
+                        Header = col.ColumnName,
+                        Binding = new Avalonia.Data.Binding($"[{col.ColumnName}]"),
+                        Width = new DataGridLength(1, DataGridLengthUnitType.Auto)
+                    });
+                }
+
+                foreach (DataRow row in result.PreviewTable.Rows)
+                {
+                    var dict = new Dictionary<string, object?>();
+                    foreach (DataColumn col in result.PreviewTable.Columns)
+                    {
+                        dict[col.ColumnName] = row[col] == DBNull.Value ? null : row[col];
+                    }
+                    QueryResults.Add(dict);
+                }
+            }
+
+            RowCount = result.AffectedRowCount;
+            DryRunWarnings = string.Join("\n", result.Warnings);
+            StatusMessage = $"執行完成{selectionNote}：影響 {result.AffectedRowCount} 筆（{result.StatementType}）｜已寫入資料庫";
+            AddToHistory(sql);
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"執行失敗：{ex.Message}";
         }
         finally
         {

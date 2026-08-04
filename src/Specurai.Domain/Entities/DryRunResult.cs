@@ -59,4 +59,7 @@ public class DryRunResult
 
     /// <summary>語法正確但實際執行會失敗時的錯誤訊息（如違反 FK 約束）</summary>
     public string? ExecutionError { get; init; }
+
+    /// <summary>是否已 COMMIT 寫入資料庫（dry run 一律 false）</summary>
+    public bool Committed { get; init; }
 }

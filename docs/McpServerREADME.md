@@ -118,27 +118,42 @@ claude mcp add specurai -s user -- /絕對路徑/Specurai.McpServer
 
 ### execute_sql
 
-執行非 DDL 的 SQL 語句（INSERT、UPDATE、DELETE 等寫入操作）。
+執行單一 DML 語句（INSERT、UPDATE、DELETE）。
 
 **安全機制：**
 
 - 僅限非正式環境（Production 連線一律拒絕）
-- 預設 `confirm=false`：在交易內執行後自動回滾（僅預演）
+- 預設 `confirm=false`：在交易內執行後自動回滾（僅預演，同步回報影響筆數與前後資料對照）
 - `confirm=true`：執行後 COMMIT 至資料庫
-- 整批單一交易，任一語句失敗全部回滾
+- 單一交易，執行失敗即回滾
 
 **參數：**
 
-- `script`（string）：SQL script 內容
+- `sql`（string）：單一 DML 語句
 - `confirm`（boolean，預設 `false`）：是否 COMMIT 至資料庫
 
-**輸出欄位：**
+**輸出欄位**（語法驗證失敗時）：
 
-- `Valid`（boolean）：語法是否通過驗證
-- `RowsAffected`（int）：異動的行數
-- `ExecutionError`（string，可為 null）：執行過程中的錯誤訊息
-- `Committed`（boolean，可為 null）：是否已 COMMIT。三態規則：結果確定時 = 實際是否 COMMIT；結果不確定時 = null
-- `DatabaseChanged`（boolean，可為 null）：資料庫是否已修改。三態規則：結果確定時 = 實際狀態；結果不確定時 = null
+- `Valid`（boolean）：false
+- `RejectReason`（string）：拒絕原因
+- `SyntaxErrors`（object array）：逐行語法錯誤明細（每項含 Line、Column、Message）
+- `Committed`（boolean）：false
+- `DatabaseChanged`（boolean）：false
+
+**輸出欄位**（語法正確、預演或執行成功時）：
+
+- `Valid`（boolean）：true
+- `StatementType`（string）：DML 類型（INSERT、UPDATE、DELETE）
+- `AffectedRowCount`（int）：影響的行數
+- `ExecutionError`（string，可為 null）：執行過程中的錯誤訊息（無誤為 null）
+- `PreviewColumns`（string array，可為 null）：預覽資料表的欄位名稱
+- `PreviewRows`（object array，可為 null）：預覽資料表的前 100 筆行資料
+- `PreviewTruncated`（boolean）：預覽資料是否超過 100 筆
+- `Warnings`（string array）：警告訊息（如模糊的 WHERE 條件）
+- `Committed`（boolean，可為 null）：是否已 COMMIT。三態規則：結果確定時 = 實際是否 COMMIT；COMMIT 過程失敗時 = null
+- `CommitUncertain`（boolean）：COMMIT 結果是否不確定（如網路中斷），為 true 時 `Committed` 欄位無法判斷
+- `DatabaseChanged`（boolean，可為 null）：資料庫是否已修改。三態規則：結果確定時 = 實際狀態；COMMIT 過程失敗時 = null
+- `Hint`（string，可為 null）：提示訊息（預演時提示需加 confirm:true 實際執行；成功 COMMIT 時為 null）
 
 ### execute_ddl
 
@@ -154,7 +169,7 @@ TABLE、INDEX、VIEW、PROCEDURE、FUNCTION、TRIGGER、SCHEMA，可含多句語
 - 以下操作拒絕（fail-closed）：庫級操作（ALTER DATABASE 等）、TRUNCATE、權限語句（GRANT、REVOKE）、動態執行（EXEC、sp_executesql）、DML（INSERT、UPDATE、DELETE）
 - 預設 `confirm=false`：在交易內執行後自動回滾（僅預演）
 - `confirm=true`：執行後 COMMIT 至資料庫
-- 整批單一交易（按 GO 分隔成多個批次，每批獨立交易），任一批失敗該批及後續批次不執行，已執行的批次保留
+- 整批單一交易，任一批失敗即整批回滾，不保留已執行批次的變更
 
 **參數：**
 
@@ -164,9 +179,9 @@ TABLE、INDEX、VIEW、PROCEDURE、FUNCTION、TRIGGER、SCHEMA，可含多句語
 **輸出欄位：**
 
 - `Valid`（boolean）：語法是否通過驗證
-- `Statements`（string array）：逐句摘要（例如 "CREATE TABLE dbo.Foo"）
+- `Statements`（object array）：逐句摘要，每項含 Index（序號，1 起算）、Type（語句類型）、ObjectName（目標物件名稱，可為 null）、BatchIndex（所屬 GO 批次，1 起算）
 - `ExecutionError`（string，可為 null）：執行過程中的錯誤訊息
-- `FailedBatchIndex`（int，可為 null）：首個失敗批次的編號（從 0 開始）；無失敗時為 null
+- `FailedBatchIndex`（int，可為 null）：首個失敗批次的編號（1 起算）；無失敗時為 null
 - `Committed`（boolean，可為 null）：是否已 COMMIT。三態規則：結果確定時 = 實際是否 COMMIT；結果不確定時 = null
 - `DatabaseChanged`（boolean，可為 null）：資料庫是否已修改。三態規則：結果確定時 = 實際狀態；結果不確定時 = null
 - `CommitUncertain`（boolean）：結果是否不確定（例如網路斷線或執行過程異常中止），為 true 時 `Committed` 與 `DatabaseChanged` 欄位無法判斷實際值

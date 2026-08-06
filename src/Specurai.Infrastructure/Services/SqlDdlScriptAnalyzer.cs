@@ -42,17 +42,17 @@ public class SqlDdlScriptAnalyzer
             foreach (var statement in batch.Statements)
             {
                 index++;
-                var type = ClassifyAllowed(statement);
-                if (type == null)
+                var rejectReason = GetRejectReason(statement);
+                if (rejectReason != null)
                 {
                     return new SqlDdlScriptAnalysis
                     {
                         IsValid = false,
-                        RejectReason = $"第 {index} 句（{statement.GetType().Name}）不在允許的 DDL 白名單；" +
-                            "僅允許 TABLE/INDEX/VIEW/PROCEDURE/FUNCTION/TRIGGER/SCHEMA 的物件級 CREATE/ALTER/DROP，" +
-                            "庫級操作、TRUNCATE、權限語句、EXEC 與 DML 一律拒絕。"
+                        RejectReason = $"第 {index} 句（{statement.GetType().Name}）{rejectReason}"
                     };
                 }
+
+                var type = ClassifyAllowed(statement)!;
 
                 statements.Add(new DdlStatementSummary
                 {
@@ -84,8 +84,34 @@ public class SqlDdlScriptAnalyzer
     }
 
     /// <summary>
+    /// 拒絕理由（fail-closed）：先擋住「型別本身在白名單內、但內容藏有違規」的特例
+    /// （ALTER TABLE SWITCH、CREATE SCHEMA 內嵌其他語句、非 Normal scope 的 TRIGGER），
+    /// 再退回一般白名單分類；回傳 null 代表放行。
+    /// </summary>
+    private static string? GetRejectReason(TSqlStatement statement)
+    {
+        if (statement is AlterTableSwitchStatement)
+            return "為 ALTER TABLE ... SWITCH（資料搬移語句），不在允許的 DDL 白名單。";
+
+        if (statement is CreateSchemaStatement { StatementList.Statements.Count: > 0 })
+            return "CREATE SCHEMA 不得內嵌其他語句（如 GRANT/REVOKE/DENY），僅允許純 CREATE SCHEMA。";
+
+        if (statement is CreateTriggerStatement { TriggerObject.TriggerScope: not TriggerScope.Normal }
+            or AlterTriggerStatement { TriggerObject.TriggerScope: not TriggerScope.Normal }
+            or CreateOrAlterTriggerStatement { TriggerObject.TriggerScope: not TriggerScope.Normal })
+            return "僅允許物件級（Normal scope）TRIGGER；ON DATABASE / ON ALL SERVER 的 DDL 觸發程序一律拒絕。";
+
+        if (ClassifyAllowed(statement) == null)
+            return "不在允許的 DDL 白名單；僅允許 TABLE/INDEX/VIEW/PROCEDURE/FUNCTION/TRIGGER/SCHEMA 的物件級 CREATE/ALTER/DROP，" +
+                "庫級操作、TRUNCATE、權限語句、EXEC 與 DML 一律拒絕。";
+
+        return null;
+    }
+
+    /// <summary>
     /// 白名單分類：允許的語句回傳顯示用類型名稱，否則回傳 null（fail-closed）。
-    /// AlterTableStatement 是所有 ALTER TABLE 變體的抽象基底，單一 pattern 即涵蓋；
+    /// AlterTableStatement 是所有 ALTER TABLE 變體的抽象基底，單一 pattern 即涵蓋
+    /// （SWITCH 變體另由 <see cref="GetRejectReason"/> 攔截）；
     /// XML/Spatial/Columnstore/FullText 等特殊索引是獨立類別，不繼承 CreateIndexStatement，自然被擋。
     /// </summary>
     private static string? ClassifyAllowed(TSqlStatement statement) => statement switch

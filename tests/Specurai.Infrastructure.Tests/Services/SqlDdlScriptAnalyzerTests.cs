@@ -50,12 +50,37 @@ public class SqlDdlScriptAnalyzerTests
     [InlineData("INSERT INTO dbo.T1 (Id) VALUES (1)")]
     [InlineData("UPDATE dbo.T1 SET Id = 1")]
     [InlineData("DELETE FROM dbo.T1")]
+    [InlineData("CREATE SPATIAL INDEX IX ON dbo.T1(GeoCol)")]
+    [InlineData("CREATE COLUMNSTORE INDEX IX ON dbo.T1 (C1)")]
+    [InlineData("CREATE FULLTEXT INDEX ON dbo.T1(C) KEY INDEX PK1")]
     public void Analyze_非白名單語句_應拒絕(string sql)
     {
         var result = _analyzer.Analyze(sql);
 
         result.IsValid.Should().BeFalse();
         result.RejectReason.Should().Contain("白名單");
+    }
+
+    [Theory(DisplayName = "Analyze_白名單型別內夾帶違規內容_應拒絕")]
+    [InlineData("CREATE SCHEMA app AUTHORIZATION dbo GRANT SELECT ON dbo.T1 TO SomeUser", "CREATE SCHEMA")]
+    [InlineData("CREATE TRIGGER TR ON DATABASE AFTER DROP_TABLE AS PRINT 1", "TRIGGER")]
+    [InlineData("CREATE TRIGGER TR ON ALL SERVER AFTER CREATE_DATABASE AS PRINT 1", "TRIGGER")]
+    [InlineData("ALTER TABLE dbo.T1 SWITCH TO dbo.T2", "SWITCH")]
+    public void Analyze_白名單型別內夾帶違規內容_應拒絕(string sql, string expectedReasonFragment)
+    {
+        var result = _analyzer.Analyze(sql);
+
+        result.IsValid.Should().BeFalse();
+        result.RejectReason.Should().Contain(expectedReasonFragment);
+    }
+
+    [Fact(DisplayName = "Analyze_CreateSchema無內嵌語句_應通過")]
+    public void Analyze_CreateSchema無內嵌語句_應通過()
+    {
+        var result = _analyzer.Analyze("CREATE SCHEMA app AUTHORIZATION dbo");
+
+        result.IsValid.Should().BeTrue(result.RejectReason);
+        result.Statements[0].Type.Should().Be("CREATE SCHEMA");
     }
 
     [Fact(DisplayName = "Analyze_混合批次含DML_應拒絕並指明句序")]

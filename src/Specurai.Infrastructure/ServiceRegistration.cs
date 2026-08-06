@@ -103,6 +103,10 @@ public static class ServiceRegistration
             sp.GetRequiredService<ISqlDryRunRepository>(),
             sp.GetRequiredService<ISqlDmlExecuteRepository>()));
 
+        // Infrastructure + Application - DDL 執行（非正式環境限定）
+        services.AddSingleton<ISqlDdlExecuteRepository, SqlDdlExecuteRepository>();
+        services.AddSingleton<IDdlExecutionService, DdlExecutionService>();
+
         // Infrastructure - Agent Job
         services.AddSingleton<IDatabaseInfoRepository>(sp =>
             new DatabaseInfoRepository(() => sp.GetRequiredService<IConnectionManager>().GetCurrentConnectionString()));

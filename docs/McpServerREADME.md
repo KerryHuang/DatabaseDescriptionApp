@@ -114,6 +114,63 @@ claude mcp add specurai -s user -- /絕對路徑/Specurai.McpServer
 
 停用的連線不會被 `switch_connection` 與比對／移轉類工具選用，指定停用連線會回「連線「X」已停用，請先在連線設定中啟用。」；啟用／停用僅能在桌面應用程式的連線設定畫面操作。
 
+## SQL 執行工具詳細說明
+
+### execute_sql
+
+執行非 DDL 的 SQL 語句（INSERT、UPDATE、DELETE 等寫入操作）。
+
+**安全機制：**
+
+- 僅限非正式環境（Production 連線一律拒絕）
+- 預設 `confirm=false`：在交易內執行後自動回滾（僅預演）
+- `confirm=true`：執行後 COMMIT 至資料庫
+- 整批單一交易，任一語句失敗全部回滾
+
+**參數：**
+
+- `script`（string）：SQL script 內容
+- `confirm`（boolean，預設 `false`）：是否 COMMIT 至資料庫
+
+**輸出欄位：**
+
+- `Valid`（boolean）：語法是否通過驗證
+- `RowsAffected`（int）：異動的行數
+- `ExecutionError`（string，可為 null）：執行過程中的錯誤訊息
+- `Committed`（boolean，可為 null）：是否已 COMMIT。三態規則：結果確定時 = 實際是否 COMMIT；結果不確定時 = null
+- `DatabaseChanged`（boolean，可為 null）：資料庫是否已修改。三態規則：結果確定時 = 實際狀態；結果不確定時 = null
+
+### execute_ddl
+
+執行白名單物件級 DDL 批次（CREATE、ALTER、DROP）。
+
+**支援的物件類型：**
+
+TABLE、INDEX、VIEW、PROCEDURE、FUNCTION、TRIGGER、SCHEMA，可含多句語句與 GO 分隔符。
+
+**安全機制：**
+
+- Production 連線一律拒絕
+- 以下操作拒絕（fail-closed）：庫級操作（ALTER DATABASE 等）、TRUNCATE、權限語句（GRANT、REVOKE）、動態執行（EXEC、sp_executesql）、DML（INSERT、UPDATE、DELETE）
+- 預設 `confirm=false`：在交易內執行後自動回滾（僅預演）
+- `confirm=true`：執行後 COMMIT 至資料庫
+- 整批單一交易（按 GO 分隔成多個批次，每批獨立交易），任一批失敗該批及後續批次不執行，已執行的批次保留
+
+**參數：**
+
+- `script`（string）：DDL script 內容
+- `confirm`（boolean，預設 `false`）：是否 COMMIT 至資料庫
+
+**輸出欄位：**
+
+- `Valid`（boolean）：語法是否通過驗證
+- `Statements`（string array）：逐句摘要（例如 "CREATE TABLE dbo.Foo"）
+- `ExecutionError`（string，可為 null）：執行過程中的錯誤訊息
+- `FailedBatchIndex`（int，可為 null）：首個失敗批次的編號（從 0 開始）；無失敗時為 null
+- `Committed`（boolean，可為 null）：是否已 COMMIT。三態規則：結果確定時 = 實際是否 COMMIT；結果不確定時 = null
+- `DatabaseChanged`（boolean，可為 null）：資料庫是否已修改。三態規則：結果確定時 = 實際狀態；結果不確定時 = null
+- `CommitUncertain`（boolean）：結果是否不確定（例如網路斷線或執行過程異常中止），為 true 時 `Committed` 與 `DatabaseChanged` 欄位無法判斷實際值
+
 ## 疑難排解
 
 | 症狀 | 解決方式 |

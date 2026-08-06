@@ -1,5 +1,6 @@
 using System.CommandLine;
 using System.Data;
+using System.IO;
 using Microsoft.Extensions.DependencyInjection;
 using Spectre.Console;
 using Specurai.Application.Services;
@@ -19,6 +20,7 @@ public static class SqlCommand
         command.AddCommand(CreateQueryCommand());
         command.AddCommand(CreateDryRunCommand());
         command.AddCommand(CreateExecuteCommand());
+        command.AddCommand(CreateDdlCommand());
         command.AddCommand(CreateSearchColumnsCommand());
         return command;
     }
@@ -234,6 +236,155 @@ public static class SqlCommand
         }, sqlArg, confirmOption);
 
         return command;
+    }
+
+    private static Command CreateDdlCommand()
+    {
+        var scriptArg = new Argument<string?>("script", () => null, "DDL script（可含多句與 GO；與 --file 二擇一）");
+        var fileOption = new Option<string?>("--file", "從檔案讀取 DDL script（與 script 引數二擇一）");
+        var confirmOption = new Option<bool>("--confirm", "實際執行並 COMMIT（未指定時僅預演）");
+        var command = new Command("ddl",
+            "執行 DDL 批次（僅限非正式環境；預設先預演，加 --confirm 才變更 schema）")
+            { scriptArg, fileOption, confirmOption };
+
+        command.SetHandler(async (script, file, confirm) =>
+        {
+            // script 引數與 --file 二擇一
+            var hasScript = !string.IsNullOrWhiteSpace(script);
+            var hasFile = !string.IsNullOrEmpty(file);
+            if (hasScript == hasFile)
+            {
+                CliOutput.Error("請提供 script 引數或 --file 其中之一（不可同時提供或皆缺）。");
+                Environment.ExitCode = 1;
+                return;
+            }
+
+            if (hasFile)
+            {
+                if (!File.Exists(file))
+                {
+                    CliOutput.Error($"找不到檔案：{file}");
+                    Environment.ExitCode = 1;
+                    return;
+                }
+                script = await File.ReadAllTextAsync(file!);
+            }
+
+            var service = Program.Services.GetRequiredService<IDdlExecutionService>();
+
+            try
+            {
+                var result = await service.ExecuteAsync(script!, confirm);
+
+                if (CliOutput.JsonMode)
+                {
+                    OutputDdlJson(result);
+                    if (!result.IsValid || result.ExecutionError != null)
+                        Environment.ExitCode = 1;
+                    return;
+                }
+
+                if (!result.IsValid)
+                {
+                    foreach (var error in result.SyntaxErrors)
+                        CliOutput.Error($"語法錯誤（第 {error.Line} 行第 {error.Column} 列）：{error.Message}");
+                    if (result.RejectReason != null)
+                        CliOutput.Error(result.RejectReason);
+                    Environment.ExitCode = 1;
+                    return;
+                }
+
+                var table = new Table().Title("DDL 語句摘要");
+                table.AddColumn("#");
+                table.AddColumn("類型");
+                table.AddColumn("物件");
+                table.AddColumn("批次");
+                foreach (var s in result.Statements)
+                {
+                    table.AddRow(
+                        s.Index.ToString(),
+                        s.Type.EscapeMarkup(),
+                        (s.ObjectName ?? "").EscapeMarkup(),
+                        s.BatchIndex.ToString());
+                }
+                AnsiConsole.Write(table);
+
+                if (result.ExecutionError != null)
+                {
+                    CliOutput.Error(result.ExecutionError);
+                    CliOutput.Info(result.CommitUncertain
+                        ? "交易結果不確定，請查詢資料庫確認。"
+                        : "已回滾，資料庫未變更。");
+                    Environment.ExitCode = 1;
+                    return;
+                }
+
+                if (result.Committed)
+                {
+                    CliOutput.Info("已 COMMIT，schema 已變更。");
+                }
+                else
+                {
+                    CliOutput.Info("以上為預演結果（已回滾）。確認無誤後加 --confirm 實際執行。");
+                }
+            }
+            catch (Exception ex)
+            {
+                CliOutput.Error($"DDL 執行失敗：{ex.Message}");
+                Environment.ExitCode = 1;
+            }
+        }, scriptArg, fileOption, confirmOption);
+
+        return command;
+    }
+
+    private static void OutputDdlJson(Specurai.Domain.Entities.DdlExecutionResult result)
+    {
+        // COMMIT 結果不確定時，RolledBack／DatabaseChanged／Committed 一律輸出 JSON null（同 DML 規則）
+        bool? rolledBack = result.CommitUncertain ? null : result.IsValid && !result.Committed;
+        bool? databaseChanged = result.CommitUncertain ? null : result.Committed;
+        bool? committed = result.CommitUncertain ? null : result.Committed;
+
+        CliOutput.Success(new DdlJsonResult
+        {
+            Valid = result.IsValid,
+            RejectReason = result.RejectReason,
+            SyntaxErrors = result.SyntaxErrors.Select(e => new { e.Line, e.Column, e.Message }).ToList(),
+            Statements = result.Statements
+                .Select(s => new { s.Index, s.Type, s.ObjectName, s.BatchIndex }).ToList(),
+            ExecutionError = result.ExecutionError,
+            FailedBatchIndex = result.FailedBatchIndex,
+            RolledBack = rolledBack,
+            DatabaseChanged = databaseChanged,
+            Committed = committed,
+            CommitUncertain = result.CommitUncertain
+        }, result.Statements.Count);
+    }
+
+    /// <summary>
+    /// sql ddl JSON 輸出結構。RolledBack／DatabaseChanged／Committed 在 COMMIT
+    /// 結果不確定時皆為 null，需 JsonIgnore(Never) 覆寫全域的 WhenWritingNull 設定，
+    /// 確保欄位一定出現（值為 JSON null）而非被整個省略。
+    /// </summary>
+    private class DdlJsonResult
+    {
+        public bool Valid { get; init; }
+        public string? RejectReason { get; init; }
+        public required IReadOnlyList<object> SyntaxErrors { get; init; }
+        public required IReadOnlyList<object> Statements { get; init; }
+        public string? ExecutionError { get; init; }
+        public int? FailedBatchIndex { get; init; }
+
+        [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.Never)]
+        public bool? RolledBack { get; init; }
+
+        [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.Never)]
+        public bool? DatabaseChanged { get; init; }
+
+        [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.Never)]
+        public bool? Committed { get; init; }
+
+        public bool CommitUncertain { get; init; }
     }
 
     // 將預覽表轉置為「一個來源欄位一列」的呈現：

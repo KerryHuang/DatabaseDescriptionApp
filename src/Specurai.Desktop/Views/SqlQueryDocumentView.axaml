@@ -58,6 +58,14 @@
                             <TextBlock Text="執行 DML"/>
                         </StackPanel>
                     </Button>
+                    <Button Command="{Binding ExecuteDdlCommand}"
+                            IsEnabled="{Binding CanExecuteDdl}"
+                            ToolTip.Tip="執行 DDL 批次並變更 schema（白名單物件級 DDL；先預演確認；正式環境停用）">
+                        <StackPanel Orientation="Horizontal" Spacing="5">
+                            <TextBlock Text="🛠️" FontSize="14"/>
+                            <TextBlock Text="執行 DDL"/>
+                        </StackPanel>
+                    </Button>
                     <Button Command="{Binding GenerateUpdateSqlCommand}"
                             IsEnabled="{Binding IsResultEditable}"
                             ToolTip.Tip="比對結果格的編輯差異，產生 UPDATE 語句（僅產生文字，不會執行）">

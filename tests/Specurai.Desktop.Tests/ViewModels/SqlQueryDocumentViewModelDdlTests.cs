@@ -117,4 +117,49 @@ public class SqlQueryDocumentViewModelDdlTests
             Arg.Any<string>(), true, Arg.Any<Guid?>(), Arg.Any<CancellationToken>());
         vm.StatusMessage.Should().Contain("已取消");
     }
+
+    [Fact(DisplayName = "執行DDL_預演即失敗_不應詢問確認")]
+    public async Task 執行DDL_預演即失敗_不應詢問確認()
+    {
+        var ddlService = Substitute.For<IDdlExecutionService>();
+        ddlService.ExecuteAsync(Arg.Any<string>(), false, Arg.Any<Guid?>(), Arg.Any<CancellationToken>())
+            .Returns(new DdlExecutionResult { IsValid = false, RejectReason = "非白名單語句" });
+
+        var vm = CreateViewModel(DatabaseEnvironment.Staging, ddlService);
+        var asked = false;
+        vm.ConfirmExecuteCallback = _ => { asked = true; return Task.FromResult(true); };
+        vm.SqlText = "TRUNCATE TABLE dbo.T1";
+
+        await vm.ExecuteDdlCommand.ExecuteAsync(null);
+
+        asked.Should().BeFalse();
+        vm.StatusMessage.Should().Contain("非白名單語句");
+    }
+
+    [Fact(DisplayName = "執行DDL_已停用連線_不應呼叫服務")]
+    public async Task 執行DDL_已停用連線_不應呼叫服務()
+    {
+        var current = Profile(DatabaseEnvironment.Staging);
+        var other = Profile(DatabaseEnvironment.Staging);
+        var connectionManager = Substitute.For<IConnectionManager>();
+        connectionManager.GetEnabledProfiles().Returns([current, other]);
+        connectionManager.GetCurrentProfile().Returns(current);
+        connectionManager.GetConnectionString(other.Id).Returns((string?)null);
+
+        var ddlService = Substitute.For<IDdlExecutionService>();
+        var vm = new SqlQueryDocumentViewModel(
+            Substitute.For<ISqlQueryRepository>(),
+            connectionManager,
+            ddlExecutionService: ddlService)
+        {
+            SelectedProfile = other,
+            SqlText = "CREATE TABLE dbo.T1 (Id INT)"
+        };
+
+        await vm.ExecuteDdlCommand.ExecuteAsync(null);
+
+        await ddlService.DidNotReceive().ExecuteAsync(
+            Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<Guid?>(), Arg.Any<CancellationToken>());
+        vm.StatusMessage.Should().Contain("已停用");
+    }
 }

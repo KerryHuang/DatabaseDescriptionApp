@@ -259,21 +259,21 @@ public static class SqlCommand
                 return;
             }
 
-            if (hasFile)
-            {
-                if (!File.Exists(file))
-                {
-                    CliOutput.Error($"找不到檔案：{file}");
-                    Environment.ExitCode = 1;
-                    return;
-                }
-                script = await File.ReadAllTextAsync(file!);
-            }
-
             var service = Program.Services.GetRequiredService<IDdlExecutionService>();
 
             try
             {
+                if (hasFile)
+                {
+                    if (!File.Exists(file))
+                    {
+                        CliOutput.Error($"找不到檔案：{file}");
+                        Environment.ExitCode = 1;
+                        return;
+                    }
+                    script = await File.ReadAllTextAsync(file!);
+                }
+
                 var result = await service.ExecuteAsync(script!, confirm);
 
                 if (CliOutput.JsonMode)

@@ -176,15 +176,31 @@ TABLE、INDEX、VIEW、PROCEDURE、FUNCTION、TRIGGER、SCHEMA，可含多句語
 - `script`（string）：DDL script 內容
 - `confirm`（boolean，預設 `false`）：是否 COMMIT 至資料庫
 
-**輸出欄位：**
+**輸出欄位**（驗證失敗時，語法錯誤或不在白名單內）：
 
-- `Valid`（boolean）：語法是否通過驗證
+- `Valid`（boolean）：false
+- `RejectReason`（string，可為 null）：拒絕原因（語法錯誤時為 null，改由 `SyntaxErrors` 說明）
+- `SyntaxErrors`（object array）：逐行語法錯誤明細（每項含 Line、Column、Message）
+- `Committed`（boolean）：false
+- `DatabaseChanged`（boolean）：false
+
+**輸出欄位**（驗證通過、批次執行失敗時）：
+
+- `Valid`（boolean）：true
 - `Statements`（object array）：逐句摘要，每項含 Index（序號，1 起算）、Type（語句類型）、ObjectName（目標物件名稱，可為 null）、BatchIndex（所屬 GO 批次，1 起算）
-- `ExecutionError`（string，可為 null）：執行過程中的錯誤訊息
-- `FailedBatchIndex`（int，可為 null）：首個失敗批次的編號（1 起算）；無失敗時為 null
-- `Committed`（boolean，可為 null）：是否已 COMMIT。三態規則：結果確定時 = 實際是否 COMMIT；結果不確定時 = null
-- `DatabaseChanged`（boolean，可為 null）：資料庫是否已修改。三態規則：結果確定時 = 實際狀態；結果不確定時 = null
+- `ExecutionError`（string）：執行過程中的錯誤訊息
+- `FailedBatchIndex`（int，可為 null）：首個失敗批次的編號（1 起算）
+- `Committed`（boolean，可為 null）：是否已 COMMIT。三態規則：結果確定時 = 實際是否 COMMIT；結果不確定時（`CommitUncertain=true`）= null
 - `CommitUncertain`（boolean）：結果是否不確定（例如網路斷線或執行過程異常中止），為 true 時 `Committed` 與 `DatabaseChanged` 欄位無法判斷實際值
+- `DatabaseChanged`（boolean，可為 null）：資料庫是否已修改。三態規則：結果確定時 = 實際狀態；結果不確定時 = null
+
+**輸出欄位**（驗證通過、預演或執行成功時）：
+
+- `Valid`（boolean）：true
+- `Statements`（object array）：同上
+- `Committed`（boolean）：是否已 COMMIT
+- `DatabaseChanged`（boolean）：資料庫是否已修改（與 `Committed` 同值）
+- `Hint`（string，可為 null）：提示訊息（預演時提示需加 confirm:true 實際執行；成功 COMMIT 時為 null）
 
 ## 疑難排解
 

@@ -88,7 +88,8 @@ sealed class Program
                 sp.GetRequiredService<IColumnTypeRepository>(),
                 sp.GetRequiredService<ObjectTreeViewModel>(),
                 sp.GetRequiredService<UpdateNotificationViewModel>(),
-                sp.GetRequiredService<IDmlExecutionService>()));
+                sp.GetRequiredService<IDmlExecutionService>(),
+                sp.GetRequiredService<IDdlExecutionService>()));
         services.AddTransient<ConnectionSetupViewModel>(sp =>
             new ConnectionSetupViewModel(
                 sp.GetRequiredService<IConnectionManager>(),

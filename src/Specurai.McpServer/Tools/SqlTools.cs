@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Data;
+using System.Text.Encodings.Web;
 using System.Text.Json;
 using ModelContextProtocol.Server;
 using Specurai.Application.Services;
@@ -13,7 +14,11 @@ namespace Specurai.McpServer.Tools;
 [McpServerToolType]
 public static class SqlTools
 {
-    private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        WriteIndented = true,
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+    };
 
     /// <summary>
     /// 執行唯讀 SQL 查詢
@@ -198,6 +203,67 @@ public static class SqlTools
         catch (Exception ex)
         {
             return $"DML 執行失敗：{ex.Message}";
+        }
+    }
+
+    /// <summary>
+    /// 實際執行 DDL 批次（僅限非正式環境；預設預演，confirm:true 才 COMMIT）
+    /// </summary>
+    [McpServerTool, Description("實際執行 DDL 批次：CREATE/ALTER/DROP 的 TABLE、INDEX、VIEW、PROCEDURE、FUNCTION、TRIGGER、SCHEMA，可含多句與 GO（⚠️ 破壞性操作：confirm:true 時會 COMMIT 變更 schema；僅限非正式環境連線，Production 一律拒絕；庫級操作、TRUNCATE、權限語句一律拒絕；預設 confirm=false 僅預演——在交易內實際執行驗證後回滾，需 confirm:true 才真正寫入）")]
+    public static async Task<string> ExecuteDdl(
+        IDdlExecutionService ddlExecutionService,
+        [Description("要執行的 DDL script（可含多句與 GO）")] string script,
+        [Description("是否實際執行（預設 false 僅預演）")] bool confirm = false)
+    {
+        try
+        {
+            var result = await ddlExecutionService.ExecuteAsync(script, confirm);
+
+            if (!result.IsValid)
+            {
+                return JsonSerializer.Serialize(new
+                {
+                    Valid = false,
+                    result.RejectReason,
+                    SyntaxErrors = result.SyntaxErrors.Select(e => new { e.Line, e.Column, e.Message }),
+                    Committed = false,
+                    DatabaseChanged = false
+                }, JsonOptions);
+            }
+
+            var statements = result.Statements
+                .Select(s => new { s.Index, s.Type, s.ObjectName, s.BatchIndex });
+
+            if (result.ExecutionError != null)
+            {
+                // COMMIT 結果不確定時，Committed／DatabaseChanged 都不能斷言為 false，改輸出 null
+                bool? committed = result.CommitUncertain ? null : false;
+                bool? databaseChanged = result.CommitUncertain ? null : false;
+
+                return JsonSerializer.Serialize(new
+                {
+                    Valid = true,
+                    Statements = statements,
+                    result.ExecutionError,
+                    result.FailedBatchIndex,
+                    Committed = committed,
+                    result.CommitUncertain,
+                    DatabaseChanged = databaseChanged
+                }, JsonOptions);
+            }
+
+            return JsonSerializer.Serialize(new
+            {
+                Valid = true,
+                Statements = statements,
+                result.Committed,
+                DatabaseChanged = result.Committed,
+                Hint = result.Committed ? null : "以上為預演結果（已回滾）。確認無誤後加 confirm:true 實際執行。"
+            }, JsonOptions);
+        }
+        catch (Exception ex)
+        {
+            return $"DDL 執行失敗：{ex.Message}";
         }
     }
 

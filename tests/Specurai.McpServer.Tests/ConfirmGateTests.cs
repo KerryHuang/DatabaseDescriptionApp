@@ -20,6 +20,7 @@ public class ConfirmGateTests
     [InlineData(typeof(HealthInstallerTools), nameof(HealthInstallerTools.UninstallHealthMonitoring))]
     [InlineData(typeof(MaintenancePlanTools), nameof(MaintenancePlanTools.ExecuteMaintenancePlan))]
     [InlineData(typeof(SqlTools), nameof(SqlTools.ExecuteSql))]
+    [InlineData(typeof(SqlTools), nameof(SqlTools.ExecuteDdl))]
     public void DestructiveTool_LastParam_ShouldBeConfirmBoolDefaultFalse(Type toolType, string methodName)
     {
         var method = toolType.GetMethod(methodName, BindingFlags.Public | BindingFlags.Static);

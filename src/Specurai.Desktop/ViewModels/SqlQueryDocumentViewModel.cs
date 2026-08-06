@@ -25,6 +25,7 @@ public partial class SqlQueryDocumentViewModel : DocumentViewModel
     private readonly ISqlDryRunRepository? _sqlDryRunRepository;
     private readonly IUpdateSqlGenerator? _updateSqlGenerator;
     private readonly IDmlExecutionService? _dmlExecutionService;
+    private readonly IDdlExecutionService? _ddlExecutionService;
     private QueryResultWithSchema? _lastQueryResult;
 
     /// <summary>原值快照：以列物件參照為鍵，排序/重排不影響配對</summary>
@@ -82,6 +83,13 @@ public partial class SqlQueryDocumentViewModel : DocumentViewModel
         && SelectedProfile.Environment != DatabaseEnvironment.Production
         && !_selectedConnectionDisabled;
 
+    /// <summary>是否可執行 DDL：非正式環境連線且服務可用（Production 一律停用）</summary>
+    public bool CanExecuteDdl =>
+        _ddlExecutionService != null
+        && SelectedProfile != null
+        && SelectedProfile.Environment != DatabaseEnvironment.Production
+        && !_selectedConnectionDisabled;
+
     /// <summary>是否有 Dry Run 警告需要顯示（供警告列 IsVisible 綁定）</summary>
     public bool HasDryRunWarnings => !string.IsNullOrEmpty(DryRunWarnings);
 
@@ -114,13 +122,15 @@ public partial class SqlQueryDocumentViewModel : DocumentViewModel
         IConnectionManager connectionManager,
         ISqlDryRunRepository? sqlDryRunRepository = null,
         IUpdateSqlGenerator? updateSqlGenerator = null,
-        IDmlExecutionService? dmlExecutionService = null)
+        IDmlExecutionService? dmlExecutionService = null,
+        IDdlExecutionService? ddlExecutionService = null)
     {
         _sqlQueryRepository = sqlQueryRepository;
         _connectionManager = connectionManager;
         _sqlDryRunRepository = sqlDryRunRepository;
         _updateSqlGenerator = updateSqlGenerator;
         _dmlExecutionService = dmlExecutionService;
+        _ddlExecutionService = ddlExecutionService;
         _instanceId = ++_instanceCount;
         Title = $"SQL 查詢 {_instanceId}";
         Icon = "📝";
@@ -192,6 +202,8 @@ public partial class SqlQueryDocumentViewModel : DocumentViewModel
                     StatusMessage = "此連線已停用，請改選其他連線。";
                     OnPropertyChanged(nameof(CanExecuteDml));
                     ExecuteDmlCommand.NotifyCanExecuteChanged();
+                    OnPropertyChanged(nameof(CanExecuteDdl));
+                    ExecuteDdlCommand.NotifyCanExecuteChanged();
                     return;
                 }
 
@@ -204,6 +216,8 @@ public partial class SqlQueryDocumentViewModel : DocumentViewModel
 
         OnPropertyChanged(nameof(CanExecuteDml));
         ExecuteDmlCommand.NotifyCanExecuteChanged();
+        OnPropertyChanged(nameof(CanExecuteDdl));
+        ExecuteDdlCommand.NotifyCanExecuteChanged();
     }
 
     /// <summary>
@@ -539,6 +553,109 @@ public partial class SqlQueryDocumentViewModel : DocumentViewModel
         catch (Exception ex)
         {
             StatusMessage = $"執行失敗：{ex.Message}";
+        }
+        finally
+        {
+            IsExecuting = false;
+        }
+    }
+
+    /// <summary>
+    /// 執行 DDL：先預演取得逐句摘要，經使用者確認後才 COMMIT 變更 schema。
+    /// 環境閘門在 IDdlExecutionService（Production 拒絕），此處僅控制 UI 可用性與確認流程。
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanExecuteDdl))]
+    private async Task ExecuteDdlAsync()
+    {
+        if (_ddlExecutionService == null || string.IsNullOrWhiteSpace(SqlText))
+            return;
+
+        if (_selectedConnectionDisabled)
+        {
+            StatusMessage = "此連線已停用，請改選其他連線。";
+            return;
+        }
+
+        var (sql, isSelection) = GetEffectiveSql();
+        var selectionNote = isSelection ? "（選取範圍）" : "";
+        // 目前連線（_localConnectionString == null）傳 null 跟隨資料庫覆寫；
+        // 明確選擇的其他連線傳其 Id
+        var profileId = _localConnectionString == null ? (Guid?)null : SelectedProfile?.Id;
+
+        try
+        {
+            IsExecuting = true;
+            StatusMessage = "DDL 預演中...";
+            QueryResults.Clear();
+            ResultColumns.Clear();
+            DryRunWarnings = string.Empty;
+            RowCount = 0;
+            IsResultEditable = false;
+            _lastQueryResult = null;
+            _originalByRow.Clear();
+
+            var preview = await _ddlExecutionService.ExecuteAsync(sql, confirm: false, profileId);
+
+            if (!preview.IsValid)
+            {
+                StatusMessage = preview.SyntaxErrors.Count > 0
+                    ? $"語法錯誤（第 {preview.SyntaxErrors[0].Line} 行第 {preview.SyntaxErrors[0].Column} 列）：{preview.SyntaxErrors[0].Message}"
+                    : preview.RejectReason ?? "驗證未通過";
+                return;
+            }
+
+            if (preview.ExecutionError != null)
+            {
+                StatusMessage = preview.ExecutionError;
+                return;
+            }
+
+            var summary = string.Join("\n", preview.Statements
+                .Select(s => $"{s.Index}. {s.Type} {s.ObjectName}".TrimEnd()));
+
+            // 跟隨目前連線時，SelectedProfile 可能是開分頁當下的快照，確認訊息一律以執行當下的真實目標為準
+            var targetName = _localConnectionString == null
+                ? _connectionManager?.GetCurrentProfile()?.Name ?? SelectedProfile?.Name
+                : SelectedProfile?.Name;
+            var targetDatabase = _localConnectionString == null
+                ? _connectionManager?.GetCurrentDatabase()
+                : SelectedProfile?.Database;
+            var targetNote = string.IsNullOrEmpty(targetDatabase) ? "" : $"（資料庫：{targetDatabase}）";
+
+            var confirmed = ConfirmExecuteCallback != null
+                && await ConfirmExecuteCallback(
+                    $"將對「{targetName}」{targetNote}執行 {preview.Statements.Count} 句 DDL：\n{summary}\n" +
+                    "此操作會 COMMIT 變更 schema，確定執行？");
+
+            if (!confirmed)
+            {
+                StatusMessage = "已取消，資料庫未變更。";
+                return;
+            }
+
+            StatusMessage = "DDL 執行中...";
+            var result = await _ddlExecutionService.ExecuteAsync(sql, confirm: true, profileId);
+
+            if (!result.IsValid)
+            {
+                StatusMessage = result.RejectReason ?? "驗證未通過";
+                return;
+            }
+
+            if (result.ExecutionError != null)
+            {
+                StatusMessage = result.ExecutionError;
+                return;
+            }
+
+            DryRunWarnings = summary;
+            var committedNote = result.Committed ? "已寫入資料庫" : "未確認已寫入，請檢查";
+            StatusMessage = $"DDL 執行完成{selectionNote}：{result.Statements.Count} 句｜{committedNote}";
+            AddToHistory(sql);
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"DDL 執行失敗：{ex.Message}";
         }
         finally
         {

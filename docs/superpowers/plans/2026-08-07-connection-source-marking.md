@@ -551,6 +551,419 @@ Expected: 刪除重複 24 筆、環境修正 12 筆（名稱為中文客戶名�
 
 ---
 
+### Task 8: `ConnectionManager` — 臨時連線可成為目前連線
+
+**Files:**
+- Modify: `src/Specurai.Infrastructure/Services/ConnectionManager.cs`
+- Test: `tests/Specurai.Infrastructure.Tests/Services/ConnectionManagerTemporaryProfileTests.cs`（新檔）
+
+**Interfaces:**
+- Consumes: 既有 `RegisterTemporaryProfiles(IReadOnlyList<ConnectionProfile>)`。
+- Produces: `SetCurrentProfile` / `GetCurrentProfile` 涵蓋臨時連線；`SaveProfiles` 在目前連線為臨時時不寫入其 Id。
+
+**背景：** 這是既有 bug。`SetCurrentProfile` 與 `GetCurrentProfile` 目前只查 `_profiles`，
+所以 `RegisterTemporaryProfiles` 註冊的外部連線永遠選不到（靜默失敗）。後續 Task 9、10
+的「外部連線可從清單直接使用」都依賴此修復。
+
+- [ ] **Step 1: 寫失敗測試**
+
+新檔 `tests/Specurai.Infrastructure.Tests/Services/ConnectionManagerTemporaryProfileTests.cs`：
+
+```csharp
+using System.Text.Json;
+using FluentAssertions;
+using Specurai.Domain.Entities;
+using Specurai.Infrastructure.Services;
+
+namespace Specurai.Infrastructure.Tests.Services;
+
+public class ConnectionManagerTemporaryProfileTests : IDisposable
+{
+    private readonly string _configPath =
+        Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid()}-connections.json");
+
+    public void Dispose()
+    {
+        if (File.Exists(_configPath)) File.Delete(_configPath);
+    }
+
+    private static ConnectionProfile Temp(string name = "外部連線") => new()
+    {
+        Name = name, Server = "ext-srv", Database = "ext-db",
+        AuthType = AuthenticationType.SqlServerAuthentication,
+        Username = "u", Password = "p", IsExternal = true
+    };
+
+    [Fact]
+    public void SetCurrentProfile_臨時連線_應可成為目前連線()
+    {
+        var sut = new ConnectionManager(_configPath);
+        var temp = Temp();
+        sut.RegisterTemporaryProfiles([temp]);
+
+        sut.SetCurrentProfile(temp.Id);
+
+        sut.GetCurrentProfile().Should().BeSameAs(temp);
+        sut.GetCurrentConnectionString().Should().Contain("ext-srv");
+    }
+
+    [Fact]
+    public void SetCurrentProfile_臨時連線_應觸發連線變更事件()
+    {
+        var sut = new ConnectionManager(_configPath);
+        var temp = Temp();
+        sut.RegisterTemporaryProfiles([temp]);
+        ConnectionProfile? raised = null;
+        sut.CurrentProfileChanged += (_, p) => raised = p;
+
+        sut.SetCurrentProfile(temp.Id);
+
+        raised.Should().BeSameAs(temp);
+    }
+
+    [Fact]
+    public void SaveProfiles_目前連線為臨時連線_不寫入其Id()
+    {
+        var sut = new ConnectionManager(_configPath);
+        var temp = Temp();
+        sut.RegisterTemporaryProfiles([temp]);
+        sut.SetCurrentProfile(temp.Id);
+
+        // AddProfile 會觸發存檔
+        sut.AddProfile(new ConnectionProfile
+        {
+            Name = "自建", Server = "s", Database = "d"
+        });
+
+        using var doc = JsonDocument.Parse(File.ReadAllText(_configPath));
+        var names = doc.RootElement.GetProperty("Profiles")
+            .EnumerateArray().Select(e => e.GetProperty("Name").GetString()).ToList();
+        names.Should().ContainSingle().Which.Should().Be("自建");
+        doc.RootElement.GetProperty("CurrentProfileId").GetGuid()
+            .Should().NotBe(temp.Id);
+    }
+}
+```
+
+- [ ] **Step 2: 跑測試確認失敗**
+
+Run: `dotnet test tests/Specurai.Infrastructure.Tests --filter "FullyQualifiedName~ConnectionManagerTemporaryProfileTests"`
+Expected: FAIL——`GetCurrentProfile()` 回 null（`SetCurrentProfile` 找不到臨時連線）。
+
+- [ ] **Step 3: 實作**
+
+`ConnectionManager.cs` 加一個私有查找 helper，並改三處：
+
+```csharp
+    /// <summary>依 Id 查找連線（臨時連線優先，其次已落地連線）。</summary>
+    private ConnectionProfile? FindProfile(Guid id) =>
+        _temporaryProfiles.FirstOrDefault(p => p.Id == id)
+        ?? _profiles.FirstOrDefault(p => p.Id == id);
+```
+
+`SetCurrentProfile` 開頭的查找改為：
+
+```csharp
+        var profile = FindProfile(profileId);
+        if (profile is { IsEnabled: true })
+```
+
+`GetCurrentProfile` 中原本 `_profiles.FirstOrDefault(p => p.Id == _currentProfileId && p.IsEnabled)`
+的那一行改為：
+
+```csharp
+        var current = FindProfile(_currentProfileId ?? Guid.Empty) is { IsEnabled: true } found
+            ? found
+            : null;
+```
+
+（其餘自我修復邏輯——`_currentProfileId` 指向停用連線時退回啟用的預設連線——維持不變，
+且退回時仍只從 `_profiles` 找預設連線，因為臨時連線不會是預設連線。）
+
+`SaveProfiles` 的 `ConnectionData` 建構改為：
+
+```csharp
+            // 目前連線若是臨時連線（外部同步而來），不寫入檔案——它下次啟動並不存在
+            var persistedCurrentId =
+                _currentProfileId != null && _temporaryProfiles.Any(p => p.Id == _currentProfileId)
+                    ? null
+                    : _currentProfileId;
+
+            var data = new ConnectionData
+            {
+                Profiles = _profiles,
+                CurrentProfileId = persistedCurrentId
+            };
+```
+
+- [ ] **Step 4: 跑測試確認通過**
+
+Run: `dotnet test tests/Specurai.Infrastructure.Tests`
+Expected: 全數 PASS（含既有 ConnectionManager 測試）。
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add src/Specurai.Infrastructure/Services/ConnectionManager.cs tests/Specurai.Infrastructure.Tests/Services/ConnectionManagerTemporaryProfileTests.cs
+git commit -m "fix: 臨時連線可設為目前連線且不污染已落地設定"
+```
+
+---
+
+### Task 9: Desktop — 同步後整批註冊為臨時連線
+
+**Files:**
+- Modify: `src/Specurai.Desktop/ViewModels/ConnectionSetupViewModel.cs:238-286`
+- Test: `tests/Specurai.Desktop.Tests/ViewModels/ConnectionSetupViewModelTests.cs`
+
+**Interfaces:**
+- Consumes: Task 8 的 `SetCurrentProfile` 已涵蓋臨時連線。
+
+- [ ] **Step 1: 寫失敗測試**
+
+在 `ConnectionSetupViewModelTests.cs` 加入（沿用該檔既有的 mock 建構樣式）：
+
+```csharp
+[Fact]
+public async Task SyncExternalSourceAsync_同步成功_應整批註冊為臨時連線()
+{
+    var cm = Substitute.For<IConnectionManager>();
+    cm.GetAllProfiles().Returns([]);
+    var source = Substitute.For<IExternalConnectionSource>();
+    var external = new[]
+    {
+        new ConnectionProfile { Name = "甲 正式", Server = "s1", Database = "d1" },
+        new ConnectionProfile { Name = "乙 正式", Server = "s2", Database = "d2" }
+    };
+    source.SyncAsync().Returns(new ExternalConnectionResult(external, []));
+    var settings = Substitute.For<IExternalSourceSettings>();
+    settings.Load().Returns(new ExternalSourceConfig("dir", "key"));
+    var vm = new ConnectionSetupViewModel(cm, source, settings);
+
+    await vm.SyncExternalSourceCommand.ExecuteAsync(null);
+
+    cm.Received(1).RegisterTemporaryProfiles(
+        Arg.Is<IReadOnlyList<ConnectionProfile>>(list => list.Count == 2));
+}
+
+[Fact]
+public void Connect_選取外部連線_應直接設為目前連線不重複註冊()
+{
+    var cm = Substitute.For<IConnectionManager>();
+    cm.GetAllProfiles().Returns([]);
+    var source = Substitute.For<IExternalConnectionSource>();
+    var settings = Substitute.For<IExternalSourceSettings>();
+    settings.Load().Returns(new ExternalSourceConfig("dir", "key"));
+    var vm = new ConnectionSetupViewModel(cm, source, settings);
+    var external = new ConnectionProfile { Name = "甲 正式", Server = "s1", Database = "d1" };
+    vm.SelectedExternalProfile = external;
+
+    vm.ConnectCommand.Execute(null);
+
+    cm.DidNotReceive().RegisterTemporaryProfiles(Arg.Any<IReadOnlyList<ConnectionProfile>>());
+    cm.Received(1).SetCurrentProfile(external.Id);
+}
+```
+
+- [ ] **Step 2: 跑測試確認失敗**
+
+Run: `dotnet test tests/Specurai.Desktop.Tests --filter "FullyQualifiedName~ConnectionSetupViewModelTests"`
+Expected: FAIL（同步未註冊；Connect 仍會呼叫 RegisterTemporaryProfiles）。
+
+- [ ] **Step 3: 實作**
+
+`SyncExternalSourceAsync` 在 `ExternalProfiles` 填完之後、設定 `SyncStatusMessage` 之前加：
+
+```csharp
+            // 外部連線僅存活於本次執行：註冊為臨時連線（不落地），關閉 App 即消失
+            _connectionManager?.RegisterTemporaryProfiles(newProfiles);
+```
+
+`Connect` 中的外部分支改為：
+
+```csharp
+        if (SelectedExternalProfile != null)
+        {
+            _connectionManager.SetCurrentProfile(SelectedExternalProfile.Id);
+            return;
+        }
+```
+
+- [ ] **Step 4: 跑測試確認通過**
+
+Run: `dotnet test tests/Specurai.Desktop.Tests`
+Expected: 全數 PASS。
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add src/Specurai.Desktop/ViewModels/ConnectionSetupViewModel.cs tests/Specurai.Desktop.Tests/ViewModels/ConnectionSetupViewModelTests.cs
+git commit -m "feat: 外部同步結果整批註冊為臨時連線供主畫面選用"
+```
+
+---
+
+### Task 10: 外部來源 DI 共用化 ＋ MCP 同步工具
+
+**Files:**
+- Modify: `src/Specurai.Infrastructure/ServiceRegistration.cs`（在 `AddSpecuraiCore` 內註冊外部來源）
+- Modify: `src/Specurai.Desktop/Program.cs:61-63`（移除重複註冊）
+- Modify: `src/Specurai.McpServer/Tools/ConnectionTools.cs`（新增工具）
+- Test: `tests/Specurai.McpServer.Tests/ExternalSyncToolTests.cs`（新檔）
+
+**Interfaces:**
+- Consumes: `IExternalConnectionSource.SyncAsync()` 回傳 `ExternalConnectionResult(Profiles, FailedItems)`；Task 8 的臨時連線支援。
+- Produces: MCP 工具 `sync_external_connections`。
+
+- [ ] **Step 1: 寫失敗測試**
+
+新檔 `tests/Specurai.McpServer.Tests/ExternalSyncToolTests.cs`：
+
+```csharp
+using FluentAssertions;
+using NSubstitute;
+using Specurai.Application.Services;
+using Specurai.Domain.Entities;
+using Specurai.McpServer.Tools;
+
+namespace Specurai.McpServer.Tests;
+
+public class ExternalSyncToolTests
+{
+    [Fact]
+    public async Task SyncExternalConnections_同步成功_應註冊臨時連線並回報筆數()
+    {
+        var cm = Substitute.For<IConnectionManager>();
+        var source = Substitute.For<IExternalConnectionSource>();
+        var profiles = new[]
+        {
+            new ConnectionProfile { Name = "甲 正式", Server = "s1", Database = "d1" },
+            new ConnectionProfile { Name = "乙 正式", Server = "s2", Database = "d2" }
+        };
+        source.SyncAsync().Returns(new ExternalConnectionResult(profiles, ["丙/production"]));
+
+        var result = await ConnectionTools.SyncExternalConnections(cm, source);
+
+        cm.Received(1).RegisterTemporaryProfiles(
+            Arg.Is<IReadOnlyList<ConnectionProfile>>(list => list.Count == 2));
+        result.Should().Contain("2").And.Contain("1");
+    }
+
+    [Fact]
+    public async Task SyncExternalConnections_來源未設定_回傳未取得任何連線()
+    {
+        var cm = Substitute.For<IConnectionManager>();
+        var source = Substitute.For<IExternalConnectionSource>();
+        source.SyncAsync().Returns(new ExternalConnectionResult([], []));
+
+        var result = await ConnectionTools.SyncExternalConnections(cm, source);
+
+        result.Should().Be("未取得任何外部連線，請確認外部來源目錄設定。");
+    }
+}
+```
+
+- [ ] **Step 2: 跑測試確認失敗**
+
+Run: `dotnet test tests/Specurai.McpServer.Tests --filter "FullyQualifiedName~ExternalSyncToolTests"`
+Expected: 編譯失敗（`SyncExternalConnections` 不存在）。
+
+- [ ] **Step 3: 實作**
+
+3a. `ServiceRegistration.AddSpecuraiCore` 在「Infrastructure - 連線管理器」區塊之後加：
+
+```csharp
+        // Infrastructure - 外部連線來源（三端共用：Desktop / Cli / McpServer）
+        services.AddSingleton<IExternalSourceSettings, ExternalSourceSettings>();
+        services.AddSingleton<IExternalConnectionSource, InventoryConnectionSource>();
+```
+
+3b. `src/Specurai.Desktop/Program.cs` 移除這兩行重複註冊（連同其上方的
+`// Infrastructure - External Source` 註解）：
+
+```csharp
+        services.AddSingleton<IExternalSourceSettings, ExternalSourceSettings>();
+        services.AddSingleton<IExternalConnectionSource, InventoryConnectionSource>();
+```
+
+3c. `ConnectionTools.cs` 新增工具（沿用該檔既有的 `[McpServerTool, Description(...)]` 樣式）：
+
+```csharp
+    [McpServerTool, Description("同步外部來源連線（僅存活於本次 server 執行，不寫入設定檔）")]
+    public static async Task<string> SyncExternalConnections(
+        IConnectionManager connectionManager,
+        IExternalConnectionSource externalConnectionSource)
+    {
+        try
+        {
+            var result = await externalConnectionSource.SyncAsync();
+            if (result.Profiles.Count == 0)
+                return "未取得任何外部連線，請確認外部來源目錄設定。";
+
+            connectionManager.RegisterTemporaryProfiles(result.Profiles);
+
+            var message = $"已同步 {result.Profiles.Count} 個外部連線（僅本次執行有效）";
+            if (result.FailedItems.Count > 0)
+                message += $"，{result.FailedItems.Count} 個失敗：{string.Join("、", result.FailedItems)}";
+            return message + "。";
+        }
+        catch (Exception ex)
+        {
+            return $"同步外部連線失敗：{ex.Message}";
+        }
+    }
+```
+
+- [ ] **Step 4: 跑測試確認通過**
+
+Run: `dotnet build && dotnet test tests/Specurai.McpServer.Tests tests/Specurai.Desktop.Tests`
+Expected: 建置成功、全數 PASS（`DiResolutionSmokeTests` 亦須通過）。
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add src/Specurai.Infrastructure/ServiceRegistration.cs src/Specurai.Desktop/Program.cs src/Specurai.McpServer/Tools/ConnectionTools.cs tests/Specurai.McpServer.Tests/ExternalSyncToolTests.cs
+git commit -m "feat: 新增 MCP 外部來源同步工具並共用外部來源註冊"
+```
+
+---
+
+### Task 11: 移除已落地的外部連線（一次性資料修復，不入版控）
+
+**Files:**
+- 操作對象：`%APPDATA%\Specurai\connections.json`
+
+- [ ] **Step 1: 備份**
+
+```bash
+cp "$APPDATA/Specurai/connections.json" "$APPDATA/Specurai/connections.backup-20260807-b.json"
+```
+
+- [ ] **Step 2: 刪除 `IsExternal` 為 true 的連線**
+
+```python
+import json, os
+
+path = os.path.expandvars(r'%APPDATA%\Specurai\connections.json')
+data = json.load(open(path, encoding='utf-8'))
+kept = [p for p in data['Profiles'] if not p.get('IsExternal')]
+removed = len(data['Profiles']) - len(kept)
+data['Profiles'] = kept
+if data.get('CurrentProfileId') and not any(p['Id'] == data['CurrentProfileId'] for p in kept):
+    data['CurrentProfileId'] = None
+with open(path, 'w', encoding='utf-8') as f:
+    json.dump(data, f, ensure_ascii=False, indent=2)
+print(f'移除外部連線 {removed} 筆，剩餘 {len(kept)} 筆')
+```
+
+Expected: 移除 12 筆，剩餘 22 筆。
+
+- [ ] **Step 3: 驗證**
+
+確認剩餘連線皆為自建、`CurrentProfileId` 仍指向存在的連線。
+
+---
+
 ### Task 7: 全方案驗證
 
 - [ ] **Step 1: 建置與全測試**

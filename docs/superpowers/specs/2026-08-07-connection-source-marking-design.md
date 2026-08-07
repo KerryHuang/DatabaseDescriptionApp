@@ -86,6 +86,49 @@
 - MCP import：同名走更新不新增；新名新增且 `IsExternal = true`。
 - Converter：外部／自建前綴、預設標記組合輸出。
 
+## 追加需求（2026-08-07 變更）：外部來源同步不落地
+
+### 需求
+
+「同步外部來源」取得的連線只存活於當下 process：App 關閉即消失，下次開啟需重新按同步。
+MCP 亦同（活到 server 重啟）。CLI 因單次執行特性不提供同步。
+CLI / MCP 的**檔案匯入**（`conn import`、`import_connections`）維持落地不變。
+
+### 現況與缺口
+
+`ConnectionManager` 已有 `_temporaryProfiles`（`RegisterTemporaryProfiles` 註冊、不寫入
+`connections.json`），`GetAllProfiles` / `GetConnectionString(Guid)` 都已涵蓋它。但：
+
+- **`SetCurrentProfile` 與 `GetCurrentProfile` 只查 `_profiles`**，臨時連線永遠無法成為
+  目前連線。現行 `ConnectionSetupViewModel.Connect` 對外部連線的處理因此靜默失敗——
+  這是既有 bug，也是新設計的前置阻礙。
+- `SaveProfiles` 會把 `_currentProfileId` 寫入檔案；若目前連線是臨時的，會存下一個下次
+  啟動不存在的 Guid（`GetCurrentProfile` 有自我修復，但不該寫髒值）。
+- 外部來源的 DI 註冊（`IExternalSourceSettings` / `IExternalConnectionSource`）目前只在
+  `Desktop/Program.cs`，McpServer 走 `AddSpecuraiCore` 拿不到。
+
+### 設計
+
+1. **`ConnectionManager` 支援臨時連線成為目前連線**
+   - `SetCurrentProfile` / `GetCurrentProfile` 的查找範圍改為 `_temporaryProfiles` ＋ `_profiles`。
+   - `SaveProfiles` 在目前連線為臨時連線時，`CurrentProfileId` 寫 null。
+2. **Desktop 同步後整批註冊為臨時連線**
+   - `SyncExternalSourceAsync` 取得結果後 `RegisterTemporaryProfiles(newProfiles)`，
+     關閉連線設定視窗時主畫面 `LoadConnectionProfiles()` 即帶出（標【外部】）。
+   - `Connect` 對外部連線不再重新註冊單筆，直接 `SetCurrentProfile`。
+3. **外部來源 DI 移入 `AddSpecuraiCore`**，Desktop 移除重複註冊，McpServer 隨之可用。
+4. **MCP 新增 `sync_external_connections` 工具**：同步後整批註冊為臨時連線，
+   回報同步筆數；連線本身不落地。
+5. **資料修復**：從 `connections.json` 刪除既有 12 筆外部正式連線（先備份），
+   改由同步取得。
+
+### 測試（追加）
+
+- `ConnectionManager`：臨時連線可設為目前連線並取得連線字串；目前連線為臨時時
+  存檔的 `CurrentProfileId` 為 null；臨時連線不寫入 `connections.json`。
+- `ConnectionSetupViewModel`：同步後整批呼叫 `RegisterTemporaryProfiles`。
+- MCP `sync_external_connections`：呼叫 `SyncAsync` 並註冊臨時連線、回報筆數。
+
 ## 已知不一致（本次不動）
 
 `InventoryConnectionSource` 將 inventory 的 `staging` 環境映射為 `Testing`（測試），

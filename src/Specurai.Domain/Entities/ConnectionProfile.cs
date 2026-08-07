@@ -72,6 +72,11 @@ public class ConnectionProfile
     public bool IsEnabled { get; set; } = true;
 
     /// <summary>
+    /// 是否來自外部（外部來源同步、CLI/MCP 匯入）；false 表示使用者自建
+    /// </summary>
+    public bool IsExternal { get; set; }
+
+    /// <summary>
     /// 判斷兩筆連線是否指向同一個資料庫且使用同一組身分。
     /// 用於外部來源同步時排除與既有連線重複的項目；不比對密碼、名稱與環境。
     /// </summary>

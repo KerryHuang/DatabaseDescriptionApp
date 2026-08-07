@@ -81,10 +81,10 @@ public static class ConnectionProfileParser
             Username = mssql.TryGetProperty("userId", out var u) ? u.GetString() :
                        mssql.TryGetProperty("user", out var u2) ? u2.GetString() : null,
             Password = mssql.TryGetProperty("password", out var pw) ? pw.GetString() : null,
-            Environment = (root.TryGetProperty("envTag", out var et) ? et.GetString() : null) switch
+            Environment = (root.TryGetProperty("envTag", out var et) ? et.GetString()?.ToLowerInvariant() : null) switch
             {
-                "prod" => DatabaseEnvironment.Production,
-                "dev" => DatabaseEnvironment.Development,
+                "prod" or "production" => DatabaseEnvironment.Production,
+                "dev" or "development" => DatabaseEnvironment.Development,
                 _ => DatabaseEnvironment.Staging
             },
             IsExternal = true

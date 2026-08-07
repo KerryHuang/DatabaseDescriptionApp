@@ -152,6 +152,11 @@ public class ConnectionProfileParserTests
     [InlineData("prod", DatabaseEnvironment.Production)]
     [InlineData("dev", DatabaseEnvironment.Development)]
     [InlineData("staging", DatabaseEnvironment.Staging)]
+    [InlineData("Prod", DatabaseEnvironment.Production)]
+    [InlineData("PRODUCTION", DatabaseEnvironment.Production)]
+    [InlineData("production", DatabaseEnvironment.Production)]
+    [InlineData("Dev", DatabaseEnvironment.Development)]
+    [InlineData("DEVELOPMENT", DatabaseEnvironment.Development)]
     public void ParseSingle_mpe格式envTag_對應正確環境(string envTag, DatabaseEnvironment expected)
     {
         var json = "{\"envTag\":\"" + envTag + "\",\"mssql\":{\"host\":\"h\"}}";

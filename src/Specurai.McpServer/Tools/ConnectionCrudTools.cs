@@ -165,7 +165,7 @@ public static class ConnectionCrudTools
                     existing.Username = profile.Username;
                     existing.Password = profile.Password;
                     existing.Environment = profile.Environment;
-                    existing.IsExternal = profile.IsExternal;
+                    existing.IsExternal = true;
                     connectionManager.UpdateProfile(existing);
                     updated++;
                 }

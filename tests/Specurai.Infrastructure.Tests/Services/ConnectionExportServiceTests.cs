@@ -130,6 +130,23 @@ public class ConnectionExportServiceTests
     }
 
     [Fact]
+    public void ExportToJson再匯入_外部連線_IsExternal應保真()
+    {
+        var profiles = new List<ConnectionProfile>
+        {
+            new()
+            {
+                Name = "外部連線", Server = "ext-srv", Database = "ExtDb", IsExternal = true
+            }
+        };
+
+        var data = _service.ExportToJson(profiles, includePasswords: false);
+
+        var imported = _service.ImportFromJson(data);
+        imported.Profiles.Single().IsExternal.Should().BeTrue();
+    }
+
+    [Fact]
     public void ImportFromJson_舊格式無IsEnabled欄位_視為啟用()
     {
         var oldFormatJson = """

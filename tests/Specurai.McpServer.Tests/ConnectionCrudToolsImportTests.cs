@@ -55,6 +55,19 @@ public class ConnectionCrudToolsImportTests : IDisposable
     }
 
     [Fact]
+    public void ImportConnections_更新既有外部連線_IsExternal仍為True()
+    {
+        var existing = P("甲", "old-server");
+        existing.IsExternal = true;
+        var (cm, svc) = Mocks([existing], [P("甲", "new-server")]);
+
+        ConnectionCrudTools.ImportConnections(cm, svc, _tempFile);
+
+        cm.Received(1).UpdateProfile(Arg.Is<ConnectionProfile>(
+            p => p.Id == existing.Id && p.IsExternal));
+    }
+
+    [Fact]
     public void ImportConnections_名稱比對_不分大小寫()
     {
         var existing = P("Alpha");

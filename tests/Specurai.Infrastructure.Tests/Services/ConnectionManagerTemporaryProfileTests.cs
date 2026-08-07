@@ -165,6 +165,24 @@ public class ConnectionManagerTemporaryProfileTests : IDisposable
     }
 
     [Fact]
+    public void RegisterTemporaryProfiles_目前連線為已消失的臨時連線_應重設並觸發事件()
+    {
+        var sut = new ConnectionManager(_configPath);
+        var first = Temp("第一批-外部連線");
+        sut.RegisterTemporaryProfiles([first]);
+        sut.SetCurrentProfile(first.Id);
+        ConnectionProfile? raised = null;
+        var raisedCount = 0;
+        sut.CurrentProfileChanged += (_, p) => { raised = p; raisedCount++; };
+
+        // 重新同步：新一批臨時連線不含 first（新 Guid），first 變成孤兒
+        sut.RegisterTemporaryProfiles([Temp("第二批-外部連線")]);
+
+        raisedCount.Should().Be(1, "目前連線消失時應觸發一次 CurrentProfileChanged");
+        raised.Should().NotBeSameAs(first, "目前連線不應再指向已消失的臨時連線");
+    }
+
+    [Fact]
     public void SetCurrentProfile_臨時連線_應可成為目前連線()
     {
         var sut = new ConnectionManager(_configPath);

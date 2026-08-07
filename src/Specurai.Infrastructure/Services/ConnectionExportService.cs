@@ -137,7 +137,8 @@ public class ConnectionExportService : IConnectionExportService
             Password = includePasswords ? p.Password : null,
             IsDefault = p.IsDefault,
             Environment = p.Environment,
-            IsEnabled = p.IsEnabled
+            IsEnabled = p.IsEnabled,
+            IsExternal = p.IsExternal
         }).ToList();
     }
 

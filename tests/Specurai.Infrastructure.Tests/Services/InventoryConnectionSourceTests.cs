@@ -388,6 +388,30 @@ public class InventoryConnectionSourceTests : IDisposable
     }
 
     [Fact]
+    public async Task SyncAsync_產出的連線_應標記為外部()
+    {
+        WriteHostsYml("""
+            all:
+              children:
+                customer_acme:
+                  vars:
+                    mssql_host: 192.168.1.10
+                    customer: acme
+                  hosts:
+                    acme-prod:
+                      env: production
+            """);
+        WriteDatabaseYml("customer_acme_production", """
+            main_sql_override:
+              database: acme_db
+            """);
+
+        var result = await _sut.SyncAsync();
+
+        result.Profiles.Should().OnlyContain(p => p.IsExternal);
+    }
+
+    [Fact]
     public async Task SyncAsync_vault解密失敗_仍回傳連線但密碼為預設值()
     {
         WriteHostsYml("""

@@ -1,3 +1,4 @@
+using System.Text.Json;
 using FluentAssertions;
 using Specurai.Domain.Entities;
 using Specurai.Infrastructure.Services;
@@ -7,9 +8,24 @@ namespace Specurai.Infrastructure.Tests.Services;
 /// <summary>
 /// ConnectionManager 臨時 Profile 功能測試
 /// </summary>
-public class ConnectionManagerTemporaryProfileTests
+public class ConnectionManagerTemporaryProfileTests : IDisposable
 {
     private readonly ConnectionManager _manager = new();
+
+    private readonly string _configPath =
+        Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid()}-connections.json");
+
+    public void Dispose()
+    {
+        if (File.Exists(_configPath)) File.Delete(_configPath);
+    }
+
+    private static ConnectionProfile Temp(string name = "外部連線") => new()
+    {
+        Name = name, Server = "ext-srv", Database = "ext-db",
+        AuthType = AuthenticationType.SqlServerAuthentication,
+        Username = "u", Password = "p", IsExternal = true
+    };
 
     [Fact(DisplayName = "RegisterTemporaryProfiles: should appear in GetAllProfiles")]
     public void RegisterTemporaryProfiles_ShouldAppearInGetAllProfiles()
@@ -146,5 +162,58 @@ public class ConnectionManagerTemporaryProfileTests
         all.Should().HaveCount(existingCount + 1, "第二次呼叫應取代第一次的臨時 profile");
         all.Should().Contain(p => p.Name == "第二次-test7");
         all.Should().NotContain(p => p.Name == "第一次-test7");
+    }
+
+    [Fact]
+    public void SetCurrentProfile_臨時連線_應可成為目前連線()
+    {
+        var sut = new ConnectionManager(_configPath);
+        var temp = Temp();
+        sut.RegisterTemporaryProfiles([temp]);
+
+        sut.SetCurrentProfile(temp.Id);
+
+        sut.GetCurrentProfile().Should().BeSameAs(temp);
+        sut.GetCurrentConnectionString().Should().Contain("ext-srv");
+    }
+
+    [Fact]
+    public void SetCurrentProfile_臨時連線_應觸發連線變更事件()
+    {
+        var sut = new ConnectionManager(_configPath);
+        var temp = Temp();
+        sut.RegisterTemporaryProfiles([temp]);
+        ConnectionProfile? raised = null;
+        sut.CurrentProfileChanged += (_, p) => raised = p;
+
+        sut.SetCurrentProfile(temp.Id);
+
+        raised.Should().BeSameAs(temp);
+    }
+
+    [Fact]
+    public void SaveProfiles_目前連線為臨時連線_不寫入其Id()
+    {
+        var sut = new ConnectionManager(_configPath);
+        var temp = Temp();
+        sut.RegisterTemporaryProfiles([temp]);
+        sut.SetCurrentProfile(temp.Id);
+
+        // AddProfile 會觸發存檔
+        sut.AddProfile(new ConnectionProfile
+        {
+            Name = "自建", Server = "s", Database = "d"
+        });
+
+        using var doc = JsonDocument.Parse(File.ReadAllText(_configPath));
+        var names = doc.RootElement.GetProperty("Profiles")
+            .EnumerateArray().Select(e => e.GetProperty("Name").GetString()).ToList();
+        names.Should().ContainSingle().Which.Should().Be("自建");
+        // 臨時連線的 Id 完全不落地：欄位為 null（比「寫入但不同值」更強的保證）
+        var currentProfileIdProperty = doc.RootElement.GetProperty("CurrentProfileId");
+        if (currentProfileIdProperty.ValueKind != JsonValueKind.Null)
+        {
+            currentProfileIdProperty.GetGuid().Should().NotBe(temp.Id);
+        }
     }
 }

@@ -209,11 +209,8 @@ public class ConnectionManagerTemporaryProfileTests : IDisposable
         var names = doc.RootElement.GetProperty("Profiles")
             .EnumerateArray().Select(e => e.GetProperty("Name").GetString()).ToList();
         names.Should().ContainSingle().Which.Should().Be("自建");
-        // 臨時連線的 Id 完全不落地：欄位為 null（比「寫入但不同值」更強的保證）
-        var currentProfileIdProperty = doc.RootElement.GetProperty("CurrentProfileId");
-        if (currentProfileIdProperty.ValueKind != JsonValueKind.Null)
-        {
-            currentProfileIdProperty.GetGuid().Should().NotBe(temp.Id);
-        }
+        // 臨時連線的 Id 完全不落地：欄位必須為 null
+        doc.RootElement.GetProperty("CurrentProfileId").ValueKind
+            .Should().Be(JsonValueKind.Null);
     }
 }

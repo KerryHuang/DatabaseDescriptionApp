@@ -242,7 +242,6 @@ public partial class ConnectionSetupViewModel : ViewModelBase
 
         if (SelectedExternalProfile != null)
         {
-            _connectionManager.RegisterTemporaryProfiles([SelectedExternalProfile]);
             _connectionManager.SetCurrentProfile(SelectedExternalProfile.Id);
             return;
         }
@@ -271,6 +270,9 @@ public partial class ConnectionSetupViewModel : ViewModelBase
             ExternalProfiles.Clear();
             foreach (var p in newProfiles)
                 ExternalProfiles.Add(p);
+
+            // 外部連線僅存活於本次執行：註冊為臨時連線（不落地），關閉 App 即消失
+            _connectionManager?.RegisterTemporaryProfiles(newProfiles);
 
             SyncStatusMessage = BuildSyncStatusMessage(
                 newProfiles.Count, duplicateCount, result.FailedItems.Count);

@@ -177,7 +177,7 @@ public class ConnectionToolsTests
         {
             var result = ConnectionCrudTools.ImportConnections(cm, exportService, filePath);
 
-            result.Should().Be("已匯入 1 個連線設定。");
+            result.Should().Be("已匯入 1 個、已更新 0 個連線設定。");
             cm.Received(1).AddProfile(Arg.Is<ConnectionProfile>(p =>
                 p.Environment == DatabaseEnvironment.Production));
         }

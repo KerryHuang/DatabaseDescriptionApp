@@ -148,5 +148,49 @@ public class ConnectionProfileParserTests
         result!.Name.Should().Be("auto-srv");
     }
 
+    [Theory(DisplayName = "ParseSingle: mpe 格式 envTag 對應正確環境")]
+    [InlineData("prod", DatabaseEnvironment.Production)]
+    [InlineData("dev", DatabaseEnvironment.Development)]
+    [InlineData("staging", DatabaseEnvironment.Staging)]
+    public void ParseSingle_mpe格式envTag_對應正確環境(string envTag, DatabaseEnvironment expected)
+    {
+        var json = "{\"envTag\":\"" + envTag + "\",\"mssql\":{\"host\":\"h\"}}";
+        using var doc = JsonDocument.Parse(json);
+
+        var profile = ConnectionProfileParser.ParseSingle(doc.RootElement);
+
+        profile!.Environment.Should().Be(expected);
+    }
+
+    [Fact(DisplayName = "ParseSingle: mpe 格式無 envTag 環境預設預備")]
+    public void ParseSingle_mpe格式無envTag_環境預設預備()
+    {
+        using var doc = JsonDocument.Parse("""{"mssql":{"host":"h"}}""");
+
+        var profile = ConnectionProfileParser.ParseSingle(doc.RootElement);
+
+        profile!.Environment.Should().Be(DatabaseEnvironment.Staging);
+    }
+
+    [Fact(DisplayName = "ParseSingle: 簡易格式 environment 欄位對應正確環境")]
+    public void ParseSingle_簡易格式environment欄位_對應正確環境()
+    {
+        using var doc = JsonDocument.Parse("""{"server":"s","environment":"Production"}""");
+
+        var profile = ConnectionProfileParser.ParseSingle(doc.RootElement);
+
+        profile!.Environment.Should().Be(DatabaseEnvironment.Production);
+    }
+
+    [Fact(DisplayName = "ParseSingle: 任一格式應標記為外部")]
+    public void ParseSingle_任一格式_應標記為外部()
+    {
+        using var mpe = JsonDocument.Parse("""{"mssql":{"host":"h"}}""");
+        using var simple = JsonDocument.Parse("""{"server":"s"}""");
+
+        ConnectionProfileParser.ParseSingle(mpe.RootElement)!.IsExternal.Should().BeTrue();
+        ConnectionProfileParser.ParseSingle(simple.RootElement)!.IsExternal.Should().BeTrue();
+    }
+
     #endregion
 }

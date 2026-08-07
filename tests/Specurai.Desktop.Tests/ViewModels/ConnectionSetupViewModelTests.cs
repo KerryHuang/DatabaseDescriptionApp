@@ -385,33 +385,21 @@ public class ConnectionSetupViewModelTests
     #region UseProfile 測試（外部連線）
 
     [Fact]
-    public void ConnectCommand_有選擇外部連線_應呼叫RegisterTemporaryProfilesAndSetCurrentProfile()
+    public void Connect_選取外部連線_應直接設為目前連線不重複註冊()
     {
-        // Arrange
-        _connectionManager.GetAllProfiles().Returns(new List<ConnectionProfile>());
-        var externalProfile = new ConnectionProfile
-        {
-            Name = "外部 - 正式",
-            Server = "10.0.0.1",
-            Database = "ext_db"
-        };
+        var cm = Substitute.For<IConnectionManager>();
+        cm.GetAllProfiles().Returns([]);
+        var source = Substitute.For<IExternalConnectionSource>();
+        var settings = Substitute.For<IExternalSourceSettings>();
+        settings.Load().Returns(new ExternalSourceConfig("dir", "key"));
+        var vm = new ConnectionSetupViewModel(cm, source, settings);
+        var external = new ConnectionProfile { Name = "甲 正式", Server = "s1", Database = "d1" };
+        vm.SelectedExternalProfile = external;
 
-        var externalSource = Substitute.For<IExternalConnectionSource>();
-        var externalSettings = Substitute.For<IExternalSourceSettings>();
-        externalSettings.Load().Returns(new ExternalSourceConfig("some/path", string.Empty));
-
-        var vm = new ConnectionSetupViewModel(_connectionManager, externalSource, externalSettings);
-        vm.SelectedExternalProfile = externalProfile;
-        vm.SelectedProfile = null;
-
-        // Act
         vm.ConnectCommand.Execute(null);
 
-        // Assert
-        _connectionManager.Received(1).RegisterTemporaryProfiles(
-            Arg.Is<IReadOnlyList<ConnectionProfile>>(list =>
-                list.Count == 1 && list[0] == externalProfile));
-        _connectionManager.Received(1).SetCurrentProfile(externalProfile.Id);
+        cm.DidNotReceive().RegisterTemporaryProfiles(Arg.Any<IReadOnlyList<ConnectionProfile>>());
+        cm.Received(1).SetCurrentProfile(external.Id);
     }
 
     #endregion
@@ -839,6 +827,29 @@ public class ConnectionSetupViewModelTests
     }
 
     [Fact]
+    public async Task SyncExternalSourceCommand_Profiles已含外部連線_再次同步不判為重複()
+    {
+        // 模擬：上次同步已把外部連線註冊為臨時連線，重新載入後 Profiles 也含有它
+        var existingExternal = new ConnectionProfile
+        {
+            Name = "外部 - 正式", Server = "10.0.0.1", Database = "ext_db", IsExternal = true
+        };
+        var external = new List<ConnectionProfile>
+        {
+            new() { Name = "外部 - 正式", Server = "10.0.0.1", Database = "ext_db" }
+        };
+        var vm = CreateVmWithExternal(
+            source: CreateExternalSource(external),
+            settings: CreateExternalSettings("some/path"),
+            localProfiles: [existingExternal]);
+
+        await vm.SyncExternalSourceCommand.ExecuteAsync(null);
+
+        vm.ExternalProfiles.Should().ContainSingle(
+            "去重應排除臨時外部連線，只比對已落地連線，否則再次同步會全被判為重複");
+    }
+
+    [Fact]
     public async Task SyncExternalSourceCommand_執行後_清除先前選取的外部連線()
     {
         var external = new List<ConnectionProfile>
@@ -854,6 +865,28 @@ public class ConnectionSetupViewModelTests
         await vm.SyncExternalSourceCommand.ExecuteAsync(null);
 
         vm.SelectedExternalProfile.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task SyncExternalSourceAsync_同步成功_應整批註冊為臨時連線()
+    {
+        var cm = Substitute.For<IConnectionManager>();
+        cm.GetAllProfiles().Returns([]);
+        var source = Substitute.For<IExternalConnectionSource>();
+        var external = new[]
+        {
+            new ConnectionProfile { Name = "甲 正式", Server = "s1", Database = "d1" },
+            new ConnectionProfile { Name = "乙 正式", Server = "s2", Database = "d2" }
+        };
+        source.SyncAsync().Returns(new ExternalConnectionResult(external, []));
+        var settings = Substitute.For<IExternalSourceSettings>();
+        settings.Load().Returns(new ExternalSourceConfig("dir", "key"));
+        var vm = new ConnectionSetupViewModel(cm, source, settings);
+
+        await vm.SyncExternalSourceCommand.ExecuteAsync(null);
+
+        cm.Received(1).RegisterTemporaryProfiles(
+            Arg.Is<IReadOnlyList<ConnectionProfile>>(list => list.Count == 2));
     }
 
     [Fact]
@@ -944,6 +977,68 @@ public class ConnectionSetupViewModelTests
         vm.NewProfileCommand.Execute(null);
 
         vm.IsEnabled.Should().BeTrue();
+    }
+
+    #endregion
+
+    #region 外部連線編輯守門測試
+
+    [Fact]
+    public void SaveCommand_選中外部連線_不應呼叫UpdateProfile()
+    {
+        var external = new ConnectionProfile
+        {
+            Id = Guid.NewGuid(), Name = "外部連線", Server = "s", Database = "db", IsExternal = true
+        };
+        _connectionManager.GetAllProfiles().Returns(new List<ConnectionProfile> { external });
+        var vm = new ConnectionSetupViewModel(_connectionManager);
+        vm.SelectedProfile = external;
+
+        vm.SaveCommand.Execute(null);
+
+        _connectionManager.DidNotReceive().UpdateProfile(Arg.Any<ConnectionProfile>());
+        _connectionManager.DidNotReceive().AddProfile(Arg.Any<ConnectionProfile>());
+    }
+
+    [Fact]
+    public void DeleteCommand_選中外部連線_不應呼叫DeleteProfile()
+    {
+        var external = new ConnectionProfile
+        {
+            Id = Guid.NewGuid(), Name = "外部連線", Server = "s", Database = "db", IsExternal = true
+        };
+        _connectionManager.GetAllProfiles().Returns(new List<ConnectionProfile> { external });
+        var vm = new ConnectionSetupViewModel(_connectionManager);
+        vm.SelectedProfile = external;
+
+        vm.DeleteCommand.Execute(null);
+
+        _connectionManager.DidNotReceive().DeleteProfile(Arg.Any<Guid>());
+    }
+
+    [Fact]
+    public void CanEditSelectedProfile_選中外部連線_為False()
+    {
+        var external = new ConnectionProfile
+        {
+            Id = Guid.NewGuid(), Name = "外部連線", Server = "s", Database = "db", IsExternal = true
+        };
+        _connectionManager.GetAllProfiles().Returns(new List<ConnectionProfile> { external });
+        var vm = new ConnectionSetupViewModel(_connectionManager);
+
+        vm.SelectedProfile = external;
+
+        vm.CanEditSelectedProfile.Should().BeFalse();
+        vm.CanDeleteSelectedProfile.Should().BeFalse();
+    }
+
+    [Fact]
+    public void CanEditSelectedProfile_未選取任何連線_為True()
+    {
+        _connectionManager.GetAllProfiles().Returns(new List<ConnectionProfile>());
+        var vm = new ConnectionSetupViewModel(_connectionManager);
+
+        vm.CanEditSelectedProfile.Should().BeTrue();
     }
 
     #endregion

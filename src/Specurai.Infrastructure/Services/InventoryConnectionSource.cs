@@ -186,7 +186,8 @@ public class InventoryConnectionSource : IExternalConnectionSource
             AuthType = AuthenticationType.SqlServerAuthentication,
             Username = username,
             Password = password,
-            Environment = ToDatabaseEnvironment(env)
+            Environment = ToDatabaseEnvironment(env),
+            IsExternal = true
         };
     }
 

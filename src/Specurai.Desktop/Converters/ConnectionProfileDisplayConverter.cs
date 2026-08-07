@@ -6,7 +6,7 @@ using Specurai.Domain.Entities;
 namespace Specurai.Desktop.Converters;
 
 /// <summary>
-/// 將 <see cref="ConnectionProfile"/> 轉為選擇器顯示字串：【環境簡稱】名稱 (預設)。
+/// 將 <see cref="ConnectionProfile"/> 轉為選擇器顯示字串：【環境簡稱】【外部|自建】名稱 (預設)。
 /// </summary>
 public class ConnectionProfileDisplayConverter : IValueConverter
 {
@@ -24,7 +24,10 @@ public class ConnectionProfileDisplayConverter : IValueConverter
             _                               => p.Environment.ToString()
         };
 
-        return p.IsDefault ? $"【{tag}】{p.Name} (預設)" : $"【{tag}】{p.Name}";
+        var source = p.IsExternal ? "外部" : "自建";
+        return p.IsDefault
+            ? $"【{tag}】【{source}】{p.Name} (預設)"
+            : $"【{tag}】【{source}】{p.Name}";
     }
 
     public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)

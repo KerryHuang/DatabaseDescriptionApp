@@ -107,6 +107,30 @@ public class ConnCommandUpdateExportTests
         }
     }
 
+    [Fact(DisplayName = "ApplyImportedProfile: 應同步 Environment 並標記為外部")]
+    public void ApplyImportedProfile_ShouldSyncEnvironmentAndMarkExternal()
+    {
+        var existing = NewProfile();
+        existing.Environment = DatabaseEnvironment.Staging;
+        existing.IsExternal = false;
+        var imported = new ConnectionProfile
+        {
+            Name = "原名",
+            Server = "new-server",
+            Database = "new-db",
+            AuthType = AuthenticationType.SqlServerAuthentication,
+            Username = "new-user",
+            Password = "new-pass",
+            Environment = DatabaseEnvironment.Production
+        };
+
+        ConnCommand.ApplyImportedProfile(existing, imported);
+
+        existing.Environment.Should().Be(DatabaseEnvironment.Production);
+        existing.IsExternal.Should().BeTrue();
+        existing.Server.Should().Be("new-server");
+    }
+
     [Fact(DisplayName = "ResolveSwitchTarget: 目標連線已停用應回傳 null")]
     public void ResolveSwitchTarget_TargetDisabled_ShouldReturnNull()
     {

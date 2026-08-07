@@ -148,28 +148,49 @@ public static class ConnectionCrudTools
 
             var data = File.ReadAllBytes(filePath);
             var exportData = exportService.ImportFromJson(data);
-            var count = 0;
+            var existingProfiles = connectionManager.GetAllProfiles();
+            var imported = 0;
+            var updated = 0;
 
             foreach (var profile in exportData.Profiles)
             {
-                var newProfile = new ConnectionProfile
+                var existing = existingProfiles.FirstOrDefault(p =>
+                    p.Name.Equals(profile.Name, StringComparison.OrdinalIgnoreCase));
+
+                if (existing != null)
                 {
-                    Id = Guid.NewGuid(),
-                    Name = profile.Name,
-                    Server = profile.Server,
-                    Database = profile.Database,
-                    AuthType = profile.AuthType,
-                    Username = profile.Username,
-                    Password = profile.Password,
-                    IsDefault = false,
-                    Environment = profile.Environment,
-                    IsEnabled = profile.IsEnabled
-                };
-                connectionManager.AddProfile(newProfile);
-                count++;
+                    existing.Server = profile.Server;
+                    existing.Database = profile.Database;
+                    existing.AuthType = profile.AuthType;
+                    existing.Username = profile.Username;
+                    existing.Password = profile.Password;
+                    existing.Environment = profile.Environment;
+                    existing.IsExternal = true;
+                    connectionManager.UpdateProfile(existing);
+                    updated++;
+                }
+                else
+                {
+                    var newProfile = new ConnectionProfile
+                    {
+                        Id = Guid.NewGuid(),
+                        Name = profile.Name,
+                        Server = profile.Server,
+                        Database = profile.Database,
+                        AuthType = profile.AuthType,
+                        Username = profile.Username,
+                        Password = profile.Password,
+                        IsDefault = false,
+                        Environment = profile.Environment,
+                        IsEnabled = profile.IsEnabled,
+                        IsExternal = true
+                    };
+                    connectionManager.AddProfile(newProfile);
+                    imported++;
+                }
             }
 
-            return $"已匯入 {count} 個連線設定。";
+            return $"已匯入 {imported} 個、已更新 {updated} 個連線設定。";
         }
         catch (Exception ex)
         {

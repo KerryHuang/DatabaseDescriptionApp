@@ -80,7 +80,14 @@ public static class ConnectionProfileParser
             AuthType = AuthenticationType.SqlServerAuthentication,
             Username = mssql.TryGetProperty("userId", out var u) ? u.GetString() :
                        mssql.TryGetProperty("user", out var u2) ? u2.GetString() : null,
-            Password = mssql.TryGetProperty("password", out var pw) ? pw.GetString() : null
+            Password = mssql.TryGetProperty("password", out var pw) ? pw.GetString() : null,
+            Environment = (root.TryGetProperty("envTag", out var et) ? et.GetString()?.ToLowerInvariant() : null) switch
+            {
+                "prod" or "production" => DatabaseEnvironment.Production,
+                "dev" or "development" => DatabaseEnvironment.Development,
+                _ => DatabaseEnvironment.Staging
+            },
+            IsExternal = true
         };
     }
 
@@ -109,7 +116,21 @@ public static class ConnectionProfileParser
             Username = root.TryGetProperty("user", out var user) ? user.GetString() :
                        root.TryGetProperty("Username", out user) ? user.GetString() : null,
             Password = root.TryGetProperty("password", out var pw) ? pw.GetString() :
-                       root.TryGetProperty("Password", out pw) ? pw.GetString() : null
+                       root.TryGetProperty("Password", out pw) ? pw.GetString() : null,
+            Environment = ParseEnvironment(root),
+            IsExternal = true
         };
+    }
+
+    /// <summary>
+    /// 從 JSON 物件解析環境設定（支援 camelCase 和 PascalCase）
+    /// </summary>
+    private static DatabaseEnvironment ParseEnvironment(JsonElement root)
+    {
+        var text = root.TryGetProperty("environment", out var e) ? e.GetString() :
+                   root.TryGetProperty("Environment", out e) ? e.GetString() : null;
+        return Enum.TryParse<DatabaseEnvironment>(text, ignoreCase: true, out var env)
+            ? env
+            : DatabaseEnvironment.Staging;
     }
 }

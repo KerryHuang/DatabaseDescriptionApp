@@ -51,7 +51,9 @@ public class ConnectionManager : IConnectionManager
             }
         }
 
-        var current = _profiles.FirstOrDefault(p => p.Id == _currentProfileId && p.IsEnabled);
+        var current = FindProfile(_currentProfileId ?? Guid.Empty) is { IsEnabled: true } found
+            ? found
+            : null;
         if (current == null && _currentProfileId != null)
         {
             // CurrentProfileId 指向停用連線時自我修復，改試著找啟用的預設連線
@@ -69,8 +71,8 @@ public class ConnectionManager : IConnectionManager
 
     public void SetCurrentProfile(Guid profileId)
     {
-        var profile = _profiles.FirstOrDefault(p => p.Id == profileId && p.IsEnabled);
-        if (profile != null)
+        var profile = FindProfile(profileId);
+        if (profile is { IsEnabled: true })
         {
             _currentProfileId = profileId;
             // 切換連線設定檔時重設資料庫覆寫，回到新設定檔的預設資料庫
@@ -281,8 +283,21 @@ public class ConnectionManager : IConnectionManager
 
     public void RegisterTemporaryProfiles(IReadOnlyList<ConnectionProfile> profiles)
     {
+        var currentWasTemporary = _currentProfileId != null
+            && _temporaryProfiles.Any(p => p.Id == _currentProfileId);
         _temporaryProfiles = [..profiles];
+
+        if (currentWasTemporary && !_temporaryProfiles.Any(p => p.Id == _currentProfileId))
+        {
+            _currentProfileId = null;
+            CurrentProfileChanged?.Invoke(this, GetCurrentProfile());
+        }
     }
+
+    /// <summary>依 Id 查找連線（臨時連線優先，其次已落地連線）。</summary>
+    private ConnectionProfile? FindProfile(Guid id) =>
+        _temporaryProfiles.FirstOrDefault(p => p.Id == id)
+        ?? _profiles.FirstOrDefault(p => p.Id == id);
 
     private static string GetConfigPath() =>
         SpecuraiPaths.ResolveConfigFile("connections.json");
@@ -312,10 +327,16 @@ public class ConnectionManager : IConnectionManager
     {
         try
         {
+            // 目前連線若是臨時連線（外部同步而來），不寫入檔案——它下次啟動並不存在
+            var persistedCurrentId =
+                _currentProfileId != null && _temporaryProfiles.Any(p => p.Id == _currentProfileId)
+                    ? null
+                    : _currentProfileId;
+
             var data = new ConnectionData
             {
                 Profiles = _profiles,
-                CurrentProfileId = _currentProfileId
+                CurrentProfileId = persistedCurrentId
             };
 
             var json = JsonSerializer.Serialize(data, new JsonSerializerOptions

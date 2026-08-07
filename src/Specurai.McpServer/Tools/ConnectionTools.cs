@@ -74,4 +74,31 @@ public static class ConnectionTools
             ? $"連線成功：{profile.Name}（{profile.Server}/{profile.Database}）"
             : $"連線失敗：{profile.Name}（{profile.Server}/{profile.Database}）";
     }
+
+    /// <summary>
+    /// 同步外部來源連線（僅存活於本次 server 執行，不寫入設定檔）
+    /// </summary>
+    [McpServerTool, Description("同步外部來源連線（僅存活於本次 server 執行，不寫入設定檔）")]
+    public static async Task<string> SyncExternalConnections(
+        IConnectionManager connectionManager,
+        IExternalConnectionSource externalConnectionSource)
+    {
+        try
+        {
+            var result = await externalConnectionSource.SyncAsync();
+            if (result.Profiles.Count == 0)
+                return "未取得任何外部連線，請確認外部來源目錄設定。";
+
+            connectionManager.RegisterTemporaryProfiles(result.Profiles);
+
+            var message = $"已同步 {result.Profiles.Count} 個外部連線（僅本次執行有效）";
+            if (result.FailedItems.Count > 0)
+                message += $"，{result.FailedItems.Count} 個失敗：{string.Join("、", result.FailedItems)}";
+            return message + "。";
+        }
+        catch (Exception ex)
+        {
+            return $"同步外部連線失敗：{ex.Message}";
+        }
+    }
 }

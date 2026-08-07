@@ -463,11 +463,7 @@ public static class ConnCommand
                             .FirstOrDefault(p => p.Name.Equals(profile.Name, StringComparison.OrdinalIgnoreCase));
                         if (existing != null)
                         {
-                            existing.Server = profile.Server;
-                            existing.Database = profile.Database;
-                            existing.AuthType = profile.AuthType;
-                            existing.Username = profile.Username;
-                            existing.Password = profile.Password;
+                            ApplyImportedProfile(existing, profile);
                             cm2.UpdateProfile(existing);
                             updated2++;
                         }
@@ -530,11 +526,7 @@ public static class ConnCommand
                     if (existing != null)
                     {
                         // 更新現有連線
-                        existing.Server = profile.Server;
-                        existing.Database = profile.Database;
-                        existing.AuthType = profile.AuthType;
-                        existing.Username = profile.Username;
-                        existing.Password = profile.Password;
+                        ApplyImportedProfile(existing, profile);
                         cm.UpdateProfile(existing);
                         updated++;
                     }
@@ -593,6 +585,20 @@ public static class ConnCommand
         if (newUsername != null) profile.Username = newUsername;
         if (newPassword != null) profile.Password = newPassword;
         return profile;
+    }
+
+    /// <summary>
+    /// 將匯入的連線設定套用到既有連線（conn import 更新分支），並標記為外部來源。
+    /// </summary>
+    internal static void ApplyImportedProfile(ConnectionProfile existing, ConnectionProfile imported)
+    {
+        existing.Server = imported.Server;
+        existing.Database = imported.Database;
+        existing.AuthType = imported.AuthType;
+        existing.Username = imported.Username;
+        existing.Password = imported.Password;
+        existing.Environment = imported.Environment;
+        existing.IsExternal = true;
     }
 
     /// <summary>

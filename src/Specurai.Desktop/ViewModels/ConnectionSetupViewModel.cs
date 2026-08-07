@@ -85,6 +85,12 @@ public partial class ConnectionSetupViewModel : ViewModelBase
     public bool CanConnect =>
         (SelectedProfile != null && SelectedProfile.IsEnabled) || SelectedExternalProfile != null;
 
+    /// <summary>外部連線僅存活於當下 process，不可編輯／刪除；未選取（新增模式）視為可編輯。</summary>
+    public bool CanEditSelectedProfile => SelectedProfile is not { IsExternal: true };
+
+    /// <summary>刪除鈕需同時滿足有選取項目、且非外部連線。</summary>
+    public bool CanDeleteSelectedProfile => SelectedProfile != null && CanEditSelectedProfile;
+
     partial void OnSelectedExternalProfileChanged(ConnectionProfile? value)
     {
         OnPropertyChanged(nameof(IsExternalProfileSelected));
@@ -147,6 +153,8 @@ public partial class ConnectionSetupViewModel : ViewModelBase
     partial void OnSelectedProfileChanged(ConnectionProfile? value)
     {
         OnPropertyChanged(nameof(CanConnect));
+        OnPropertyChanged(nameof(CanEditSelectedProfile));
+        OnPropertyChanged(nameof(CanDeleteSelectedProfile));
         if (value != null)
         {
             Name = value.Name;
@@ -203,6 +211,11 @@ public partial class ConnectionSetupViewModel : ViewModelBase
     private void Save()
     {
         if (_connectionManager == null) return;
+        if (!CanEditSelectedProfile)
+        {
+            TestResult = "外部連線僅存活於當下 process，無法編輯。";
+            return;
+        }
 
         Guid profileId;
 
@@ -229,6 +242,11 @@ public partial class ConnectionSetupViewModel : ViewModelBase
     private void Delete()
     {
         if (_connectionManager == null || SelectedProfile == null) return;
+        if (!CanEditSelectedProfile)
+        {
+            TestResult = "外部連線僅存活於當下 process，無法刪除。";
+            return;
+        }
 
         _connectionManager.DeleteProfile(SelectedProfile.Id);
         LoadProfiles();
@@ -260,9 +278,10 @@ public partial class ConnectionSetupViewModel : ViewModelBase
         {
             var result = await _externalConnectionSource.SyncAsync();
 
-            // 與既有內部連線設定相同者不重複列出（含已停用的內部連線）
+            // 去重只比對已落地連線；臨時外部連線也在 Profiles 裡，納入會讓再次同步全被判重複
+            var persisted = Profiles.Where(p => !p.IsExternal).ToList();
             var newProfiles = result.Profiles
-                .Where(e => !Profiles.Any(e.HasSameConnectionSettings))
+                .Where(e => !persisted.Any(e.HasSameConnectionSettings))
                 .ToList();
             var duplicateCount = result.Profiles.Count - newProfiles.Count;
 

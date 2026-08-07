@@ -31,7 +31,7 @@
                     <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Spacing="5" Margin="5">
                         <Button Content="新增" Command="{Binding NewProfileCommand}" Width="60"/>
                         <Button Content="刪除" Command="{Binding DeleteCommand}" Width="60"
-                                IsEnabled="{Binding SelectedProfile, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                                IsEnabled="{Binding CanDeleteSelectedProfile}"/>
                     </StackPanel>
                     <ScrollViewer>
                         <StackPanel Margin="5" Spacing="4">
@@ -190,7 +190,8 @@
 
             <!-- 按鈕列 -->
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10">
-                <Button Content="儲存" Command="{Binding SaveCommand}" Width="80"/>
+                <Button Content="儲存" Command="{Binding SaveCommand}" Width="80"
+                        IsEnabled="{Binding CanEditSelectedProfile}"/>
                 <Button Content="連線" Command="{Binding ConnectCommand}" Width="80"
                         IsEnabled="{Binding CanConnect}"/>
                 <Button Content="關閉" Click="OnCloseClick" Width="80"/>

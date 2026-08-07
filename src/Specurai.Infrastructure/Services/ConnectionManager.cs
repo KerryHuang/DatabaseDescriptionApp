@@ -283,7 +283,15 @@ public class ConnectionManager : IConnectionManager
 
     public void RegisterTemporaryProfiles(IReadOnlyList<ConnectionProfile> profiles)
     {
+        var currentWasTemporary = _currentProfileId != null
+            && _temporaryProfiles.Any(p => p.Id == _currentProfileId);
         _temporaryProfiles = [..profiles];
+
+        if (currentWasTemporary && !_temporaryProfiles.Any(p => p.Id == _currentProfileId))
+        {
+            _currentProfileId = null;
+            CurrentProfileChanged?.Invoke(this, GetCurrentProfile());
+        }
     }
 
     /// <summary>依 Id 查找連線（臨時連線優先，其次已落地連線）。</summary>

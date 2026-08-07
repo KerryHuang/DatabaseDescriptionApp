@@ -19,6 +19,10 @@ public static class ServiceRegistration
         // Infrastructure - 連線管理器
         services.AddSingleton<IConnectionManager, ConnectionManager>();
 
+        // Infrastructure - 外部連線來源（三端共用：Desktop / Cli / McpServer）
+        services.AddSingleton<IExternalSourceSettings, ExternalSourceSettings>();
+        services.AddSingleton<IExternalConnectionSource, InventoryConnectionSource>();
+
         // Infrastructure - Repositories
         services.AddSingleton<ITableRepository>(sp =>
             new TableRepository(() => sp.GetRequiredService<IConnectionManager>().GetCurrentConnectionString()));

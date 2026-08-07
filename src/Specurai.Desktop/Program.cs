@@ -58,10 +58,6 @@ sealed class Program
         // Desktop 特有：ColumnUsageExcelExporter
         services.AddSingleton<ColumnUsageExcelExporter>();
 
-        // Infrastructure - External Source
-        services.AddSingleton<IExternalSourceSettings, ExternalSourceSettings>();
-        services.AddSingleton<IExternalConnectionSource, InventoryConnectionSource>();
-
         // Recovery Model（service/repository 已移至 AddSpecuraiCore 三端共用，此處僅註冊 ViewModel）
         services.AddTransient<RecoveryModelDocumentViewModel>(sp =>
             new RecoveryModelDocumentViewModel(

@@ -271,6 +271,24 @@ public class ConnectionProfileTests
         profile.IsEnabled.Should().BeTrue();
     }
 
+    [Fact]
+    public void IsExternal_未設定_預設為自建()
+    {
+        var profile = new ConnectionProfile { Name = "n", Server = "s", Database = "d" };
+
+        profile.IsExternal.Should().BeFalse();
+    }
+
+    [Fact]
+    public void IsExternal_舊版JSON無此欄位_反序列化為自建()
+    {
+        var json = """{"Name":"n","Server":"s","Database":"d"}""";
+
+        var profile = System.Text.Json.JsonSerializer.Deserialize<ConnectionProfile>(json);
+
+        profile!.IsExternal.Should().BeFalse();
+    }
+
     private static ConnectionProfile SqlAuthProfile(
         string name = "連線",
         string server = "sql01",

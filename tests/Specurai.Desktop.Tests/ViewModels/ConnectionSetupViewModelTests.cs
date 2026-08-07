@@ -385,33 +385,21 @@ public class ConnectionSetupViewModelTests
     #region UseProfile 測試（外部連線）
 
     [Fact]
-    public void ConnectCommand_有選擇外部連線_應呼叫RegisterTemporaryProfilesAndSetCurrentProfile()
+    public void Connect_選取外部連線_應直接設為目前連線不重複註冊()
     {
-        // Arrange
-        _connectionManager.GetAllProfiles().Returns(new List<ConnectionProfile>());
-        var externalProfile = new ConnectionProfile
-        {
-            Name = "外部 - 正式",
-            Server = "10.0.0.1",
-            Database = "ext_db"
-        };
+        var cm = Substitute.For<IConnectionManager>();
+        cm.GetAllProfiles().Returns([]);
+        var source = Substitute.For<IExternalConnectionSource>();
+        var settings = Substitute.For<IExternalSourceSettings>();
+        settings.Load().Returns(new ExternalSourceConfig("dir", "key"));
+        var vm = new ConnectionSetupViewModel(cm, source, settings);
+        var external = new ConnectionProfile { Name = "甲 正式", Server = "s1", Database = "d1" };
+        vm.SelectedExternalProfile = external;
 
-        var externalSource = Substitute.For<IExternalConnectionSource>();
-        var externalSettings = Substitute.For<IExternalSourceSettings>();
-        externalSettings.Load().Returns(new ExternalSourceConfig("some/path", string.Empty));
-
-        var vm = new ConnectionSetupViewModel(_connectionManager, externalSource, externalSettings);
-        vm.SelectedExternalProfile = externalProfile;
-        vm.SelectedProfile = null;
-
-        // Act
         vm.ConnectCommand.Execute(null);
 
-        // Assert
-        _connectionManager.Received(1).RegisterTemporaryProfiles(
-            Arg.Is<IReadOnlyList<ConnectionProfile>>(list =>
-                list.Count == 1 && list[0] == externalProfile));
-        _connectionManager.Received(1).SetCurrentProfile(externalProfile.Id);
+        cm.DidNotReceive().RegisterTemporaryProfiles(Arg.Any<IReadOnlyList<ConnectionProfile>>());
+        cm.Received(1).SetCurrentProfile(external.Id);
     }
 
     #endregion
@@ -854,6 +842,28 @@ public class ConnectionSetupViewModelTests
         await vm.SyncExternalSourceCommand.ExecuteAsync(null);
 
         vm.SelectedExternalProfile.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task SyncExternalSourceAsync_同步成功_應整批註冊為臨時連線()
+    {
+        var cm = Substitute.For<IConnectionManager>();
+        cm.GetAllProfiles().Returns([]);
+        var source = Substitute.For<IExternalConnectionSource>();
+        var external = new[]
+        {
+            new ConnectionProfile { Name = "甲 正式", Server = "s1", Database = "d1" },
+            new ConnectionProfile { Name = "乙 正式", Server = "s2", Database = "d2" }
+        };
+        source.SyncAsync().Returns(new ExternalConnectionResult(external, []));
+        var settings = Substitute.For<IExternalSourceSettings>();
+        settings.Load().Returns(new ExternalSourceConfig("dir", "key"));
+        var vm = new ConnectionSetupViewModel(cm, source, settings);
+
+        await vm.SyncExternalSourceCommand.ExecuteAsync(null);
+
+        cm.Received(1).RegisterTemporaryProfiles(
+            Arg.Is<IReadOnlyList<ConnectionProfile>>(list => list.Count == 2));
     }
 
     [Fact]

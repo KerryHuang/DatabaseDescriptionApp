@@ -31,8 +31,9 @@
                     </ComboBox>
                 </StackPanel>
 
-                <!-- 中間：執行按鈕 -->
-                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" Margin="20,0">
+                <!-- 中間：執行按鈕（空間不足時自動折行） -->
+                <WrapPanel Grid.Column="1" Orientation="Horizontal" Margin="20,0"
+                           ItemSpacing="10" LineSpacing="6">
                     <Button Command="{Binding ExecuteQueryCommand}"
                             IsEnabled="{Binding !IsExecuting}"
                             HotKey="F5">
@@ -82,12 +83,12 @@
                     </Button>
                     <ProgressBar IsIndeterminate="True" Width="80"
                                  IsVisible="{Binding IsExecuting}"/>
-                </StackPanel>
+                </WrapPanel>
 
                 <!-- 右側：歷史記錄 -->
                 <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="10">
                     <TextBlock Text="歷史：" VerticalAlignment="Center"/>
-                    <ComboBox MinWidth="250"
+                    <ComboBox MinWidth="250" VerticalAlignment="Center"
                               ItemsSource="{Binding QueryHistory}"
                               PlaceholderText="選擇歷史記錄..."
                               SelectedItem="{Binding SqlText, Mode=OneWayToSource}">

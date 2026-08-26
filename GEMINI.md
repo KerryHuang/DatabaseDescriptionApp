@@ -14,6 +14,7 @@ Specurai is a cross-platform desktop application for querying and managing SQL S
 - `/test` - 執行測試
 - `/run` - 執行桌面應用程式
 - `/publish` - 發布單一執行檔
+- `/install-local` - 建置並安裝到本機 /Applications（macOS）
 
 ## Key Technologies
 

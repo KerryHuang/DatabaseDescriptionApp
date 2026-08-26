@@ -101,7 +101,14 @@ fi
 
 echo "已建立 ${BUNDLE_DIR}"
 
-# 建立 .dmg
+# 建立 .dmg（設定 SKIP_DMG=1 可跳過，保留 .app 供本機安裝使用）
+if [ "${SKIP_DMG:-0}" = "1" ]; then
+    echo "=== 已跳過 .dmg 建立（SKIP_DMG=1）==="
+    echo "=== 完成 ==="
+    du -sh "${BUNDLE_DIR}"
+    exit 0
+fi
+
 DMG_NAME="${APP_NAME}-${VERSION}-${RUNTIME}.dmg"
 DMG_PATH="${OUTPUT_DIR}/${DMG_NAME}"
 

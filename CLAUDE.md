@@ -26,7 +26,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `/test` - 執行測試
 - `/run` - 執行桌面應用程式
 - `/publish` - 發布單一執行檔
-- `/install-local` - 建置並安裝到本機 /Applications（macOS）
+- `/install-local` - 建置並安裝桌面 App／MCP Server／CLI 到本機（macOS）
 - `/commit` - 建立 Git commit（繁體中文訊息）
 - `/push` - 推送程式碼並建立版本 tag
 

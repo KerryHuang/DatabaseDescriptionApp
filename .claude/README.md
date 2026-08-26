@@ -27,6 +27,7 @@
 | `/test` | 執行單元測試 | 可選：測試篩選條件（如 `TableQueryService`） |
 | `/run` | 啟動桌面應用程式 | 無 |
 | `/publish` | 發布為單一執行檔 | 可選：目標平台（如 `win`、`osx-arm64`、`linux`） |
+| `/install-local` | 建置並安裝到本機 `/Applications`（macOS 專用） | 可選：版本號（如 `1.24.0`） |
 | `/commit` | 建立 Git commit（繁體中文訊息） | 可選：commit 訊息 |
 | `/push` | 推送程式碼並建立版本 tag | 可選：版本號（如 `v1.0.5`） |
 

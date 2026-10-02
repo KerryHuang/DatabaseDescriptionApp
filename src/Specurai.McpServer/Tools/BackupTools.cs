@@ -15,14 +15,15 @@ public static class BackupTools
 {
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
 
-    [McpServerTool, Description("備份目前連線的資料庫到指定路徑（⚠️ 寫入操作，會在伺服器端產生 .bak 檔）")]
+    [McpServerTool, TargetConnection(AcceptsDatabase = false), Description("備份目前連線的資料庫到指定路徑（⚠️ 寫入操作，會在伺服器端產生 .bak 檔）")]
     public static async Task<string> BackupRun(
         IConnectionManager connectionManager,
         IBackupService backupService,
         [Description("備份檔案路徑（.bak），為 SQL Server 伺服器端路徑")] string path,
         [Description("備份類型：full / diff / log（預設 full）")] string type = "full",
         [Description("備份描述（可選）")] string? description = null,
-        [Description("備份後是否略過驗證（預設 false）")] bool noVerify = false)
+        [Description("備份後是否略過驗證（預設 false）")] bool noVerify = false,
+        [Description(ConnectionTarget.ConnectionDescription)] string? connection = null)
     {
         try
         {
@@ -56,11 +57,12 @@ public static class BackupTools
         }
     }
 
-    [McpServerTool, Description("驗證備份檔案是否有效")]
+    [McpServerTool, TargetConnection(AcceptsDatabase = false), Description("驗證備份檔案是否有效")]
     public static async Task<string> BackupVerify(
         IConnectionManager connectionManager,
         IBackupService backupService,
-        [Description("備份檔案路徑")] string path)
+        [Description("備份檔案路徑")] string path,
+        [Description(ConnectionTarget.ConnectionDescription)] string? connection = null)
     {
         try
         {
@@ -78,11 +80,12 @@ public static class BackupTools
         }
     }
 
-    [McpServerTool, Description("查看備份檔案的詳細資訊（資料庫、伺服器、時間、大小等）")]
+    [McpServerTool, TargetConnection(AcceptsDatabase = false), Description("查看備份檔案的詳細資訊（資料庫、伺服器、時間、大小等）")]
     public static async Task<string> BackupInfo(
         IConnectionManager connectionManager,
         IBackupService backupService,
-        [Description("備份檔案路徑")] string path)
+        [Description("備份檔案路徑")] string path,
+        [Description(ConnectionTarget.ConnectionDescription)] string? connection = null)
     {
         try
         {

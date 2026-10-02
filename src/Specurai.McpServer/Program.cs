@@ -2,6 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Specurai.Infrastructure;
+using Specurai.McpServer.Tools;
 
 var builder = Host.CreateApplicationBuilder(args);
 
@@ -12,7 +13,8 @@ builder.Logging.ClearProviders();
 builder.Services
     .AddMcpServer()
     .WithStdioServerTransport()
-    .WithToolsFromAssembly();
+    .WithToolsFromAssembly()
+    .AddConnectionTargetFilter();
 
 // 註冊所有核心服務（共用）
 builder.Services.AddSpecuraiCore();

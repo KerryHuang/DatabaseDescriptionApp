@@ -77,6 +77,21 @@ public class ConnectionToolsTests
     }
 
     [Fact]
+    public void SwitchConnection_名稱有多個啟用連線同名_回傳歧義錯誤且不切換()
+    {
+        var cm = Substitute.For<IConnectionManager>();
+        var first = SampleProfile("宇鈞 Staging");
+        var second = SampleProfile("宇鈞 Staging");
+        cm.GetEnabledProfiles().Returns([first, second]);
+        cm.GetAllProfiles().Returns([first, second]);
+
+        var result = ConnectionTools.SwitchConnection(cm, "宇鈞 Staging");
+
+        result.Should().Contain("歧義").And.Contain(first.Id.ToString()).And.Contain(second.Id.ToString());
+        cm.DidNotReceive().SetCurrentProfile(Arg.Any<Guid>());
+    }
+
+    [Fact]
     public void ListConnections_有停用連線_輸出包含IsEnabled()
     {
         var cm = Substitute.For<IConnectionManager>();

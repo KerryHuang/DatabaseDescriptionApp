@@ -16,9 +16,11 @@ public static class HealthTools
     /// <summary>
     /// 取得健康監控安裝狀態
     /// </summary>
-    [McpServerTool, Description("檢查健康監控系統是否已安裝在目前的資料庫中")]
+    [McpServerTool, TargetConnection, Description("檢查健康監控系統是否已安裝在目前的資料庫中")]
     public static async Task<string> GetHealthInstallStatus(
-        IHealthMonitoringService healthService)
+        IHealthMonitoringService healthService,
+        [Description(ConnectionTarget.ConnectionDescription)] string? connection = null,
+        [Description(ConnectionTarget.DatabaseDescription)] string? database = null)
     {
         try
         {
@@ -34,9 +36,11 @@ public static class HealthTools
     /// <summary>
     /// 取得健康狀態摘要
     /// </summary>
-    [McpServerTool, Description("取得資料庫健康狀態摘要，包含各檢查項目的狀態")]
+    [McpServerTool, TargetConnection, Description("取得資料庫健康狀態摘要，包含各檢查項目的狀態")]
     public static async Task<string> GetHealthStatus(
-        IHealthMonitoringService healthService)
+        IHealthMonitoringService healthService,
+        [Description(ConnectionTarget.ConnectionDescription)] string? connection = null,
+        [Description(ConnectionTarget.DatabaseDescription)] string? database = null)
     {
         try
         {
@@ -56,9 +60,11 @@ public static class HealthTools
     /// <summary>
     /// 取得目前健康指標
     /// </summary>
-    [McpServerTool, Description("取得目前的資料庫健康指標數值")]
+    [McpServerTool, TargetConnection, Description("取得目前的資料庫健康指標數值")]
     public static async Task<string> GetHealthMetrics(
-        IHealthMonitoringService healthService)
+        IHealthMonitoringService healthService,
+        [Description(ConnectionTarget.ConnectionDescription)] string? connection = null,
+        [Description(ConnectionTarget.DatabaseDescription)] string? database = null)
     {
         try
         {
@@ -78,10 +84,12 @@ public static class HealthTools
     /// <summary>
     /// 取得最近告警
     /// </summary>
-    [McpServerTool, Description("取得最近的健康監控告警記錄")]
+    [McpServerTool, TargetConnection, Description("取得最近的健康監控告警記錄")]
     public static async Task<string> GetHealthAlerts(
         IHealthMonitoringService healthService,
-        [Description("查詢天數（預設 7 天）")] int days = 7)
+        [Description("查詢天數（預設 7 天）")] int days = 7,
+        [Description(ConnectionTarget.ConnectionDescription)] string? connection = null,
+        [Description(ConnectionTarget.DatabaseDescription)] string? database = null)
     {
         try
         {

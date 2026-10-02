@@ -16,10 +16,12 @@ public static class TableTools
     /// <summary>
     /// 列出所有資料庫物件
     /// </summary>
-    [McpServerTool, Description("列出目前資料庫的所有物件（資料表、檢視、預存程序、函數），可選擇依類型篩選")]
+    [McpServerTool, TargetConnection, Description("列出目前資料庫的所有物件（資料表、檢視、預存程序、函數），可選擇依類型篩選")]
     public static async Task<string> ListTables(
         ITableQueryService tableQueryService,
-        [Description("物件類型篩選（可選）：BASE TABLE、VIEW、PROCEDURE、FUNCTION。留空則列出全部")] string? type = null)
+        [Description("物件類型篩選（可選）：BASE TABLE、VIEW、PROCEDURE、FUNCTION。留空則列出全部")] string? type = null,
+        [Description(ConnectionTarget.ConnectionDescription)] string? connection = null,
+        [Description(ConnectionTarget.DatabaseDescription)] string? database = null)
     {
         var tables = string.IsNullOrEmpty(type)
             ? await tableQueryService.GetAllTablesAsync()
@@ -42,12 +44,14 @@ public static class TableTools
     /// <summary>
     /// 取得指定物件的欄位資訊
     /// </summary>
-    [McpServerTool, Description("取得指定資料表或檢視的欄位資訊，包含資料型別、是否可 Null、主鍵、描述等")]
+    [McpServerTool, TargetConnection, Description("取得指定資料表或檢視的欄位資訊，包含資料型別、是否可 Null、主鍵、描述等")]
     public static async Task<string> GetColumns(
         ITableQueryService tableQueryService,
         [Description("Schema 名稱，例如 dbo")] string schema,
         [Description("物件名稱（資料表或檢視名稱）")] string tableName,
-        [Description("物件類型：BASE TABLE、VIEW、PROCEDURE、FUNCTION（預設 BASE TABLE）")] string type = "BASE TABLE")
+        [Description("物件類型：BASE TABLE、VIEW、PROCEDURE、FUNCTION（預設 BASE TABLE）")] string type = "BASE TABLE",
+        [Description(ConnectionTarget.ConnectionDescription)] string? connection = null,
+        [Description(ConnectionTarget.DatabaseDescription)] string? database = null)
     {
         var columns = await tableQueryService.GetColumnsAsync(type, schema, tableName);
 
@@ -73,11 +77,13 @@ public static class TableTools
     /// <summary>
     /// 取得指定表格的索引資訊
     /// </summary>
-    [McpServerTool, Description("取得指定資料表的索引資訊，包含索引名稱、類型、欄位、是否唯一等")]
+    [McpServerTool, TargetConnection, Description("取得指定資料表的索引資訊，包含索引名稱、類型、欄位、是否唯一等")]
     public static async Task<string> GetIndexes(
         ITableQueryService tableQueryService,
         [Description("Schema 名稱，例如 dbo")] string schema,
-        [Description("資料表名稱")] string tableName)
+        [Description("資料表名稱")] string tableName,
+        [Description(ConnectionTarget.ConnectionDescription)] string? connection = null,
+        [Description(ConnectionTarget.DatabaseDescription)] string? database = null)
     {
         var indexes = await tableQueryService.GetIndexesAsync(schema, tableName);
 
@@ -99,11 +105,13 @@ public static class TableTools
     /// <summary>
     /// 取得指定表格的外鍵關聯
     /// </summary>
-    [McpServerTool, Description("取得指定資料表的外鍵關聯，包含參考的資料表和欄位")]
+    [McpServerTool, TargetConnection, Description("取得指定資料表的外鍵關聯，包含參考的資料表和欄位")]
     public static async Task<string> GetRelations(
         ITableQueryService tableQueryService,
         [Description("Schema 名稱，例如 dbo")] string schema,
-        [Description("資料表名稱")] string tableName)
+        [Description("資料表名稱")] string tableName,
+        [Description(ConnectionTarget.ConnectionDescription)] string? connection = null,
+        [Description(ConnectionTarget.DatabaseDescription)] string? database = null)
     {
         var relations = await tableQueryService.GetRelationsAsync(schema, tableName);
 
@@ -116,11 +124,13 @@ public static class TableTools
     /// <summary>
     /// 取得預存程序或函數的參數
     /// </summary>
-    [McpServerTool, Description("取得預存程序或函數的參數資訊")]
+    [McpServerTool, TargetConnection, Description("取得預存程序或函數的參數資訊")]
     public static async Task<string> GetParameters(
         ITableQueryService tableQueryService,
         [Description("Schema 名稱，例如 dbo")] string schema,
-        [Description("預存程序或函數名稱")] string objectName)
+        [Description("預存程序或函數名稱")] string objectName,
+        [Description(ConnectionTarget.ConnectionDescription)] string? connection = null,
+        [Description(ConnectionTarget.DatabaseDescription)] string? database = null)
     {
         var parameters = await tableQueryService.GetParametersAsync(schema, objectName);
 
@@ -133,11 +143,13 @@ public static class TableTools
     /// <summary>
     /// 取得預存程序或函數的 SQL 定義
     /// </summary>
-    [McpServerTool, Description("取得預存程序或函數的完整 SQL 定義（原始碼）")]
+    [McpServerTool, TargetConnection, Description("取得預存程序或函數的完整 SQL 定義（原始碼）")]
     public static async Task<string> GetDefinition(
         ITableQueryService tableQueryService,
         [Description("Schema 名稱，例如 dbo")] string schema,
-        [Description("預存程序或函數名稱")] string objectName)
+        [Description("預存程序或函數名稱")] string objectName,
+        [Description(ConnectionTarget.ConnectionDescription)] string? connection = null,
+        [Description(ConnectionTarget.DatabaseDescription)] string? database = null)
     {
         var definition = await tableQueryService.GetDefinitionAsync(schema, objectName);
 

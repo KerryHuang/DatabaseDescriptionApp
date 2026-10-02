@@ -88,6 +88,15 @@ public interface IConnectionManager
     void SetCurrentDatabase(string? databaseName);
 
     /// <summary>
+    /// 開啟單次呼叫的連線 scope：在 Dispose 前，同一非同步流程內的
+    /// GetCurrentProfile／GetCurrentDatabase／GetCurrentConnectionString 改用指定連線與資料庫。
+    /// 不修改目前連線狀態、不觸發變更事件，並行的其他流程不受影響。
+    /// </summary>
+    /// <param name="profile">本次呼叫使用的連線設定檔</param>
+    /// <param name="databaseName">本次呼叫使用的資料庫；null 表示用設定檔預設資料庫</param>
+    IDisposable BeginCallScope(ConnectionProfile profile, string? databaseName);
+
+    /// <summary>
     /// 取得目前連線伺服器上的使用者資料庫清單（database_id > 4 且 ONLINE）。
     /// 無目前設定檔時回傳空清單；連線或查詢失敗時擲出例外，由呼叫端決定 degrade 行為。
     /// </summary>

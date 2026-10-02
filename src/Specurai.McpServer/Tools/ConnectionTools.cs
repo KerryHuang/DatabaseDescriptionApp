@@ -62,8 +62,10 @@ public static class ConnectionTools
     /// <summary>
     /// 測試目前的連線是否正常
     /// </summary>
-    [McpServerTool, Description("測試目前的資料庫連線是否正常")]
-    public static async Task<string> TestConnection(IConnectionManager connectionManager)
+    [McpServerTool, TargetConnection(AcceptsDatabase = false), Description("測試目前的資料庫連線是否正常")]
+    public static async Task<string> TestConnection(
+        IConnectionManager connectionManager,
+        [Description(ConnectionTarget.ConnectionDescription)] string? connection = null)
     {
         var profile = connectionManager.GetCurrentProfile();
         if (profile == null)

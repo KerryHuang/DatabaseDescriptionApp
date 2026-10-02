@@ -13,8 +13,10 @@ public static class RecoveryModelTools
 {
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
 
-    [McpServerTool, Description("列出目前伺服器上所有資料庫的 Recovery Model")]
-    public static async Task<string> ListRecoveryModels(IDatabaseRecoveryModelService service)
+    [McpServerTool, TargetConnection(AcceptsDatabase = false), Description("列出目前伺服器上所有資料庫的 Recovery Model")]
+    public static async Task<string> ListRecoveryModels(
+        IDatabaseRecoveryModelService service,
+        [Description(ConnectionTarget.ConnectionDescription)] string? connection = null)
     {
         try
         {
@@ -27,11 +29,12 @@ public static class RecoveryModelTools
         }
     }
 
-    [McpServerTool, Description("設定指定資料庫的 Recovery Model（⚠️ 變更資料庫設定，會影響交易記錄行為；預設僅回摘要，需 confirm:true 才實際執行）")]
+    [McpServerTool, TargetConnection(AcceptsDatabase = false), Description("設定指定資料庫的 Recovery Model（⚠️ 變更資料庫設定，會影響交易記錄行為；預設僅回摘要，需 confirm:true 才實際執行）")]
     public static async Task<string> SetRecoveryModel(
         IDatabaseRecoveryModelService service,
         [Description("資料庫名稱")] string database,
         [Description("Recovery Model：FULL / SIMPLE / BULK_LOGGED")] string model,
+        [Description(ConnectionTarget.ConnectionDescription)] string? connection = null,
         [Description("是否實際執行（預設 false 僅回摘要）")] bool confirm = false)
     {
         try

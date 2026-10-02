@@ -13,7 +13,7 @@ namespace Specurai.McpServer.Tools;
 [McpServerToolType]
 public static class RestoreTools
 {
-    [McpServerTool, Description("從備份檔案還原資料庫（⚠️ 破壞性操作：overwrite 模式會覆蓋現有資料庫，無法復原；預設僅回摘要，需 confirm:true 才實際執行）")]
+    [McpServerTool, TargetConnection(AcceptsDatabase = false), Description("從備份檔案還原資料庫（⚠️ 破壞性操作：overwrite 模式會覆蓋現有資料庫，無法復原；預設僅回摘要，需 confirm:true 才實際執行）")]
     public static async Task<string> RestoreRun(
         IConnectionManager connectionManager,
         IBackupService backupService,
@@ -22,6 +22,7 @@ public static class RestoreTools
         [Description("目標資料庫名稱（mode=new 時必填）")] string? target = null,
         [Description("資料檔路徑（mode=new 時可指定，SQL Server 伺服器端路徑）")] string? dataPath = null,
         [Description("日誌檔路徑（mode=new 時可指定，SQL Server 伺服器端路徑）")] string? logPath = null,
+        [Description(ConnectionTarget.ConnectionDescription)] string? connection = null,
         [Description("是否實際執行（預設 false 僅回摘要）")] bool confirm = false)
     {
         try

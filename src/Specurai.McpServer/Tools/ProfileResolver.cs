@@ -9,15 +9,21 @@ namespace Specurai.McpServer.Tools;
 internal static class ProfileResolver
 {
     /// <summary>
-    /// 依名稱或 ID 解析單一已啟用的連線設定檔
+    /// 依名稱或 ID 解析單一已啟用的連線設定檔；多個啟用連線同名（歧義）時回傳 null，
+    /// 由 <see cref="DescribeMissing"/> 說明原因。
     /// </summary>
     public static ConnectionProfile? Resolve(IConnectionManager cm, string nameOrId)
     {
-        var profiles = cm.GetEnabledProfiles();
-        return profiles.FirstOrDefault(p =>
-            p.Name.Equals(nameOrId, StringComparison.OrdinalIgnoreCase) ||
-            p.Id.ToString().Equals(nameOrId, StringComparison.OrdinalIgnoreCase));
+        var matches = FindEnabledMatches(cm, nameOrId);
+        return matches.Count == 1 ? matches[0] : null;
     }
+
+    private static List<ConnectionProfile> FindEnabledMatches(IConnectionManager cm, string nameOrId) =>
+        cm.GetEnabledProfiles()
+            .Where(p =>
+                p.Name.Equals(nameOrId, StringComparison.OrdinalIgnoreCase) ||
+                p.Id.ToString().Equals(nameOrId, StringComparison.OrdinalIgnoreCase))
+            .ToList();
 
     /// <summary>
     /// 依名稱或 ID 解析連線設定檔（含已停用的，供管理型工具使用）
@@ -56,10 +62,15 @@ internal static class ProfileResolver
     }
 
     /// <summary>
-    /// 產生「找不到連線」的錯誤訊息；若該連線存在但已停用，回傳更明確的說明。
+    /// 產生「無法解析連線」的錯誤訊息：名稱歧義、已停用、或找不到。
     /// </summary>
     public static string DescribeMissing(IConnectionManager cm, string nameOrId)
     {
+        var matches = FindEnabledMatches(cm, nameOrId);
+        if (matches.Count > 1)
+            return $"連線名稱「{nameOrId}」有歧義：{matches.Count} 個啟用連線同名，請改用 ID 指定：" +
+                   string.Join("、", matches.Select(p => $"{p.Id}（{p.Server}/{p.Database}）"));
+
         var disabled = cm.GetAllProfiles()
             .FirstOrDefault(p =>
                 !p.IsEnabled &&

@@ -16,6 +16,9 @@ public class ConnectionManager : IConnectionManager
     private Guid? _currentProfileId;
     private string? _currentDatabaseOverride;
 
+    // 單次呼叫 scope：AsyncLocal 只隨該次呼叫的非同步流程傳遞，並行呼叫互不干擾
+    private readonly AsyncLocal<CallScope?> _callScope = new();
+
     public event EventHandler<ConnectionProfile?>? CurrentProfileChanged;
     public event EventHandler<string?>? CurrentDatabaseChanged;
 
@@ -42,6 +45,9 @@ public class ConnectionManager : IConnectionManager
 
     public ConnectionProfile? GetCurrentProfile()
     {
+        if (_callScope.Value is { } scope)
+            return scope.Profile;
+
         if (_currentProfileId == null)
         {
             var defaultProfile = _profiles.FirstOrDefault(p => p.IsDefault && p.IsEnabled);
@@ -211,19 +217,29 @@ public class ConnectionManager : IConnectionManager
             return null;
 
         var connectionString = BuildConnectionString(profile);
-        if (_currentDatabaseOverride == null)
+        var databaseOverride = _callScope.Value is { } scope ? scope.Database : _currentDatabaseOverride;
+        if (databaseOverride == null)
             return connectionString;
 
         // 目前資料庫覆寫僅影響「目前連線」，不影響 BuildConnectionString / GetConnectionString(profileId)
         var builder = new SqlConnectionStringBuilder(connectionString)
         {
-            InitialCatalog = _currentDatabaseOverride
+            InitialCatalog = databaseOverride
         };
         return builder.ConnectionString;
     }
 
     public string? GetCurrentDatabase()
-        => _currentDatabaseOverride ?? GetCurrentProfile()?.Database;
+        => _callScope.Value is { } scope
+            ? scope.Database ?? scope.Profile.Database
+            : _currentDatabaseOverride ?? GetCurrentProfile()?.Database;
+
+    public IDisposable BeginCallScope(ConnectionProfile profile, string? databaseName)
+    {
+        var previous = _callScope.Value;
+        _callScope.Value = new CallScope(profile, databaseName);
+        return new ScopeHandle(() => _callScope.Value = previous);
+    }
 
     public void SetCurrentDatabase(string? databaseName)
     {
@@ -350,6 +366,13 @@ public class ConnectionManager : IConnectionManager
         {
             // Log error
         }
+    }
+
+    private sealed record CallScope(ConnectionProfile Profile, string? Database);
+
+    private sealed class ScopeHandle(Action onDispose) : IDisposable
+    {
+        public void Dispose() => onDispose();
     }
 
     private class ConnectionData

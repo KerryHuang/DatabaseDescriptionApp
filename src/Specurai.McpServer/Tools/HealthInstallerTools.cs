@@ -13,9 +13,11 @@ public static class HealthInstallerTools
 {
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
 
-    [McpServerTool, Description("在目前資料庫中安裝健康監控系統（⚠️ 寫入操作，會建立資料表、預存程序和排程）")]
+    [McpServerTool, TargetConnection, Description("在目前資料庫中安裝健康監控系統（⚠️ 寫入操作，會建立資料表、預存程序和排程）")]
     public static async Task<string> InstallHealthMonitoring(
-        IHealthMonitoringService healthService)
+        IHealthMonitoringService healthService,
+        [Description(ConnectionTarget.ConnectionDescription)] string? connection = null,
+        [Description(ConnectionTarget.DatabaseDescription)] string? database = null)
     {
         try
         {
@@ -30,11 +32,13 @@ public static class HealthInstallerTools
         }
     }
 
-    [McpServerTool, Description("移除健康監控系統（⚠️ 破壞性操作；預設僅回摘要，需 confirm:true 才實際執行）")]
+    [McpServerTool, TargetConnection, Description("移除健康監控系統（⚠️ 破壞性操作；預設僅回摘要，需 confirm:true 才實際執行）")]
     public static async Task<string> UninstallHealthMonitoring(
         IHealthMonitoringService healthService,
         [Description("是否保留歷史資料（預設 false）")] bool keepHistoryData = false,
         [Description("僅移除排程 Job（預設 false）")] bool removeJobsOnly = false,
+        [Description(ConnectionTarget.ConnectionDescription)] string? connection = null,
+        [Description(ConnectionTarget.DatabaseDescription)] string? database = null,
         [Description("是否實際執行（預設 false 僅回摘要）")] bool confirm = false)
     {
         try

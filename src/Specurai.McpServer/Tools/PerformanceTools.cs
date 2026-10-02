@@ -16,11 +16,12 @@ public static class PerformanceTools
     /// <summary>
     /// 取得等候事件統計
     /// </summary>
-    [McpServerTool, Description("取得 SQL Server 等候事件統計，用於分析效能瓶頸")]
+    [McpServerTool, TargetConnection(AcceptsDatabase = false), Description("取得 SQL Server 等候事件統計，用於分析效能瓶頸")]
     public static async Task<string> GetWaitStatistics(
         IPerformanceDiagnosticsService diagnosticsService,
         [Description("顯示前 N 筆（預設 20）")] int top = 20,
-        [Description("最小百分比篩選（預設 0）")] decimal minPercentage = 0)
+        [Description("最小百分比篩選（預設 0）")] decimal minPercentage = 0,
+        [Description(ConnectionTarget.ConnectionDescription)] string? connection = null)
     {
         try
         {
@@ -40,10 +41,11 @@ public static class PerformanceTools
     /// <summary>
     /// 取得最耗時的查詢
     /// </summary>
-    [McpServerTool, Description("取得最耗時的 SQL 查詢，包含執行時間、CPU 時間、讀取次數等")]
+    [McpServerTool, TargetConnection(AcceptsDatabase = false), Description("取得最耗時的 SQL 查詢，包含執行時間、CPU 時間、讀取次數等")]
     public static async Task<string> GetExpensiveQueries(
         IPerformanceDiagnosticsService diagnosticsService,
-        [Description("顯示前 N 筆（預設 5）")] int top = 5)
+        [Description("顯示前 N 筆（預設 5）")] int top = 5,
+        [Description(ConnectionTarget.ConnectionDescription)] string? connection = null)
     {
         try
         {
@@ -63,10 +65,11 @@ public static class PerformanceTools
     /// <summary>
     /// 取得最耗時的預存程序
     /// </summary>
-    [McpServerTool, Description("取得最耗時的預存程序，包含執行時間、CPU 時間等")]
+    [McpServerTool, TargetConnection(AcceptsDatabase = false), Description("取得最耗時的預存程序，包含執行時間、CPU 時間等")]
     public static async Task<string> GetExpensiveProcedures(
         IPerformanceDiagnosticsService diagnosticsService,
-        [Description("顯示前 N 筆（預設 5）")] int top = 5)
+        [Description("顯示前 N 筆（預設 5）")] int top = 5,
+        [Description(ConnectionTarget.ConnectionDescription)] string? connection = null)
     {
         try
         {
@@ -86,9 +89,11 @@ public static class PerformanceTools
     /// <summary>
     /// 取得缺少索引建議
     /// </summary>
-    [McpServerTool, Description("取得 SQL Server 建議新增的索引，包含預估改善程度和建議的 CREATE INDEX 語句")]
+    [McpServerTool, TargetConnection, Description("取得 SQL Server 建議新增的索引，包含預估改善程度和建議的 CREATE INDEX 語句")]
     public static async Task<string> GetMissingIndexes(
-        IPerformanceDiagnosticsService diagnosticsService)
+        IPerformanceDiagnosticsService diagnosticsService,
+        [Description(ConnectionTarget.ConnectionDescription)] string? connection = null,
+        [Description(ConnectionTarget.DatabaseDescription)] string? database = null)
     {
         try
         {
@@ -108,9 +113,11 @@ public static class PerformanceTools
     /// <summary>
     /// 取得未使用索引清單
     /// </summary>
-    [McpServerTool, Description("取得未使用的索引清單，這些索引可能可以移除以改善寫入效能")]
+    [McpServerTool, TargetConnection, Description("取得未使用的索引清單，這些索引可能可以移除以改善寫入效能")]
     public static async Task<string> GetUnusedIndexes(
-        IPerformanceDiagnosticsService diagnosticsService)
+        IPerformanceDiagnosticsService diagnosticsService,
+        [Description(ConnectionTarget.ConnectionDescription)] string? connection = null,
+        [Description(ConnectionTarget.DatabaseDescription)] string? database = null)
     {
         try
         {
@@ -130,10 +137,11 @@ public static class PerformanceTools
     /// <summary>
     /// 取得錯誤記錄
     /// </summary>
-    [McpServerTool, Description("取得 SQL Server 錯誤記錄")]
+    [McpServerTool, TargetConnection(AcceptsDatabase = false), Description("取得 SQL Server 錯誤記錄")]
     public static async Task<string> GetErrorLog(
         IPerformanceDiagnosticsService diagnosticsService,
-        [Description("查詢天數（預設 7 天）")] int days = 7)
+        [Description("查詢天數（預設 7 天）")] int days = 7,
+        [Description(ConnectionTarget.ConnectionDescription)] string? connection = null)
     {
         try
         {

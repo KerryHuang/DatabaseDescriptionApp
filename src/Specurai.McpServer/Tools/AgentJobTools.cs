@@ -13,8 +13,10 @@ public static class AgentJobTools
 {
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
 
-    [McpServerTool, Description("列出 Specurai 管理的 SQL Agent Job 清單，包含狀態、上次執行結果、排程資訊")]
-    public static async Task<string> ListAgentJobs(IAgentJobService agentJobService)
+    [McpServerTool, TargetConnection(AcceptsDatabase = false), Description("列出 Specurai 管理的 SQL Agent Job 清單，包含狀態、上次執行結果、排程資訊")]
+    public static async Task<string> ListAgentJobs(
+        IAgentJobService agentJobService,
+        [Description(ConnectionTarget.ConnectionDescription)] string? connection = null)
     {
         try
         {
@@ -29,8 +31,10 @@ public static class AgentJobTools
         }
     }
 
-    [McpServerTool, Description("列出未被 Specurai 管理的 SQL Agent Job，可透過 ImportAgentJob 匯入管理")]
-    public static async Task<string> ListNonSpecuraiJobs(IAgentJobService agentJobService)
+    [McpServerTool, TargetConnection(AcceptsDatabase = false), Description("列出未被 Specurai 管理的 SQL Agent Job，可透過 ImportAgentJob 匯入管理")]
+    public static async Task<string> ListNonSpecuraiJobs(
+        IAgentJobService agentJobService,
+        [Description(ConnectionTarget.ConnectionDescription)] string? connection = null)
     {
         try
         {
@@ -45,11 +49,12 @@ public static class AgentJobTools
         }
     }
 
-    [McpServerTool, Description("取得指定 Agent Job 的執行歷史紀錄")]
+    [McpServerTool, TargetConnection(AcceptsDatabase = false), Description("取得指定 Agent Job 的執行歷史紀錄")]
     public static async Task<string> GetAgentJobHistory(
         IAgentJobService agentJobService,
         [Description("Job ID")] string jobId,
-        [Description("最大紀錄數（預設 20）")] int maxRecords = 20)
+        [Description("最大紀錄數（預設 20）")] int maxRecords = 20,
+        [Description(ConnectionTarget.ConnectionDescription)] string? connection = null)
     {
         try
         {
@@ -64,11 +69,12 @@ public static class AgentJobTools
         }
     }
 
-    [McpServerTool, Description("啟用或停用指定的 Agent Job（⚠️ 寫入操作）")]
+    [McpServerTool, TargetConnection(AcceptsDatabase = false), Description("啟用或停用指定的 Agent Job（⚠️ 寫入操作）")]
     public static async Task<string> SetAgentJobEnabled(
         IAgentJobService agentJobService,
         [Description("Job ID")] string jobId,
-        [Description("true=啟用, false=停用")] bool enabled)
+        [Description("true=啟用, false=停用")] bool enabled,
+        [Description(ConnectionTarget.ConnectionDescription)] string? connection = null)
     {
         try
         {
@@ -81,10 +87,11 @@ public static class AgentJobTools
         }
     }
 
-    [McpServerTool, Description("立即執行指定的 Agent Job（⚠️ 寫入操作）")]
+    [McpServerTool, TargetConnection(AcceptsDatabase = false), Description("立即執行指定的 Agent Job（⚠️ 寫入操作）")]
     public static async Task<string> StartAgentJob(
         IAgentJobService agentJobService,
-        [Description("Job ID")] string jobId)
+        [Description("Job ID")] string jobId,
+        [Description(ConnectionTarget.ConnectionDescription)] string? connection = null)
     {
         try
         {
@@ -97,10 +104,11 @@ public static class AgentJobTools
         }
     }
 
-    [McpServerTool, Description("刪除指定的 Agent Job（⚠️ 破壞性操作，無法復原；預設僅回摘要，需 confirm:true 才實際執行）")]
+    [McpServerTool, TargetConnection(AcceptsDatabase = false), Description("刪除指定的 Agent Job（⚠️ 破壞性操作，無法復原；預設僅回摘要，需 confirm:true 才實際執行）")]
     public static async Task<string> DeleteAgentJob(
         IAgentJobService agentJobService,
         [Description("Job ID")] string jobId,
+        [Description(ConnectionTarget.ConnectionDescription)] string? connection = null,
         [Description("是否實際執行（預設 false 僅回摘要）")] bool confirm = false)
     {
         try
@@ -117,13 +125,14 @@ public static class AgentJobTools
         }
     }
 
-    [McpServerTool, Description("更新 Agent Job 的排程設定（⚠️ 寫入操作）")]
+    [McpServerTool, TargetConnection(AcceptsDatabase = false), Description("更新 Agent Job 的排程設定（⚠️ 寫入操作）")]
     public static async Task<string> UpdateAgentJobSchedule(
         IAgentJobService agentJobService,
         [Description("Job ID")] string jobId,
         [Description("頻率類型（1=一次, 4=每天, 8=每週, 16=每月）")] int freqType,
         [Description("頻率間隔")] int freqInterval,
-        [Description("執行時間（HHMMSS 格式，如 23000 = 02:30:00）")] int activeStartTime)
+        [Description("執行時間（HHMMSS 格式，如 23000 = 02:30:00）")] int activeStartTime,
+        [Description(ConnectionTarget.ConnectionDescription)] string? connection = null)
     {
         try
         {
@@ -136,10 +145,11 @@ public static class AgentJobTools
         }
     }
 
-    [McpServerTool, Description("將指定的 Job 匯入 Specurai 管理（⚠️ 寫入操作，加上 [Specurai] 標記）")]
+    [McpServerTool, TargetConnection(AcceptsDatabase = false), Description("將指定的 Job 匯入 Specurai 管理（⚠️ 寫入操作，加上 [Specurai] 標記）")]
     public static async Task<string> ImportAgentJob(
         IAgentJobService agentJobService,
-        [Description("Job ID")] string jobId)
+        [Description("Job ID")] string jobId,
+        [Description(ConnectionTarget.ConnectionDescription)] string? connection = null)
     {
         try
         {

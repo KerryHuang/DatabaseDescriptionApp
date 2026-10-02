@@ -16,9 +16,11 @@ public static class StatisticsTools
     /// <summary>
     /// 取得所有表格的統計資訊
     /// </summary>
-    [McpServerTool, Description("取得所有資料表的統計資訊，包含列數、資料大小、索引大小等")]
+    [McpServerTool, TargetConnection, Description("取得所有資料表的統計資訊，包含列數、資料大小、索引大小等")]
     public static async Task<string> GetTableStatistics(
-        ITableStatisticsService statisticsService)
+        ITableStatisticsService statisticsService,
+        [Description(ConnectionTarget.ConnectionDescription)] string? connection = null,
+        [Description(ConnectionTarget.DatabaseDescription)] string? database = null)
     {
         try
         {
@@ -38,11 +40,13 @@ public static class StatisticsTools
     /// <summary>
     /// 取得指定表格的精確列數
     /// </summary>
-    [McpServerTool, Description("取得指定資料表的精確列數（執行 COUNT(*)，較慢但精確）")]
+    [McpServerTool, TargetConnection, Description("取得指定資料表的精確列數（執行 COUNT(*)，較慢但精確）")]
     public static async Task<string> GetExactRowCount(
         ITableStatisticsService statisticsService,
         [Description("Schema 名稱，例如 dbo")] string schema,
-        [Description("資料表名稱")] string tableName)
+        [Description("資料表名稱")] string tableName,
+        [Description(ConnectionTarget.ConnectionDescription)] string? connection = null,
+        [Description(ConnectionTarget.DatabaseDescription)] string? database = null)
     {
         try
         {
@@ -58,10 +62,12 @@ public static class StatisticsTools
     /// <summary>
     /// 取得欄位使用統計
     /// </summary>
-    [McpServerTool, Description("取得資料庫欄位的使用狀態統計，分析各欄位的資料型別一致性")]
+    [McpServerTool, TargetConnection, Description("取得資料庫欄位的使用狀態統計，分析各欄位的資料型別一致性")]
     public static async Task<string> GetColumnUsageStatistics(
         IColumnUsageService columnUsageService,
-        [Description("搜尋篩選文字（可選）")] string? searchText = null)
+        [Description("搜尋篩選文字（可選）")] string? searchText = null,
+        [Description(ConnectionTarget.ConnectionDescription)] string? connection = null,
+        [Description(ConnectionTarget.DatabaseDescription)] string? database = null)
     {
         try
         {

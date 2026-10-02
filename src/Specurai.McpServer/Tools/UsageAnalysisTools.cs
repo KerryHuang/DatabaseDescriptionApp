@@ -13,10 +13,12 @@ public static class UsageAnalysisTools
 {
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
 
-    [McpServerTool, Description("掃描目前資料庫的資料表和欄位使用狀態，找出未使用的物件")]
+    [McpServerTool, TargetConnection, Description("掃描目前資料庫的資料表和欄位使用狀態，找出未使用的物件")]
     public static async Task<string> ScanUsage(
         IUsageAnalysisService usageAnalysisService,
-        [Description("時間門檻（年，預設 2 年內無使用視為未使用）")] int years = 2)
+        [Description("時間門檻（年，預設 2 年內無使用視為未使用）")] int years = 2,
+        [Description(ConnectionTarget.ConnectionDescription)] string? connection = null,
+        [Description(ConnectionTarget.DatabaseDescription)] string? database = null)
     {
         try
         {

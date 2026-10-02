@@ -16,8 +16,10 @@ public static class DatabaseTools
     /// <summary>
     /// 列出目前連線伺服器上的使用者資料庫
     /// </summary>
-    [McpServerTool, Description("列出目前連線伺服器上的所有使用者資料庫，並標示目前使用中的資料庫與連線設定檔預設資料庫")]
-    public static async Task<string> ListDatabases(IConnectionManager connectionManager)
+    [McpServerTool, TargetConnection(AcceptsDatabase = false), Description("列出目前連線伺服器上的所有使用者資料庫，並標示目前使用中的資料庫與連線設定檔預設資料庫")]
+    public static async Task<string> ListDatabases(
+        IConnectionManager connectionManager,
+        [Description(ConnectionTarget.ConnectionDescription)] string? connection = null)
     {
         var profile = connectionManager.GetCurrentProfile();
         if (profile == null)

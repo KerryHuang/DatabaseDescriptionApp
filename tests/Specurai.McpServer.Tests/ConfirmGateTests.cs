@@ -33,6 +33,37 @@ public class ConfirmGateTests
         last.DefaultValue.Should().Be(false);
     }
 
+    [Theory(DisplayName = "破壞性工具應注入 McpServer 以向使用者確認")]
+    [InlineData(typeof(RecoveryModelTools), nameof(RecoveryModelTools.SetRecoveryModel))]
+    [InlineData(typeof(RestoreTools), nameof(RestoreTools.RestoreRun))]
+    [InlineData(typeof(MigrationTools), nameof(MigrationTools.MigrationApply))]
+    [InlineData(typeof(MigrationTools), nameof(MigrationTools.MigrationLogResize))]
+    [InlineData(typeof(ConnectionCrudTools), nameof(ConnectionCrudTools.DeleteConnection))]
+    [InlineData(typeof(AgentJobTools), nameof(AgentJobTools.DeleteAgentJob))]
+    [InlineData(typeof(HealthInstallerTools), nameof(HealthInstallerTools.UninstallHealthMonitoring))]
+    [InlineData(typeof(MaintenancePlanTools), nameof(MaintenancePlanTools.ExecuteMaintenancePlan))]
+    [InlineData(typeof(SqlTools), nameof(SqlTools.ExecuteSql))]
+    [InlineData(typeof(SqlTools), nameof(SqlTools.ExecuteDdl))]
+    public void DestructiveTool_ShouldInjectMcpServer(Type toolType, string methodName)
+    {
+        var method = toolType.GetMethod(methodName, BindingFlags.Public | BindingFlags.Static);
+        method.Should().NotBeNull();
+        method!.GetParameters().Should().Contain(p => p.ParameterType == typeof(ModelContextProtocol.Server.McpServer));
+    }
+
+    [Fact(DisplayName = "delete_agent_job: 找不到 Job 時不應刪除")]
+    public async Task DeleteAgentJob_JobNotFound_ShouldNotExecute()
+    {
+        var service = Substitute.For<IAgentJobService>();
+        service.GetJobsAsync(Arg.Any<CancellationToken>()).Returns(Array.Empty<AgentJobInfo>());
+        var jobId = Guid.NewGuid();
+
+        var result = await AgentJobTools.DeleteAgentJob(service, jobId.ToString(), confirm: true);
+
+        await service.DidNotReceive().DeleteJobAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>());
+        result.Should().Contain("找不到 Agent Job");
+    }
+
     private static ConnectionProfile SampleProfile(string name = "目前連線") => new()
     {
         Name = name,
@@ -181,6 +212,10 @@ public class ConfirmGateTests
     {
         var service = Substitute.For<IAgentJobService>();
         var jobId = Guid.NewGuid();
+        service.GetJobsAsync(Arg.Any<CancellationToken>()).Returns(new[]
+        {
+            new AgentJobInfo { JobId = jobId, Name = "[Specurai] 備份", IsEnabled = true }
+        });
 
         var result = await AgentJobTools.DeleteAgentJob(service, jobId.ToString(), confirm: true);
 

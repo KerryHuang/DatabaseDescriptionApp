@@ -109,6 +109,7 @@ public static class AgentJobTools
         IAgentJobService agentJobService,
         [Description("Job ID")] string jobId,
         [Description(ConnectionTarget.ConnectionDescription)] string? connection = null,
+        ModelContextProtocol.Server.McpServer? server = null,
         [Description("是否實際執行（預設 false 僅回摘要）")] bool confirm = false)
     {
         try
@@ -116,7 +117,17 @@ public static class AgentJobTools
             if (!confirm)
                 return $"將刪除 Agent Job [{jobId}]。加 confirm:true 執行。";
 
-            await agentJobService.DeleteJobAsync(Guid.Parse(jobId));
+            var id = Guid.Parse(jobId);
+            var job = (await agentJobService.GetJobsAsync()).FirstOrDefault(j => j.JobId == id);
+            if (job == null)
+                return $"找不到 Agent Job [{jobId}]。";
+
+            // 以 Job 名稱讓使用者確認，避免要求輸入 GUID
+            var refusal = await HumanConfirm.RequireAsync(server, $"將刪除 Agent Job「{job.Name}」，無法復原。", job.Name);
+            if (refusal != null)
+                return refusal;
+
+            await agentJobService.DeleteJobAsync(id);
             return "已刪除 Agent Job。";
         }
         catch (Exception ex)

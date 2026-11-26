@@ -39,17 +39,22 @@ public static class HealthInstallerTools
         [Description("僅移除排程 Job（預設 false）")] bool removeJobsOnly = false,
         [Description(ConnectionTarget.ConnectionDescription)] string? connection = null,
         [Description(ConnectionTarget.DatabaseDescription)] string? database = null,
+        IConnectionManager? connectionManager = null,
+        ModelContextProtocol.Server.McpServer? server = null,
         [Description("是否實際執行（預設 false 僅回摘要）")] bool confirm = false)
     {
         try
         {
+            var scope = removeJobsOnly
+                ? "僅移除排程 Job"
+                : (keepHistoryData ? "移除健康監控系統但保留歷史資料" : "移除健康監控系統（含歷史資料）");
             if (!confirm)
-            {
-                var scope = removeJobsOnly
-                    ? "僅移除排程 Job"
-                    : (keepHistoryData ? "移除健康監控系統但保留歷史資料" : "移除健康監控系統（含歷史資料）");
                 return $"將{scope}。加 confirm:true 執行。";
-            }
+
+            var dbName = connectionManager?.GetCurrentProfile()?.Database ?? "";
+            var refusal = await HumanConfirm.RequireAsync(server, $"將對 [{dbName}] {scope}。", dbName);
+            if (refusal != null)
+                return refusal;
 
             var options = new UninstallOptions(keepHistoryData, removeJobsOnly);
             var result = await healthService.UninstallAsync(options);

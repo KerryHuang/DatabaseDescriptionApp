@@ -147,6 +147,7 @@ public static class MigrationTools
         [Description("目標連線名稱")] string target,
         [Description("基準連線名稱（不指定則用目前連線）")] string? baseConnection = null,
         [Description("Migration 成功後將目標 LDF 調整到指定 MB（可選）")] int? logResizeMb = null,
+        ModelContextProtocol.Server.McpServer? server = null,
         [Description("是否實際執行（預設 false 僅回摘要）")] bool confirm = false)
     {
         try
@@ -162,11 +163,14 @@ public static class MigrationTools
             if (script.Differences.Count == 0)
                 return "沒有可執行的差異（高風險已排除）。";
 
+            var resizeNote = logResizeMb.HasValue ? $"，並將 LDF 調整為 {logResizeMb} MB" : "";
+            var summary = $"將對 {analysis.TargetSchema.ConnectionName} 套用 {script.Differences.Count} 項變更（高風險已排除）{resizeNote}。";
             if (!confirm)
-            {
-                var resizeNote = logResizeMb.HasValue ? $"，並將 LDF 調整為 {logResizeMb} MB" : "";
-                return $"將對 {analysis.TargetSchema.ConnectionName} 套用 {script.Differences.Count} 項變更（高風險已排除）{resizeNote}。加 confirm:true 執行。";
-            }
+                return $"{summary}加 confirm:true 執行。";
+
+            var refusal = await HumanConfirm.RequireAsync(server, summary, targetProfile.Database);
+            if (refusal != null)
+                return refusal;
 
             var report = await executor.ExecuteAsync(script, targetConn, dryRun: false);
             var result = ReportToObject(report, "Migration");

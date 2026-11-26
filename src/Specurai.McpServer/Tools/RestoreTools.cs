@@ -23,6 +23,7 @@ public static class RestoreTools
         [Description("資料檔路徑（mode=new 時可指定，SQL Server 伺服器端路徑）")] string? dataPath = null,
         [Description("日誌檔路徑（mode=new 時可指定，SQL Server 伺服器端路徑）")] string? logPath = null,
         [Description(ConnectionTarget.ConnectionDescription)] string? connection = null,
+        ModelContextProtocol.Server.McpServer? server = null,
         [Description("是否實際執行（預設 false 僅回摘要）")] bool confirm = false)
     {
         try
@@ -51,12 +52,18 @@ public static class RestoreTools
                 ShowProgress = false
             };
 
+            var targetName = target ?? profile.Database;
+            var overwriteNote = restoreMode == RestoreMode.OverwriteExisting
+                ? "；overwrite 會覆蓋現有資料庫，無法復原" : "";
+            var summary = $"將從 {path} 還原到 {targetName}（模式 {restoreMode}{overwriteNote}）。";
             if (!confirm)
-            {
-                var overwriteNote = restoreMode == RestoreMode.OverwriteExisting
-                    ? "；overwrite 會覆蓋現有資料庫，無法復原" : "";
-                return $"將從 {path} 還原到 {target ?? profile.Database}（模式 {restoreMode}{overwriteNote}）。加 confirm:true 執行。";
-            }
+                return $"{summary}加 confirm:true 執行。";
+
+            // 覆蓋無法復原，需輸入目標名稱；建新庫只需接受
+            var refusal = await HumanConfirm.RequireAsync(server, summary,
+                restoreMode == RestoreMode.OverwriteExisting ? targetName : null);
+            if (refusal != null)
+                return refusal;
 
             // 還原需連到 master 資料庫
             var masterProfile = new ConnectionProfile

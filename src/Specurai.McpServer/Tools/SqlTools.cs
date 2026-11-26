@@ -159,10 +159,22 @@ public static class SqlTools
         [Description("要執行的單一 DML 陳述式（INSERT/UPDATE/DELETE）")] string sql,
         [Description(ConnectionTarget.ConnectionDescription)] string? connection = null,
         [Description(ConnectionTarget.DatabaseDescription)] string? database = null,
+        IConnectionManager? connectionManager = null,
+        ModelContextProtocol.Server.McpServer? server = null,
         [Description("是否實際執行（預設 false 僅預演）")] bool confirm = false)
     {
         try
         {
+            if (confirm)
+            {
+                var dbName = connectionManager?.GetCurrentProfile()?.Database ?? "";
+                var shown = sql.Length > 500 ? sql[..500] + "…" : sql;
+                var refusal = await HumanConfirm.RequireAsync(server,
+                    $"將對 [{dbName}] COMMIT 以下 DML：\n{shown}", dbName);
+                if (refusal != null)
+                    return refusal;
+            }
+
             var result = await dmlExecutionService.ExecuteAsync(sql, confirm);
 
             if (!result.IsValid)
@@ -225,10 +237,22 @@ public static class SqlTools
         [Description("要執行的 DDL script（可含多句與 GO）")] string script,
         [Description(ConnectionTarget.ConnectionDescription)] string? connection = null,
         [Description(ConnectionTarget.DatabaseDescription)] string? database = null,
+        IConnectionManager? connectionManager = null,
+        ModelContextProtocol.Server.McpServer? server = null,
         [Description("是否實際執行（預設 false 僅預演）")] bool confirm = false)
     {
         try
         {
+            if (confirm)
+            {
+                var dbName = connectionManager?.GetCurrentProfile()?.Database ?? "";
+                var shown = script.Length > 500 ? script[..500] + "…" : script;
+                var refusal = await HumanConfirm.RequireAsync(server,
+                    $"將對 [{dbName}] COMMIT 以下 DDL：\n{shown}", dbName);
+                if (refusal != null)
+                    return refusal;
+            }
+
             var result = await ddlExecutionService.ExecuteAsync(script, confirm);
 
             if (!result.IsValid)

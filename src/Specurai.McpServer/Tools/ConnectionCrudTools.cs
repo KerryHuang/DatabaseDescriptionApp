@@ -89,9 +89,10 @@ public static class ConnectionCrudTools
     }
 
     [McpServerTool, Description("刪除連線設定（⚠️ 破壞性操作，無法復原；預設僅回摘要，需 confirm:true 才實際執行）")]
-    public static string DeleteConnection(
+    public static async Task<string> DeleteConnection(
         IConnectionManager connectionManager,
         [Description("連線名稱或 ID")] string nameOrId,
+        ModelContextProtocol.Server.McpServer? server = null,
         [Description("是否實際執行（預設 false 僅回摘要）")] bool confirm = false)
     {
         try
@@ -100,8 +101,13 @@ public static class ConnectionCrudTools
             if (profile == null)
                 return $"找不到連線「{nameOrId}」。";
 
+            var summary = $"將刪除連線「{profile.Name}」。";
             if (!confirm)
-                return $"將刪除連線「{profile.Name}」。加 confirm:true 執行。";
+                return $"{summary}加 confirm:true 執行。";
+
+            var refusal = await HumanConfirm.RequireAsync(server, summary, null);
+            if (refusal != null)
+                return refusal;
 
             connectionManager.DeleteProfile(profile.Id);
             return $"已刪除連線「{profile.Name}」。";

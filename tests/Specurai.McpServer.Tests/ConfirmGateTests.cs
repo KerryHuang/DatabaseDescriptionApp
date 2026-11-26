@@ -167,14 +167,14 @@ public class ConfirmGateTests
     }
 
     [Fact(DisplayName = "delete_connection: confirm=false 不應刪除並回摘要")]
-    public void DeleteConnection_ConfirmFalse_ShouldReturnSummaryWithoutExecuting()
+    public async Task DeleteConnection_ConfirmFalse_ShouldReturnSummaryWithoutExecuting()
     {
         var cm = Substitute.For<IConnectionManager>();
         var toDelete = SampleProfile("MyConn");
         cm.GetAllProfiles().Returns(new[] { toDelete });
         cm.GetEnabledProfiles().Returns(new[] { toDelete });
 
-        var result = ConnectionCrudTools.DeleteConnection(cm, "MyConn", confirm: false);
+        var result = await ConnectionCrudTools.DeleteConnection(cm, "MyConn", confirm: false);
 
         cm.DidNotReceive().DeleteProfile(Arg.Any<Guid>());
         result.Should().Contain("confirm:true");
@@ -182,14 +182,14 @@ public class ConfirmGateTests
     }
 
     [Fact(DisplayName = "delete_connection: confirm=true 應刪除")]
-    public void DeleteConnection_ConfirmTrue_ShouldExecute()
+    public async Task DeleteConnection_ConfirmTrue_ShouldExecute()
     {
         var profile = SampleProfile("MyConn");
         var cm = Substitute.For<IConnectionManager>();
         cm.GetAllProfiles().Returns(new[] { profile });
         cm.GetEnabledProfiles().Returns(new[] { profile });
 
-        var result = ConnectionCrudTools.DeleteConnection(cm, "MyConn", confirm: true);
+        var result = await ConnectionCrudTools.DeleteConnection(cm, "MyConn", confirm: true);
 
         cm.Received(1).DeleteProfile(profile.Id);
         result.Should().Contain("已刪除");

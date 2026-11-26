@@ -225,6 +225,7 @@ public static class MigrationTools
         ISchemaMigrationExecutor executor,
         [Description("目標連線名稱")] string target,
         [Description("目標 LDF 大小（MB），須介於 64 ~ 102400")] int sizeMb,
+        ModelContextProtocol.Server.McpServer? server = null,
         [Description("是否實際執行（預設 false 僅回摘要）")] bool confirm = false)
     {
         try
@@ -237,8 +238,13 @@ public static class MigrationTools
             if (sizeMb < 64 || sizeMb > 102400)
                 return "sizeMb 必須介於 64 ~ 102400 之間。";
 
+            var summary = $"將把 [{target}] 的 LDF 調整為 {sizeMb} MB。";
             if (!confirm)
-                return $"將把 [{target}] 的 LDF 調整為 {sizeMb} MB。加 confirm:true 執行。";
+                return $"{summary}加 confirm:true 執行。";
+
+            var refusal = await HumanConfirm.RequireAsync(server, summary, null);
+            if (refusal != null)
+                return refusal;
 
             var targetConn = connectionManager.BuildConnectionString(targetProfile);
             var rr = await executor.ResizeLogAsync(targetConn, sizeMb);

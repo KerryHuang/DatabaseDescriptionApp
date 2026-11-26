@@ -114,6 +114,16 @@ claude mcp add specurai -s user -- /絕對路徑/Specurai.McpServer
 
 停用的連線不會被 `switch_connection` 與比對／移轉類工具選用，指定停用連線會回「連線「X」已停用，請先在連線設定中啟用。」；啟用／停用僅能在桌面應用程式的連線設定畫面操作。
 
+### 破壞性操作的使用者確認
+
+帶 `confirm` 參數的工具在 `confirm:true` 時，若 AI 客戶端支援 MCP elicitation，會在執行前跳出確認表單（附操作摘要），由使用者本人放行，AI 無法自行跳過。拒絕、取消、名稱不符或確認過程出錯，一律不執行。
+
+不可復原的操作需輸入目標名稱才放行：`restore_run`（overwrite 模式）、`execute_sql`、`execute_ddl`、`migration_apply`、`uninstall_health_monitoring`（輸入資料庫名稱），`delete_agent_job`（輸入 Job 名稱）。
+
+其餘只需按接受：`restore_run`（new 模式）、`set_recovery_model`、`migration_log_resize`、`delete_connection`、`execute_maintenance_plan`。
+
+客戶端不支援 elicitation 時維持原行為：`confirm:true` 即直接執行。
+
 ## SQL 執行工具詳細說明
 
 ### execute_sql

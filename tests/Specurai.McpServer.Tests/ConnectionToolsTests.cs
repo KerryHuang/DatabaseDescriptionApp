@@ -155,7 +155,7 @@ public class ConnectionToolsTests
     }
 
     [Fact]
-    public void DeleteConnection_目標連線已停用_應能成功解析並刪除()
+    public async Task DeleteConnection_目標連線已停用_應能成功解析並刪除()
     {
         var cm = Substitute.For<IConnectionManager>();
         var disabled = new ConnectionProfile
@@ -164,7 +164,7 @@ public class ConnectionToolsTests
         };
         cm.GetAllProfiles().Returns([disabled]);
 
-        var result = ConnectionCrudTools.DeleteConnection(cm, "正式庫", confirm: true);
+        var result = await ConnectionCrudTools.DeleteConnection(cm, "正式庫", confirm: true);
 
         result.Should().Be("已刪除連線「正式庫」。");
         cm.Received(1).DeleteProfile(disabled.Id);

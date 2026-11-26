@@ -1,0 +1,92 @@
+using System.Text.Json;
+using ModelContextProtocol.Protocol;
+
+namespace Specurai.McpServer.Tools;
+
+/// <summary>
+/// 向使用者本人索取確認的通道（可替換以便測試）
+/// </summary>
+public interface IConfirmPrompt
+{
+    /// <summary>client 是否支援 elicitation</summary>
+    bool IsSupported { get; }
+
+    /// <summary>送出確認表單並等待使用者回應</summary>
+    Task<ElicitResult> ElicitAsync(ElicitRequestParams request, CancellationToken ct);
+}
+
+/// <summary>
+/// 以 MCP elicitation 實作的確認通道
+/// </summary>
+internal sealed class McpServerConfirmPrompt(ModelContextProtocol.Server.McpServer server) : IConfirmPrompt
+{
+    public bool IsSupported => server.ClientCapabilities?.Elicitation != null;
+
+    public async Task<ElicitResult> ElicitAsync(ElicitRequestParams request, CancellationToken ct) =>
+        await server.ElicitAsync(request, ct);
+}
+
+/// <summary>
+/// 破壞性操作執行前的人工確認閘門：模型帶 confirm:true 仍須使用者本人同意才放行
+/// </summary>
+public static class HumanConfirm
+{
+    private const string NameField = "confirmName";
+
+    /// <summary>
+    /// 向使用者確認；回傳 null 表示放行，否則為拒絕訊息（呼叫端應直接回傳、不執行）
+    /// </summary>
+    public static Task<string?> RequireAsync(ModelContextProtocol.Server.McpServer? server, string summary, string? expectedName, CancellationToken ct = default) =>
+        RequireAsync(server == null ? null : new McpServerConfirmPrompt(server), summary, expectedName, ct);
+
+    /// <summary>
+    /// 同上，可注入確認通道；client 不支援 elicitation 時維持既有 confirm:true 行為（放行）
+    /// </summary>
+    public static async Task<string?> RequireAsync(IConfirmPrompt? prompt, string summary, string? expectedName, CancellationToken ct = default)
+    {
+        if (prompt == null || !prompt.IsSupported)
+            return null;
+
+        var request = new ElicitRequestParams
+        {
+            Message = expectedName == null ? summary : $"{summary}\n\n請輸入「{expectedName}」以確認。",
+            RequestedSchema = new ElicitRequestParams.RequestSchema
+            {
+                Properties = expectedName == null
+                    ? new Dictionary<string, ElicitRequestParams.PrimitiveSchemaDefinition>()
+                    : new Dictionary<string, ElicitRequestParams.PrimitiveSchemaDefinition>
+                    {
+                        [NameField] = new ElicitRequestParams.StringSchema { Title = "確認名稱" }
+                    },
+                Required = expectedName == null ? null : [NameField]
+            }
+        };
+
+        ElicitResult result;
+        try
+        {
+            result = await prompt.ElicitAsync(request, ct);
+        }
+        catch (Exception ex)
+        {
+            // 確認失敗一律不執行，不退回直接執行
+            return $"無法取得使用者確認（{ex.Message}），未執行。";
+        }
+
+        if (!string.Equals(result.Action, "accept", StringComparison.OrdinalIgnoreCase))
+            return "使用者拒絕執行，未做任何變更。";
+
+        if (expectedName == null)
+            return null;
+
+        var typed = result.Content != null
+            && result.Content.TryGetValue(NameField, out var value)
+            && value.ValueKind == JsonValueKind.String
+                ? value.GetString()
+                : null;
+
+        return string.Equals(typed?.Trim(), expectedName.Trim(), StringComparison.OrdinalIgnoreCase)
+            ? null
+            : $"確認名稱不符（預期：{expectedName}），未執行。";
+    }
+}

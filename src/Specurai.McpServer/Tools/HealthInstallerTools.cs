@@ -51,7 +51,7 @@ public static class HealthInstallerTools
             if (!confirm)
                 return $"將{scope}。加 confirm:true 執行。";
 
-            var dbName = connectionManager?.GetCurrentProfile()?.Database ?? "";
+            var dbName = connectionManager?.GetCurrentDatabase() ?? "";
             var refusal = await HumanConfirm.RequireAsync(server, $"將對 [{dbName}] {scope}。", dbName);
             if (refusal != null)
                 return refusal;

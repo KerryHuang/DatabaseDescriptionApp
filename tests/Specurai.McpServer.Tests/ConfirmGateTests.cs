@@ -105,7 +105,7 @@ public class ConfirmGateTests
         var cm = Substitute.For<IConnectionManager>();
         cm.GetCurrentProfile().Returns(SampleProfile());
         cm.BuildConnectionString(Arg.Any<ConnectionProfile>()).Returns("conn");
-        var backup = Substitute.For<IBackupService>();
+        var backup = BackupOf("AppDb");
 
         var result = await RestoreTools.RestoreRun(cm, backup, "/x.bak", "overwrite", confirm: false);
 
@@ -121,7 +121,7 @@ public class ConfirmGateTests
         var cm = Substitute.For<IConnectionManager>();
         cm.GetCurrentProfile().Returns(SampleProfile());
         cm.BuildConnectionString(Arg.Any<ConnectionProfile>()).Returns("conn");
-        var backup = Substitute.For<IBackupService>();
+        var backup = BackupOf("AppDb");
 
         var result = await RestoreTools.RestoreRun(cm, backup, "/x.bak", "overwrite", confirm: true);
 
@@ -129,6 +129,42 @@ public class ConfirmGateTests
             Arg.Any<string>(), "/x.bak", Arg.Any<RestoreOptions>(),
             Arg.Any<IProgress<RestoreProgress>>(), Arg.Any<CancellationToken>());
         result.Should().Contain("還原完成");
+    }
+
+    private static IBackupService BackupOf(string sourceDb)
+    {
+        var backup = Substitute.For<IBackupService>();
+        backup.GetBackupFileInfoAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(new BackupFileInfo { DatabaseName = sourceDb });
+        return backup;
+    }
+
+    [Fact(DisplayName = "restore_run overwrite: 摘要應顯示備份來源庫（實際被覆蓋者）")]
+    public async Task RestoreRun_Overwrite_SummaryShowsSourceDatabase()
+    {
+        var cm = Substitute.For<IConnectionManager>();
+        cm.GetCurrentProfile().Returns(SampleProfile());
+        cm.BuildConnectionString(Arg.Any<ConnectionProfile>()).Returns("conn");
+
+        var result = await RestoreTools.RestoreRun(cm, BackupOf("ProdDb"), "/x.bak", "overwrite", confirm: false);
+
+        result.Should().Contain("ProdDb").And.NotContain("AppDb");
+    }
+
+    [Fact(DisplayName = "restore_run overwrite: target 與備份來源庫不同時應拒絕")]
+    public async Task RestoreRun_Overwrite_TargetMismatch_ShouldRefuse()
+    {
+        var cm = Substitute.For<IConnectionManager>();
+        cm.GetCurrentProfile().Returns(SampleProfile());
+        cm.BuildConnectionString(Arg.Any<ConnectionProfile>()).Returns("conn");
+        var backup = BackupOf("ProdDb");
+
+        var result = await RestoreTools.RestoreRun(cm, backup, "/x.bak", "overwrite", target: "Sandbox", confirm: true);
+
+        result.Should().Contain("ProdDb").And.Contain("Sandbox");
+        await backup.DidNotReceive().RestoreDatabaseAsync(
+            Arg.Any<string>(), Arg.Any<string>(), Arg.Any<RestoreOptions>(),
+            Arg.Any<IProgress<RestoreProgress>>(), Arg.Any<CancellationToken>());
     }
 
     [Fact(DisplayName = "migration_log_resize: confirm=false 不應調整並回摘要")]

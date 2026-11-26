@@ -52,19 +52,6 @@ public static class RestoreTools
                 ShowProgress = false
             };
 
-            var targetName = target ?? profile.Database;
-            var overwriteNote = restoreMode == RestoreMode.OverwriteExisting
-                ? "；overwrite 會覆蓋現有資料庫，無法復原" : "";
-            var summary = $"將從 {path} 還原到 {targetName}（模式 {restoreMode}{overwriteNote}）。";
-            if (!confirm)
-                return $"{summary}加 confirm:true 執行。";
-
-            // 覆蓋無法復原，需輸入目標名稱；建新庫只需接受
-            var refusal = await HumanConfirm.RequireAsync(server, summary,
-                restoreMode == RestoreMode.OverwriteExisting ? targetName : null);
-            if (refusal != null)
-                return refusal;
-
             // 還原需連到 master 資料庫
             var masterProfile = new ConnectionProfile
             {
@@ -77,8 +64,32 @@ public static class RestoreTools
             };
             var connStr = connectionManager.BuildConnectionString(masterProfile);
 
+            // overwrite 實際覆蓋的是備份檔記錄的來源庫，摘要與確認名稱都以它為準
+            string targetName;
+            if (restoreMode == RestoreMode.OverwriteExisting)
+            {
+                targetName = (await backupService.GetBackupFileInfoAsync(connStr, path)).DatabaseName;
+                if (!string.IsNullOrWhiteSpace(target) && !target.Equals(targetName, StringComparison.OrdinalIgnoreCase))
+                    return $"overwrite 模式會覆蓋備份來源庫 {targetName}，與指定的 target {target} 不符，未執行。要還原成另一個庫請用 mode=new。";
+            }
+            else
+            {
+                targetName = target!;
+            }
+            var overwriteNote = restoreMode == RestoreMode.OverwriteExisting
+                ? "；overwrite 會覆蓋現有資料庫，無法復原" : "";
+            var summary = $"將從 {path} 還原到 {targetName}（模式 {restoreMode}{overwriteNote}）。";
+            if (!confirm)
+                return $"{summary}加 confirm:true 執行。";
+
+            // 覆蓋無法復原，需輸入目標名稱；建新庫只需接受
+            var refusal = await HumanConfirm.RequireAsync(server, summary,
+                restoreMode == RestoreMode.OverwriteExisting ? targetName : null);
+            if (refusal != null)
+                return refusal;
+
             await backupService.RestoreDatabaseAsync(connStr, path, options);
-            return $"還原完成（模式：{restoreMode}，目標：{target ?? profile.Database}）。";
+            return $"還原完成（模式：{restoreMode}，目標：{targetName}）。";
         }
         catch (Exception ex)
         {

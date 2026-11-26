@@ -47,6 +47,10 @@ public static class HumanConfirm
         if (prompt == null || !prompt.IsSupported)
             return null;
 
+        // 確認目標不明時不能讓空白輸入放行
+        if (expectedName != null && string.IsNullOrWhiteSpace(expectedName))
+            return "無法判定確認目標，未執行。";
+
         var request = new ElicitRequestParams
         {
             Message = expectedName == null ? summary : $"{summary}\n\n請輸入「{expectedName}」以確認。",

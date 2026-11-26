@@ -78,10 +78,12 @@ public class HumanConfirmIntegrationTests : IAsyncLifetime
             File.Delete(_configPath);
     }
 
-    private async Task<string> CallDdl()
+    private async Task<string> CallDdl(string script = "CREATE TABLE T (Id int)", string? database = null)
     {
-        var result = await _client.CallToolAsync("execute_ddl",
-            new Dictionary<string, object?> { ["script"] = "CREATE TABLE T (Id int)", ["confirm"] = true });
+        var args = new Dictionary<string, object?> { ["script"] = script, ["confirm"] = true };
+        if (database != null)
+            args["database"] = database;
+        var result = await _client.CallToolAsync("execute_ddl", args);
         return ((TextContentBlock)result.Content[0]).Text;
     }
 
@@ -118,5 +120,23 @@ public class HumanConfirmIntegrationTests : IAsyncLifetime
         var text = await CallDdl();
 
         text.Should().Be("確認名稱不符（預期：AppDb），未執行。");
+    }
+
+    [Fact(DisplayName = "帶 database 參數時表單應要求輸入實際執行的資料庫")]
+    public async Task 帶database參數_表單要求實際庫名()
+    {
+        await CallDdl(database: "OtherDb");
+
+        _lastRequest!.Message.Should().Contain("「OtherDb」").And.NotContain("「AppDb」");
+    }
+
+    [Fact(DisplayName = "長 SQL 不應截斷，使用者要看得到全部語句")]
+    public async Task 長SQL_表單顯示全文()
+    {
+        var script = "CREATE TABLE T (Id int)\n/*" + new string('x', 600) + "*/\nDROP TABLE Customers";
+
+        await CallDdl(script);
+
+        _lastRequest!.Message.Should().Contain("DROP TABLE Customers");
     }
 }

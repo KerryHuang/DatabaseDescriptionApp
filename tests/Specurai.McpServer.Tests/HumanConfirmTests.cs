@@ -100,6 +100,17 @@ public class HumanConfirmTests
             .Should().Be("無法取得使用者確認（逾時），未執行。");
     }
 
+    [Theory(DisplayName = "期望名稱為空白時應拒絕且不跳表單（fail-closed）")]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task 期望名稱空白_應拒絕(string expected)
+    {
+        var prompt = Prompt(Accept(Json("\"\"")));
+
+        (await HumanConfirm.RequireAsync(prompt, "摘要", expected)).Should().Be("無法判定確認目標，未執行。");
+        await prompt.DidNotReceive().ElicitAsync(Arg.Any<ElicitRequestParams>(), Arg.Any<CancellationToken>());
+    }
+
     [Fact(DisplayName = "需名稱時表單應含必填 confirmName 欄位與摘要")]
     public async Task 需名稱時_表單含必填confirmName欄位()
     {

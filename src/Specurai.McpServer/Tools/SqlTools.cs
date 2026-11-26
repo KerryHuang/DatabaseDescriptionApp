@@ -167,10 +167,9 @@ public static class SqlTools
         {
             if (confirm)
             {
-                var dbName = connectionManager?.GetCurrentProfile()?.Database ?? "";
-                var shown = sql.Length > 500 ? sql[..500] + "…" : sql;
+                var dbName = connectionManager?.GetCurrentDatabase() ?? "";
                 var refusal = await HumanConfirm.RequireAsync(server,
-                    $"將對 [{dbName}] COMMIT 以下 DML：\n{shown}", dbName);
+                    $"將對 [{dbName}] COMMIT 以下 DML：\n{sql}", dbName);
                 if (refusal != null)
                     return refusal;
             }
@@ -245,10 +244,9 @@ public static class SqlTools
         {
             if (confirm)
             {
-                var dbName = connectionManager?.GetCurrentProfile()?.Database ?? "";
-                var shown = script.Length > 500 ? script[..500] + "…" : script;
+                var dbName = connectionManager?.GetCurrentDatabase() ?? "";
                 var refusal = await HumanConfirm.RequireAsync(server,
-                    $"將對 [{dbName}] COMMIT 以下 DDL：\n{shown}", dbName);
+                    $"將對 [{dbName}] COMMIT 以下 DDL：\n{script}", dbName);
                 if (refusal != null)
                     return refusal;
             }

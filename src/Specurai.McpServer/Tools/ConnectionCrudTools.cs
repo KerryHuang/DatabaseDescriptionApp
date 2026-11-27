@@ -92,6 +92,7 @@ public static class ConnectionCrudTools
     public static async Task<string> DeleteConnection(
         IConnectionManager connectionManager,
         [Description("連線名稱或 ID")] string nameOrId,
+        CancellationToken cancellationToken = default,
         ModelContextProtocol.Server.McpServer? server = null,
         [Description("是否實際執行（預設 false 僅回摘要）")] bool confirm = false)
     {
@@ -101,11 +102,11 @@ public static class ConnectionCrudTools
             if (profile == null)
                 return $"找不到連線「{nameOrId}」。";
 
-            var summary = $"將刪除連線「{profile.Name}」。";
+            var summary = $"將刪除連線{HumanConfirm.Quote(profile.Name)}。";
             if (!confirm)
                 return $"{summary}加 confirm:true 執行。";
 
-            var refusal = await HumanConfirm.RequireAsync(server, summary, null);
+            var refusal = await HumanConfirm.RequireAsync(server, summary, null, profile, cancellationToken);
             if (refusal != null)
                 return refusal;
 

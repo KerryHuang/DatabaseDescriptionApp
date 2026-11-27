@@ -147,6 +147,7 @@ public static class MigrationTools
         [Description("目標連線名稱")] string target,
         [Description("基準連線名稱（不指定則用目前連線）")] string? baseConnection = null,
         [Description("Migration 成功後將目標 LDF 調整到指定 MB（可選）")] int? logResizeMb = null,
+        CancellationToken cancellationToken = default,
         ModelContextProtocol.Server.McpServer? server = null,
         [Description("是否實際執行（預設 false 僅回摘要）")] bool confirm = false)
     {
@@ -164,11 +165,11 @@ public static class MigrationTools
                 return "沒有可執行的差異（高風險已排除）。";
 
             var resizeNote = logResizeMb.HasValue ? $"，並將 LDF 調整為 {logResizeMb} MB" : "";
-            var summary = $"將對 {analysis.TargetSchema.ConnectionName} 套用 {script.Differences.Count} 項變更（高風險已排除）{resizeNote}。";
+            var summary = $"將對 {HumanConfirm.Quote(analysis.TargetSchema.ConnectionName)} 套用 {script.Differences.Count} 項變更（高風險已排除）{resizeNote}。";
             if (!confirm)
                 return $"{summary}加 confirm:true 執行。";
 
-            var refusal = await HumanConfirm.RequireAsync(server, summary, targetProfile.Database);
+            var refusal = await HumanConfirm.RequireAsync(server, summary, targetProfile.Database, targetProfile, cancellationToken);
             if (refusal != null)
                 return refusal;
 
@@ -225,6 +226,7 @@ public static class MigrationTools
         ISchemaMigrationExecutor executor,
         [Description("目標連線名稱")] string target,
         [Description("目標 LDF 大小（MB），須介於 64 ~ 102400")] int sizeMb,
+        CancellationToken cancellationToken = default,
         ModelContextProtocol.Server.McpServer? server = null,
         [Description("是否實際執行（預設 false 僅回摘要）")] bool confirm = false)
     {
@@ -238,11 +240,11 @@ public static class MigrationTools
             if (sizeMb < 64 || sizeMb > 102400)
                 return "sizeMb 必須介於 64 ~ 102400 之間。";
 
-            var summary = $"將把 [{target}] 的 LDF 調整為 {sizeMb} MB。";
+            var summary = $"將把 {HumanConfirm.Quote(target)} 的 LDF 調整為 {sizeMb} MB。";
             if (!confirm)
                 return $"{summary}加 confirm:true 執行。";
 
-            var refusal = await HumanConfirm.RequireAsync(server, summary, null);
+            var refusal = await HumanConfirm.RequireAsync(server, summary, null, targetProfile, cancellationToken);
             if (refusal != null)
                 return refusal;
 

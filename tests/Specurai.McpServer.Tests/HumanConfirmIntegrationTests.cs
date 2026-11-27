@@ -37,6 +37,11 @@ public class HumanConfirmIntegrationTests : IAsyncLifetime
             AuthType = AuthenticationType.SqlServerAuthentication, Username = "u", Password = "p"
         };
         cm.AddProfile(profile);
+        cm.AddProfile(new ConnectionProfile
+        {
+            Name = "正式連線", Server = "127.0.0.1,1", Database = "ProdDb", Environment = DatabaseEnvironment.Production,
+            AuthType = AuthenticationType.SqlServerAuthentication, Username = "u", Password = "p"
+        });
         cm.SetCurrentProfile(profile.Id);
 
         var clientToServer = new Pipe();
@@ -91,11 +96,16 @@ public class HumanConfirmIntegrationTests : IAsyncLifetime
     public async Task ToolsList_注入參數不應曝露給模型()
     {
         var tools = await _client.ListToolsAsync();
-        foreach (var name in new[] { "execute_ddl", "execute_sql", "uninstall_health_monitoring", "restore_run" })
+        var destructive = new[]
+        {
+            "execute_ddl", "execute_sql", "uninstall_health_monitoring", "restore_run", "migration_apply",
+            "migration_log_resize", "delete_agent_job", "set_recovery_model", "delete_connection", "execute_maintenance_plan"
+        };
+        foreach (var name in destructive)
         {
             var properties = tools.Single(t => t.Name == name).JsonSchema.GetProperty("properties");
-            properties.TryGetProperty("server", out _).Should().BeFalse(name);
-            properties.TryGetProperty("connectionManager", out _).Should().BeFalse(name);
+            foreach (var injected in new[] { "server", "connectionManager", "recoveryModelService", "cancellationToken" })
+                properties.TryGetProperty(injected, out _).Should().BeFalse($"{name}.{injected}");
         }
     }
 
@@ -138,5 +148,26 @@ public class HumanConfirmIntegrationTests : IAsyncLifetime
         await CallDdl(script);
 
         _lastRequest!.Message.Should().Contain("DROP TABLE Customers");
+    }
+
+    [Fact(DisplayName = "正式環境連線應直接被服務拒絕，不先跳確認表單")]
+    public async Task 正式環境_不跳表單()
+    {
+        var result = await _client.CallToolAsync("execute_ddl", new Dictionary<string, object?>
+        {
+            ["script"] = "CREATE TABLE T (Id int)", ["connection"] = "正式連線", ["confirm"] = true
+        });
+
+        _lastRequest.Should().BeNull();
+        string.Join("\n", result.Content.OfType<TextContentBlock>().Select(b => b.Text))
+            .Should().Contain("正式環境");
+    }
+
+    [Fact(DisplayName = "表單應顯示目標連線名稱與 server")]
+    public async Task 表單含連線與Server()
+    {
+        await CallDdl();
+
+        _lastRequest!.Message.Should().Contain("「測試連線」").And.Contain("127.0.0.1,1");
     }
 }

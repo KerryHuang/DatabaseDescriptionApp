@@ -35,6 +35,8 @@ public static class RecoveryModelTools
         [Description("資料庫名稱")] string database,
         [Description("Recovery Model：FULL / SIMPLE / BULK_LOGGED")] string model,
         [Description(ConnectionTarget.ConnectionDescription)] string? connection = null,
+        IConnectionManager? connectionManager = null,
+        CancellationToken cancellationToken = default,
         ModelContextProtocol.Server.McpServer? server = null,
         [Description("是否實際執行（預設 false 僅回摘要）")] bool confirm = false)
     {
@@ -44,11 +46,11 @@ public static class RecoveryModelTools
             if (normalized is not ("FULL" or "SIMPLE" or "BULK_LOGGED"))
                 return "Model 必須為 FULL / SIMPLE / BULK_LOGGED。";
 
-            var summary = $"將把 [{database}] 的 Recovery Model 設為 {normalized}。";
+            var summary = $"將把 {HumanConfirm.Quote(database)} 的 Recovery Model 設為 {normalized}。";
             if (!confirm)
                 return $"{summary}加 confirm:true 執行。";
 
-            var refusal = await HumanConfirm.RequireAsync(server, summary, null);
+            var refusal = await HumanConfirm.RequireAsync(server, summary, null, connectionManager?.GetCurrentProfile(), cancellationToken);
             if (refusal != null)
                 return refusal;
 

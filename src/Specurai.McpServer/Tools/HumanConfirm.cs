@@ -1,5 +1,6 @@
 using System.Text.Json;
 using ModelContextProtocol.Protocol;
+using Specurai.Domain.Entities;
 
 namespace Specurai.McpServer.Tools;
 
@@ -20,7 +21,13 @@ public interface IConfirmPrompt
 /// </summary>
 internal sealed class McpServerConfirmPrompt(ModelContextProtocol.Server.McpServer server) : IConfirmPrompt
 {
-    public bool IsSupported => server.ClientCapabilities?.Elicitation != null;
+    public bool IsSupported => SupportsForm(server.ClientCapabilities?.Elicitation);
+
+    /// <summary>
+    /// client 是否支援表單模式 elicitation；依規格，未宣告任何模式（空物件）視為支援表單
+    /// </summary>
+    internal static bool SupportsForm(ElicitationCapability? capability) =>
+        capability is { } c && (c.Form != null || c.Url == null);
 
     public async Task<ElicitResult> ElicitAsync(ElicitRequestParams request, CancellationToken ct) =>
         await server.ElicitAsync(request, ct);
@@ -36,13 +43,21 @@ public static class HumanConfirm
     /// <summary>
     /// 向使用者確認；回傳 null 表示放行，否則為拒絕訊息（呼叫端應直接回傳、不執行）
     /// </summary>
-    public static Task<string?> RequireAsync(ModelContextProtocol.Server.McpServer? server, string summary, string? expectedName, CancellationToken ct = default) =>
-        RequireAsync(server == null ? null : new McpServerConfirmPrompt(server), summary, expectedName, ct);
+    public static Task<string?> RequireAsync(ModelContextProtocol.Server.McpServer? server, string summary, string? expectedName,
+        ConnectionProfile? target = null, CancellationToken ct = default) =>
+        RequireAsync(server == null ? null : new McpServerConfirmPrompt(server), summary, expectedName, target, ct);
+
+    /// <summary>
+    /// 把模型提供的字串嵌入表單前去除控制與格式字元並加引號，避免以換行偽造表單說明
+    /// </summary>
+    public static string Quote(string? value) =>
+        $"「{new string((value ?? "").Where(ch => !char.IsControl(ch) && char.GetUnicodeCategory(ch) != System.Globalization.UnicodeCategory.Format).ToArray())}」";
 
     /// <summary>
     /// 同上，可注入確認通道；client 不支援 elicitation 時維持既有 confirm:true 行為（放行）
     /// </summary>
-    public static async Task<string?> RequireAsync(IConfirmPrompt? prompt, string summary, string? expectedName, CancellationToken ct = default)
+    public static async Task<string?> RequireAsync(IConfirmPrompt? prompt, string summary, string? expectedName,
+        ConnectionProfile? target = null, CancellationToken ct = default)
     {
         if (prompt == null || !prompt.IsSupported)
             return null;
@@ -53,7 +68,8 @@ public static class HumanConfirm
 
         var request = new ElicitRequestParams
         {
-            Message = expectedName == null ? summary : $"{summary}\n\n請輸入「{expectedName}」以確認。",
+            Message = (target == null ? "" : $"連線：{Quote(target.Name)}（server {Quote(target.Server)}）\n")
+                + (expectedName == null ? summary : $"{summary}\n\n請輸入{Quote(expectedName)}以確認。"),
             RequestedSchema = new ElicitRequestParams.RequestSchema
             {
                 Properties = expectedName == null

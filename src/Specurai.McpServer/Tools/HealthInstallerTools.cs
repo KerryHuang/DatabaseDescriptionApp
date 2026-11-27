@@ -40,6 +40,7 @@ public static class HealthInstallerTools
         [Description(ConnectionTarget.ConnectionDescription)] string? connection = null,
         [Description(ConnectionTarget.DatabaseDescription)] string? database = null,
         IConnectionManager? connectionManager = null,
+        CancellationToken cancellationToken = default,
         ModelContextProtocol.Server.McpServer? server = null,
         [Description("是否實際執行（預設 false 僅回摘要）")] bool confirm = false)
     {
@@ -52,7 +53,8 @@ public static class HealthInstallerTools
                 return $"將{scope}。加 confirm:true 執行。";
 
             var dbName = connectionManager?.GetCurrentDatabase() ?? "";
-            var refusal = await HumanConfirm.RequireAsync(server, $"將對 [{dbName}] {scope}。", dbName);
+            var refusal = await HumanConfirm.RequireAsync(server, $"將對 {HumanConfirm.Quote(dbName)} {scope}。", dbName,
+                connectionManager?.GetCurrentProfile(), cancellationToken);
             if (refusal != null)
                 return refusal;
 

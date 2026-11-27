@@ -116,7 +116,11 @@ claude mcp add specurai -s user -- /絕對路徑/Specurai.McpServer
 
 ### 破壞性操作的使用者確認
 
-帶 `confirm` 參數的工具在 `confirm:true` 時，若 AI 客戶端支援 MCP elicitation，會在執行前跳出確認表單（附操作摘要），由使用者本人放行，AI 無法自行跳過。拒絕、取消、名稱不符或確認過程出錯，一律不執行。
+帶 `confirm` 參數的工具在 `confirm:true` 時，若 AI 客戶端支援 MCP elicitation（表單模式），會在執行前跳出確認表單，由使用者本人放行，AI 無法自行跳過。表單列出目標連線與 server、操作摘要；DML／DDL 顯示完整 SQL。拒絕、取消、名稱不符、呼叫已被取消或確認過程出錯，一律不執行。
+
+- `restore_run` overwrite 模式會覆蓋備份檔記錄的來源庫，指定的 `target` 與之不符即拒絕；new 模式的目標庫已存在時拒絕。
+- `delete_agent_job` 僅限 Specurai 管理的 Job。
+- `execute_sql`／`execute_ddl` 對正式環境連線直接拒絕，不跳確認表單。
 
 不可復原的操作需輸入目標名稱才放行：`restore_run`（overwrite 模式）、`execute_sql`、`execute_ddl`、`migration_apply`、`uninstall_health_monitoring`（輸入資料庫名稱），`delete_agent_job`（輸入 Job 名稱）。
 

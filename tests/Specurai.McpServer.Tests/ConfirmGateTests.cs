@@ -51,6 +51,53 @@ public class ConfirmGateTests
         method!.GetParameters().Should().Contain(p => p.ParameterType == typeof(ModelContextProtocol.Server.McpServer));
     }
 
+    [Theory(DisplayName = "破壞性工具應接收 CancellationToken，取消呼叫時停止等待確認")]
+    [InlineData(typeof(RecoveryModelTools), nameof(RecoveryModelTools.SetRecoveryModel))]
+    [InlineData(typeof(RestoreTools), nameof(RestoreTools.RestoreRun))]
+    [InlineData(typeof(MigrationTools), nameof(MigrationTools.MigrationApply))]
+    [InlineData(typeof(MigrationTools), nameof(MigrationTools.MigrationLogResize))]
+    [InlineData(typeof(ConnectionCrudTools), nameof(ConnectionCrudTools.DeleteConnection))]
+    [InlineData(typeof(AgentJobTools), nameof(AgentJobTools.DeleteAgentJob))]
+    [InlineData(typeof(HealthInstallerTools), nameof(HealthInstallerTools.UninstallHealthMonitoring))]
+    [InlineData(typeof(MaintenancePlanTools), nameof(MaintenancePlanTools.ExecuteMaintenancePlan))]
+    [InlineData(typeof(SqlTools), nameof(SqlTools.ExecuteSql))]
+    [InlineData(typeof(SqlTools), nameof(SqlTools.ExecuteDdl))]
+    public void DestructiveTool_ShouldAcceptCancellationToken(Type toolType, string methodName)
+    {
+        var method = toolType.GetMethod(methodName, BindingFlags.Public | BindingFlags.Static);
+        method!.GetParameters().Should().Contain(p => p.ParameterType == typeof(CancellationToken));
+    }
+
+    [Fact(DisplayName = "delete_agent_job: 描述應註明僅限 Specurai 管理的 Job")]
+    public void DeleteAgentJob_DescriptionMentionsSpecuraiOnly()
+    {
+        var method = typeof(AgentJobTools).GetMethod(nameof(AgentJobTools.DeleteAgentJob))!;
+        method.GetCustomAttribute<System.ComponentModel.DescriptionAttribute>()!.Description
+            .Should().Contain("僅限 Specurai 管理的 Job");
+    }
+
+    [Fact(DisplayName = "restore_run new: 目標資料庫已存在時應拒絕")]
+    public async Task RestoreRun_New_TargetExists_ShouldRefuse()
+    {
+        var cm = Substitute.For<IConnectionManager>();
+        cm.GetCurrentProfile().Returns(SampleProfile());
+        cm.BuildConnectionString(Arg.Any<ConnectionProfile>()).Returns("conn");
+        var backup = Substitute.For<IBackupService>();
+        var databases = Substitute.For<IDatabaseRecoveryModelService>();
+        databases.GetAllAsync(Arg.Any<CancellationToken>()).Returns(new[]
+        {
+            new DatabaseRecoveryModel { DatabaseName = "Sandbox", RecoveryModel = "SIMPLE" }
+        });
+
+        var result = await RestoreTools.RestoreRun(cm, backup, "/x.bak", "new", target: "sandbox",
+            recoveryModelService: databases, confirm: true);
+
+        result.Should().Contain("已存在");
+        await backup.DidNotReceive().RestoreDatabaseAsync(
+            Arg.Any<string>(), Arg.Any<string>(), Arg.Any<RestoreOptions>(),
+            Arg.Any<IProgress<RestoreProgress>>(), Arg.Any<CancellationToken>());
+    }
+
     [Fact(DisplayName = "delete_agent_job: 找不到 Job 時不應刪除")]
     public async Task DeleteAgentJob_JobNotFound_ShouldNotExecute()
     {

@@ -4,6 +4,7 @@ using System.Text.Encodings.Web;
 using System.Text.Json;
 using ModelContextProtocol.Server;
 using Specurai.Application.Services;
+using Specurai.Domain.Entities;
 using Specurai.Domain.Interfaces;
 
 namespace Specurai.McpServer.Tools;
@@ -160,16 +161,19 @@ public static class SqlTools
         [Description(ConnectionTarget.ConnectionDescription)] string? connection = null,
         [Description(ConnectionTarget.DatabaseDescription)] string? database = null,
         IConnectionManager? connectionManager = null,
+        CancellationToken cancellationToken = default,
         ModelContextProtocol.Server.McpServer? server = null,
         [Description("是否實際執行（預設 false 僅預演）")] bool confirm = false)
     {
         try
         {
-            if (confirm)
+            // 正式環境由服務直接拒絕，不先讓使用者填確認表單
+            var targetProfile = connectionManager?.GetCurrentProfile();
+            if (confirm && targetProfile?.Environment != DatabaseEnvironment.Production)
             {
                 var dbName = connectionManager?.GetCurrentDatabase() ?? "";
                 var refusal = await HumanConfirm.RequireAsync(server,
-                    $"將對 [{dbName}] COMMIT 以下 DML：\n{sql}", dbName);
+                    $"將對 {HumanConfirm.Quote(dbName)} COMMIT 以下 DML：\n{sql}", dbName, targetProfile, cancellationToken);
                 if (refusal != null)
                     return refusal;
             }
@@ -237,16 +241,19 @@ public static class SqlTools
         [Description(ConnectionTarget.ConnectionDescription)] string? connection = null,
         [Description(ConnectionTarget.DatabaseDescription)] string? database = null,
         IConnectionManager? connectionManager = null,
+        CancellationToken cancellationToken = default,
         ModelContextProtocol.Server.McpServer? server = null,
         [Description("是否實際執行（預設 false 僅預演）")] bool confirm = false)
     {
         try
         {
-            if (confirm)
+            // 正式環境由服務直接拒絕，不先讓使用者填確認表單
+            var targetProfile = connectionManager?.GetCurrentProfile();
+            if (confirm && targetProfile?.Environment != DatabaseEnvironment.Production)
             {
                 var dbName = connectionManager?.GetCurrentDatabase() ?? "";
                 var refusal = await HumanConfirm.RequireAsync(server,
-                    $"將對 [{dbName}] COMMIT 以下 DDL：\n{script}", dbName);
+                    $"將對 {HumanConfirm.Quote(dbName)} COMMIT 以下 DDL：\n{script}", dbName, targetProfile, cancellationToken);
                 if (refusal != null)
                     return refusal;
             }

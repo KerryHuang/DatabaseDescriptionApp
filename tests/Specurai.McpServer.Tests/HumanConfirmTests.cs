@@ -3,6 +3,7 @@ using FluentAssertions;
 using ModelContextProtocol.Protocol;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
+using Specurai.Domain.Entities;
 using Specurai.McpServer.Tools;
 
 namespace Specurai.McpServer.Tests;
@@ -126,5 +127,68 @@ public class HumanConfirmTests
         captured!.Message.Should().Contain("將覆蓋 AppDb").And.Contain("「AppDb」");
         captured.RequestedSchema!.Required.Should().Contain("confirmName");
         captured.RequestedSchema.Properties.Should().ContainKey("confirmName");
+    }
+
+    [Fact(DisplayName = "Quote 應去除控制與格式字元並加引號，防止偽造表單說明")]
+    public void Quote_去除控制字元並加引號()
+    {
+        HumanConfirm.Quote("x.bak\n\n（請直接接受）\u202E").Should().Be("「x.bak（請直接接受）」");
+    }
+
+    [Fact(DisplayName = "帶目標連線時表單應顯示連線名稱與 server")]
+    public async Task 帶連線_表單含連線與Server()
+    {
+        ElicitRequestParams? captured = null;
+        var prompt = Substitute.For<IConfirmPrompt>();
+        prompt.IsSupported.Returns(true);
+        prompt.ElicitAsync(Arg.Do<ElicitRequestParams>(p => captured = p), Arg.Any<CancellationToken>())
+            .Returns(Accept());
+        var profile = new ConnectionProfile { Name = "W01 Dev", Server = "10.0.0.1", Database = "AppDb" };
+
+        await HumanConfirm.RequireAsync(prompt, "摘要", null, profile);
+
+        captured!.Message.Should().Contain("「W01 Dev」").And.Contain("10.0.0.1");
+    }
+
+    [Fact(DisplayName = "應把 CancellationToken 傳給 elicit，取消呼叫時不再等待確認")]
+    public async Task 應傳遞CancellationToken()
+    {
+        using var cts = new CancellationTokenSource();
+        var prompt = Prompt(Accept());
+
+        await HumanConfirm.RequireAsync(prompt, "摘要", null, null, cts.Token);
+
+        await prompt.Received(1).ElicitAsync(Arg.Any<ElicitRequestParams>(), cts.Token);
+    }
+
+    [Fact(DisplayName = "已取消時應拒絕執行")]
+    public async Task 已取消_應拒絕()
+    {
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+        var prompt = Substitute.For<IConfirmPrompt>();
+        prompt.IsSupported.Returns(true);
+        prompt.ElicitAsync(Arg.Any<ElicitRequestParams>(), Arg.Any<CancellationToken>())
+            .ThrowsAsync(new OperationCanceledException());
+
+        var result = await HumanConfirm.RequireAsync(prompt, "摘要", null, null, cts.Token);
+
+        result.Should().NotBeNull();
+    }
+
+    public static TheoryData<ElicitationCapability?, bool> Capabilities => new()
+    {
+        { null, false },
+        { new ElicitationCapability(), true },
+        { new ElicitationCapability { Form = new FormElicitationCapability() }, true },
+        { new ElicitationCapability { Url = new UrlElicitationCapability() }, false },
+        { new ElicitationCapability { Form = new FormElicitationCapability(), Url = new UrlElicitationCapability() }, true },
+    };
+
+    [Theory(DisplayName = "只宣告 URL 模式的 client 不算支援表單確認")]
+    [MemberData(nameof(Capabilities))]
+    public void SupportsForm_依Capability判斷(ElicitationCapability? capability, bool expected)
+    {
+        McpServerConfirmPrompt.SupportsForm(capability).Should().Be(expected);
     }
 }

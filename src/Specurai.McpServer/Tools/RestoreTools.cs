@@ -23,6 +23,8 @@ public static class RestoreTools
         [Description("資料檔路徑（mode=new 時可指定，SQL Server 伺服器端路徑）")] string? dataPath = null,
         [Description("日誌檔路徑（mode=new 時可指定，SQL Server 伺服器端路徑）")] string? logPath = null,
         [Description(ConnectionTarget.ConnectionDescription)] string? connection = null,
+        IDatabaseRecoveryModelService? recoveryModelService = null,
+        CancellationToken cancellationToken = default,
         ModelContextProtocol.Server.McpServer? server = null,
         [Description("是否實際執行（預設 false 僅回摘要）")] bool confirm = false)
     {
@@ -75,16 +77,21 @@ public static class RestoreTools
             else
             {
                 targetName = target!;
+                // 沒有 REPLACE 的 RESTORE 在部分情況仍可能覆蓋同名庫，目標已存在就不做
+                if (recoveryModelService != null
+                    && (await recoveryModelService.GetAllAsync(cancellationToken))
+                        .Any(d => d.DatabaseName.Equals(targetName, StringComparison.OrdinalIgnoreCase)))
+                    return $"目標資料庫 {targetName} 已存在，new 模式不覆蓋既有資料庫，未執行。";
             }
             var overwriteNote = restoreMode == RestoreMode.OverwriteExisting
                 ? "；overwrite 會覆蓋現有資料庫，無法復原" : "";
-            var summary = $"將從 {path} 還原到 {targetName}（模式 {restoreMode}{overwriteNote}）。";
+            var summary = $"將從 {HumanConfirm.Quote(path)} 還原到 {HumanConfirm.Quote(targetName)}（模式 {restoreMode}{overwriteNote}）。";
             if (!confirm)
                 return $"{summary}加 confirm:true 執行。";
 
             // 覆蓋無法復原，需輸入目標名稱；建新庫只需接受
             var refusal = await HumanConfirm.RequireAsync(server, summary,
-                restoreMode == RestoreMode.OverwriteExisting ? targetName : null);
+                restoreMode == RestoreMode.OverwriteExisting ? targetName : null, profile, cancellationToken);
             if (refusal != null)
                 return refusal;
 

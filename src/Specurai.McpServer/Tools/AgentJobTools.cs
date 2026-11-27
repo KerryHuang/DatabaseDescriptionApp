@@ -104,11 +104,13 @@ public static class AgentJobTools
         }
     }
 
-    [McpServerTool, TargetConnection(AcceptsDatabase = false), Description("刪除指定的 Agent Job（⚠️ 破壞性操作，無法復原；預設僅回摘要，需 confirm:true 才實際執行）")]
+    [McpServerTool, TargetConnection(AcceptsDatabase = false), Description("刪除指定的 Agent Job（僅限 Specurai 管理的 Job；⚠️ 破壞性操作，無法復原；預設僅回摘要，需 confirm:true 才實際執行）")]
     public static async Task<string> DeleteAgentJob(
         IAgentJobService agentJobService,
         [Description("Job ID")] string jobId,
         [Description(ConnectionTarget.ConnectionDescription)] string? connection = null,
+        IConnectionManager? connectionManager = null,
+        CancellationToken cancellationToken = default,
         ModelContextProtocol.Server.McpServer? server = null,
         [Description("是否實際執行（預設 false 僅回摘要）")] bool confirm = false)
     {
@@ -123,7 +125,8 @@ public static class AgentJobTools
                 return $"找不到 Agent Job [{jobId}]。";
 
             // 以 Job 名稱讓使用者確認，避免要求輸入 GUID
-            var refusal = await HumanConfirm.RequireAsync(server, $"將刪除 Agent Job「{job.Name}」，無法復原。", job.Name);
+            var refusal = await HumanConfirm.RequireAsync(server, $"將刪除 Agent Job {HumanConfirm.Quote(job.Name)}，無法復原。", job.Name,
+                connectionManager?.GetCurrentProfile(), cancellationToken);
             if (refusal != null)
                 return refusal;
 

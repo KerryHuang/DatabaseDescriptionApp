@@ -78,8 +78,9 @@ public static class RestoreTools
             {
                 targetName = target!;
                 // 沒有 REPLACE 的 RESTORE 在部分情況仍可能覆蓋同名庫，目標已存在就不做
-                if (recoveryModelService != null
-                    && (await recoveryModelService.GetAllAsync(cancellationToken))
+                if (recoveryModelService == null)
+                    return $"無法確認目標資料庫 {targetName} 是否已存在，未執行。";
+                if ((await recoveryModelService.GetAllAsync(cancellationToken))
                         .Any(d => d.DatabaseName.Equals(targetName, StringComparison.OrdinalIgnoreCase)))
                     return $"目標資料庫 {targetName} 已存在，new 模式不覆蓋既有資料庫，未執行。";
             }

@@ -191,4 +191,21 @@ public class HumanConfirmTests
     {
         McpServerConfirmPrompt.SupportsForm(capability).Should().Be(expected);
     }
+
+    [Fact(DisplayName = "Quote 應去除行／段落分隔符並把資料內的引號換掉，避免逃逸")]
+    public void Quote_去除分隔符並跳脫引號()
+    {
+        HumanConfirm.Quote("x」\u2028連線：「假」\u2029").Should().Be("「x』連線：『假』」");
+    }
+
+    [Fact(DisplayName = "已取消的呼叫即使使用者接受也不得放行")]
+    public async Task 已取消_即使接受也拒絕()
+    {
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        var result = await HumanConfirm.RequireAsync(Prompt(Accept()), "摘要", null, null, cts.Token);
+
+        result.Should().Be("呼叫已取消，未執行。");
+    }
 }

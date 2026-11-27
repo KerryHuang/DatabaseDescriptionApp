@@ -76,6 +76,22 @@ public class ConfirmGateTests
             .Should().Contain("僅限 Specurai 管理的 Job");
     }
 
+    [Fact(DisplayName = "restore_run new: 無法檢查目標是否存在時應拒絕（fail closed）")]
+    public async Task RestoreRun_New_NoExistenceCheck_ShouldRefuse()
+    {
+        var cm = Substitute.For<IConnectionManager>();
+        cm.GetCurrentProfile().Returns(SampleProfile());
+        cm.BuildConnectionString(Arg.Any<ConnectionProfile>()).Returns("conn");
+        var backup = Substitute.For<IBackupService>();
+
+        var result = await RestoreTools.RestoreRun(cm, backup, "/x.bak", "new", target: "Sandbox", confirm: true);
+
+        result.Should().Contain("無法確認");
+        await backup.DidNotReceive().RestoreDatabaseAsync(
+            Arg.Any<string>(), Arg.Any<string>(), Arg.Any<RestoreOptions>(),
+            Arg.Any<IProgress<RestoreProgress>>(), Arg.Any<CancellationToken>());
+    }
+
     [Fact(DisplayName = "restore_run new: 目標資料庫已存在時應拒絕")]
     public async Task RestoreRun_New_TargetExists_ShouldRefuse()
     {

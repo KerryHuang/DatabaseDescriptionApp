@@ -50,8 +50,17 @@ public static class HumanConfirm
     /// <summary>
     /// 把模型提供的字串嵌入表單前去除控制與格式字元並加引號，避免以換行偽造表單說明
     /// </summary>
-    public static string Quote(string? value) =>
-        $"「{new string((value ?? "").Where(ch => !char.IsControl(ch) && char.GetUnicodeCategory(ch) != System.Globalization.UnicodeCategory.Format).ToArray())}」";
+    public static string Quote(string? value)
+    {
+        var cleaned = new string((value ?? "")
+            .Where(ch => !char.IsControl(ch) && char.GetUnicodeCategory(ch) is not (
+                System.Globalization.UnicodeCategory.Format
+                or System.Globalization.UnicodeCategory.LineSeparator
+                or System.Globalization.UnicodeCategory.ParagraphSeparator))
+            .Select(ch => ch switch { '「' => '『', '」' => '』', _ => ch })
+            .ToArray());
+        return $"「{cleaned}」";
+    }
 
     /// <summary>
     /// 同上，可注入確認通道；client 不支援 elicitation 時維持既有 confirm:true 行為（放行）
@@ -61,6 +70,9 @@ public static class HumanConfirm
     {
         if (prompt == null || !prompt.IsSupported)
             return null;
+
+        if (ct.IsCancellationRequested)
+            return "呼叫已取消，未執行。";
 
         // 確認目標不明時不能讓空白輸入放行
         if (expectedName != null && string.IsNullOrWhiteSpace(expectedName))
@@ -95,6 +107,10 @@ public static class HumanConfirm
 
         if (!string.Equals(result.Action, "accept", StringComparison.OrdinalIgnoreCase))
             return "使用者拒絕執行，未做任何變更。";
+
+        // 等待確認期間呼叫已被取消，就算使用者接受也不執行
+        if (ct.IsCancellationRequested)
+            return "呼叫已取消，未執行。";
 
         if (expectedName == null)
             return null;

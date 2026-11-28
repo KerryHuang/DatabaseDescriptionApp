@@ -43,7 +43,7 @@ internal static class ConnectionTarget
     /// 註冊單次呼叫連線參數的 CallTool filter
     /// </summary>
     public static IMcpServerBuilder AddConnectionTargetFilter(this IMcpServerBuilder builder) =>
-        builder.AddCallToolFilter(next => (context, ct) =>
+        builder.WithRequestFilters(filters => filters.AddCallToolFilter(next => (context, ct) =>
         {
             var tool = context.MatchedPrimitive as McpServerTool;
             var target = tool?.Metadata.OfType<TargetConnectionAttribute>().FirstOrDefault();
@@ -52,7 +52,7 @@ internal static class ConnectionTarget
 
             var cm = context.Services!.GetRequiredService<IConnectionManager>();
             return InvokeAsync(cm, tool, target, context.Params?.Arguments, () => next(context, ct));
-        });
+        }));
 
     private static async ValueTask<CallToolResult> InvokeAsync(
         IConnectionManager cm,
